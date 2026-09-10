@@ -26,11 +26,21 @@ class ProcesoUpdateRequest extends FormRequest
             'eventos' => ['nullable', 'array'],
             // Un evento que ya es de este proceso puede seguir estándolo; lo que
             // se impide es robárselo a otro.
+            //
+            // Va por `whereNot` y no por un `where` de tres argumentos: el
+            // `where` de Rule::unique recibe (columna, valor) y tira el tercero,
+            // así que el operador se colaba como valor y terminaba comparando
+            // `proceso_id` contra la cadena "=".
+            //
+            // `distinct` cubre lo que `unique` no ve: la regla consulta la base,
+            // no el formulario, asi que el mismo numero repetido en dos
+            // renglones pasaba y se guardaba uno solo, sin decir nada.
             'eventos.*.evento' => [
                 'required',
                 'string',
                 'max:20',
-                Rule::unique('prod_proceso_eventos', 'evento')->where('proceso_id', '!=', $procesoId),
+                'distinct',
+                Rule::unique('prod_proceso_eventos', 'evento')->whereNot('proceso_id', $procesoId),
             ],
             'eventos.*.descripcion' => ['nullable', 'string', 'max:255'],
         ];

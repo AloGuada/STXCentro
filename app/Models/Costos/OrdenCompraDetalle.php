@@ -25,6 +25,7 @@ class OrdenCompraDetalle extends Model
         'obra_rubro_id',
         'uso_cfdi_id',
         'tipo_fiscal',
+        'sin_impuestos',
         'descripcion',
         'codigo_producto',
         'unidad',
@@ -39,9 +40,10 @@ class OrdenCompraDetalle extends Model
     protected function casts(): array
     {
         return [
-            'cantidad' => 'decimal:2',
-            'precio_unitario' => 'decimal:2',
+            'cantidad' => 'decimal:4',
+            'precio_unitario' => 'decimal:4',
             'subtotal' => 'decimal:2',
+            'sin_impuestos' => 'boolean',
             'tipo_fiscal' => \App\Enums\Costos\TipoFiscalPartida::class,
         ];
     }

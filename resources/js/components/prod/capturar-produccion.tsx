@@ -16,28 +16,49 @@ import type {
     ProdProceso,
 } from '@/types/models';
 import { useForm, usePage } from '@inertiajs/react';
-import { ListChecksIcon, Loader2Icon, PlusIcon, UploadIcon } from 'lucide-react';
-import { useMemo, useState, type FormEvent } from 'react';
+import { CheckIcon, ListChecksIcon, Loader2Icon, PlusIcon, UploadIcon } from 'lucide-react';
+import { useEffect, useMemo, useState, type FormEvent } from 'react';
 
-type MarcaConPiezas = Concepto & { obra?: Obra; piezas?: ProdPieza[] };
+type MarcaDelCatalogo = Concepto & { obra?: Obra };
+
+/**
+ * Lo que devuelve el endpoint de piezas: el QR y cuánto le falta, por proceso y
+ * —si el grupo de precios de la marca paga por pasos— por subproceso.
+ */
+type PiezaConAvance = Pick<ProdPieza, 'id' | 'qr' | 'qs'> & {
+    avance: Record<number, { capturado: number; disponible: number }>;
+    avance_subprocesos: Record<number, { capturado: number; disponible: number }>;
+};
+
+/** El paso a capturar, tal como baja del endpoint de la marca. */
+type SubprocesoDisponible = {
+    id: number;
+    proceso_id: number;
+    nombre: string;
+    precio: number;
+};
+
+type RespuestaDePiezas = {
+    piezas: PiezaConAvance[];
+    paga_por_subproceso: boolean;
+    subprocesos: SubprocesoDisponible[];
+};
 
 type Props = {
     destajo: ProdDestajo;
-    marcas: MarcaConPiezas[];
+    /** Sólo las obras con catálogo vigente: el primer escalón de la captura. */
+    obras: Obra[];
     procesos: ProdProceso[];
     /** Qué procesos paga cada obra: obraId => ids de proceso. */
     procesosPorObra: Record<number, number[]>;
-    /** Avance por pieza y proceso, para saber cuánto le falta a cada QR. */
-    avance: Record<number, Record<number, { capturado: number; disponible: number }>>;
     gruposTrabajo: ProdGrupoTrabajo[];
 };
 
 export function CapturarProduccion({
     destajo,
-    marcas,
+    obras,
     procesos,
     procesosPorObra,
-    avance,
     gruposTrabajo,
 }: Props) {
     const soloFecha = (v: string) => v.slice(0, 10);
@@ -46,6 +67,7 @@ export function CapturarProduccion({
         fecha: string;
         marca_id: string;
         proceso_id: string;
+        subproceso_id: string;
         piezas: number[];
         grupo_trabajo_id: string;
         porcentaje: number;
@@ -53,6 +75,7 @@ export function CapturarProduccion({
         fecha: soloFecha(destajo.fecha_inicio),
         marca_id: '',
         proceso_id: '',
+        subproceso_id: '',
         piezas: [],
         grupo_trabajo_id: '',
         porcentaje: 100,
@@ -142,30 +165,135 @@ export function CapturarProduccion({
     // quien captura. Si viene vacía se cae al número, que siempre existe.
     const nombreDeObra = (obra: Obra): string => obra.descripcion?.trim() || obra.no;
 
+    // El catálogo baja en tres tiempos: la obra viene en la pantalla, y marcas y
+    // QR se piden al elegir el escalón de arriba. Una obra son decenas de miles
+    // de piezas: mandarlas todas tumbaba la pantalla por memoria para acabar
+    // usando las de una sola marca.
+    const [obraId, setObraId] = useState('');
+    const [marcas, setMarcas] = useState<MarcaDelCatalogo[]>([]);
+    const [cargandoMarcas, setCargandoMarcas] = useState(false);
+    const [piezasDeLaMarca, setPiezasDeLaMarca] = useState<PiezaConAvance[]>([]);
+    const [cargandoPiezas, setCargandoPiezas] = useState(false);
+    // La modalidad la manda el grupo de precios de la marca, no la obra: dos
+    // marcas de la misma obra pueden pagarse distinto.
+    const [pagaPorSubproceso, setPagaPorSubproceso] = useState(false);
+    const [subprocesos, setSubprocesos] = useState<SubprocesoDisponible[]>([]);
+    const [mostrarPagadas, setMostrarPagadas] = useState(false);
+    const marcaId = registroForm.data.marca_id;
+
+    /** Trae un escalón del catálogo y avisa si la petición ya se abandonó. */
+    const pedir = <T,>(url: string, recibir: (datos: T | null) => void, marcarCarga: (v: boolean) => void) => {
+        const control = new AbortController();
+        marcarCarga(true);
+
+        fetch(url, { headers: { Accept: 'application/json' }, signal: control.signal })
+            .then((res) => (res.ok ? res.json() : Promise.reject(res)))
+            .then(recibir)
+            .catch(() => {
+                if (!control.signal.aborted) recibir(null);
+            })
+            .finally(() => {
+                if (!control.signal.aborted) marcarCarga(false);
+            });
+
+        return () => control.abort();
+    };
+
+    useEffect(() => {
+        if (!obraId) {
+            setMarcas([]);
+            return;
+        }
+
+        return pedir<{ marcas: MarcaDelCatalogo[] }>(
+            `/admin/prod/obras/${obraId}/marcas`,
+            (datos) => setMarcas(datos?.marcas ?? []),
+            setCargandoMarcas,
+        );
+    }, [destajo.id, obraId]);
+
+    useEffect(() => {
+        setMostrarPagadas(false);
+
+        if (!marcaId) {
+            setPiezasDeLaMarca([]);
+            setPagaPorSubproceso(false);
+            setSubprocesos([]);
+            return;
+        }
+
+        return pedir<RespuestaDePiezas>(
+            `/admin/prod/marcas/${marcaId}/piezas`,
+            (datos) => {
+                setPiezasDeLaMarca(datos?.piezas ?? []);
+                setPagaPorSubproceso(datos?.paga_por_subproceso ?? false);
+                setSubprocesos(datos?.subprocesos ?? []);
+            },
+            setCargandoPiezas,
+        );
+    }, [destajo.id, marcaId]);
+
     const marcaOptions = marcas.map((m) => ({
         value: String(m.id),
-        label: `${m.obra ? `[${nombreDeObra(m.obra)}] ` : ''}${etiquetaDePieza(m.marca, m.lote)} - ${m.descripcion}`,
+        label: `${etiquetaDePieza(m.marca, m.lote)} - ${m.descripcion}`,
     }));
 
-    const marcaElegida = marcas.find((m) => String(m.id) === registroForm.data.marca_id);
-
-    // Sólo los procesos que paga la obra de esa marca: capturar pintura donde
-    // nadie la presupuestó inventaría dinero.
-    const procesosDisponibles = useMemo(() => {
-        if (!marcaElegida) return [];
-        const permitidos = procesosPorObra[marcaElegida.obra_id] ?? [];
-        return procesos.filter((p) => permitidos.includes(p.id));
-    }, [marcaElegida, procesos, procesosPorObra]);
+    const marcaElegida = marcas.find((m) => String(m.id) === marcaId);
 
     const procesoId = Number(registroForm.data.proceso_id);
-    const disponibleDe = (piezaId: number): number => avance[piezaId]?.[procesoId]?.disponible ?? 1;
+    const subprocesoId = Number(registroForm.data.subproceso_id);
 
-    const piezasDeLaMarca = marcaElegida?.piezas ?? [];
+    // El proceso encabeza la captura, así que la acotada es la obra: sólo salen
+    // las que pagan ese proceso. Es el mismo guardarraíl de antes leído al
+    // revés —capturar pintura donde nadie la presupuestó inventaría dinero—,
+    // pero ahora una obra sin procesos configurados no llega ni a ofrecerse.
+    const obrasDelProceso = useMemo(
+        () => (procesoId ? obras.filter((o) => (procesosPorObra[o.id] ?? []).includes(procesoId)) : []),
+        [obras, procesoId, procesosPorObra],
+    );
+
+    const obraOptions = obrasDelProceso.map((o) => ({ value: String(o.id), label: nombreDeObra(o) }));
+
+    // Los pasos cuelgan del proceso: cambiar de proceso deja fuera los del anterior.
+    const subprocesosDelProceso = useMemo(
+        () => subprocesos.filter((s) => s.proceso_id === procesoId),
+        [subprocesos, procesoId],
+    );
+
+    // Cuando el grupo paga por pasos, el tope es del paso: una pieza armada al
+    // 100% sigue teniendo todo su punteado por pagar.
+    const disponibleDe = (pieza: PiezaConAvance): number =>
+        pagaPorSubproceso
+            ? (pieza.avance_subprocesos?.[subprocesoId]?.disponible ?? 1)
+            : (pieza.avance?.[procesoId]?.disponible ?? 1);
+
+    /** Sin paso elegido no hay tope que consultar, así que tampoco hay qué capturar. */
+    const listoParaElegirPiezas = pagaPorSubproceso ? !!subprocesoId : !!procesoId;
+
     const consumo = registroForm.data.porcentaje / 100;
     const seleccionadas = registroForm.data.piezas;
 
-    // Las que ya no admiten lo que se quiere pagar: se marcan y no se pueden elegir.
-    const sinCupo = (pieza: ProdPieza) => !!procesoId && consumo > disponibleDe(pieza.id) + 0.0001;
+    /**
+     * En qué anda cada pieza. «Pagada» y «no cabe» se veían igual de grises y
+     * no había forma de saber cuál era cuál sin pasar el mouse encima, que es
+     * justo lo que uno necesita saber al capturar.
+     */
+    const estadoDe = (pieza: PiezaConAvance): 'libre' | 'no_cabe' | 'pagada' => {
+        if (!listoParaElegirPiezas) {
+            return 'libre';
+        }
+
+        const falta = disponibleDe(pieza);
+
+        if (falta <= 0.0001) {
+            return 'pagada';
+        }
+
+        return consumo > falta + 0.0001 ? 'no_cabe' : 'libre';
+    };
+
+    // Las que ya no admiten lo que se quiere pagar: se enseñan, pero no se eligen.
+    const sinCupo = (pieza: PiezaConAvance) => estadoDe(pieza) !== 'libre';
 
     const alternarPieza = (piezaId: number) => {
         registroForm.setData(
@@ -176,18 +304,60 @@ export function CapturarProduccion({
         );
     };
 
+    /** Las que todavía admiten lo que se quiere pagar, en el orden del listado. */
+    const conCupo = piezasDeLaMarca.filter((p) => !sinCupo(p));
+
+    // Lo ya pagado al 100% no se puede capturar y una marca de 80 piezas casi
+    // liquidada deja la caja llena de basura tachada. Se esconde, pero se puede
+    // sacar: sirve para confirmar que una pieza sí quedó pagada.
+    const pagadas = piezasDeLaMarca.filter((p) => estadoDe(p) === 'pagada');
+    const visibles = mostrarPagadas ? piezasDeLaMarca : piezasDeLaMarca.filter((p) => estadoDe(p) !== 'pagada');
+
     const seleccionarTodasConCupo = () => {
         registroForm.setData(
             'piezas',
-            piezasDeLaMarca.filter((p) => !sinCupo(p)).map((p) => p.id),
+            conCupo.map((p) => p.id),
         );
+    };
+
+    /**
+     * Marcar 50 QR uno por uno no es trabajo, es castigo. Se teclea cuántas y se
+     * toman las primeras con cupo en el orden en que se ven, que es el del QR.
+     * El campo enseña siempre cuántas hay marcadas, así que sigue cuadrando
+     * aunque después se destilden a mano.
+     */
+    const seleccionarPrimeras = (cuantas: number) => {
+        const tope = Math.max(0, Math.min(Math.floor(cuantas), conCupo.length));
+
+        registroForm.setData(
+            'piezas',
+            conCupo.slice(0, tope).map((p) => p.id),
+        );
+    };
+
+    /**
+     * Guardado el renglón, la captura vuelve a cero. Dejarla llena invita a
+     * darle Agregar otra vez y pagar dos veces las mismas piezas; la fecha se
+     * queda porque la semana se captura día por día.
+     */
+    const limpiarCaptura = () => {
+        setObraId('');
+        registroForm.setData((datos) => ({
+            ...datos,
+            marca_id: '',
+            proceso_id: '',
+            subproceso_id: '',
+            grupo_trabajo_id: '',
+            piezas: [],
+            porcentaje: 100,
+        }));
     };
 
     const submitRegistro = (e: FormEvent) => {
         e.preventDefault();
         registroForm.post(`/admin/prod/destajos/${destajo.id}/registros`, {
             preserveScroll: true,
-            onSuccess: () => registroForm.setData('piezas', []),
+            onSuccess: limpiarCaptura,
         });
     };
 
@@ -198,37 +368,30 @@ export function CapturarProduccion({
                     <PlusIcon className="size-4" /> Capturar producción
                 </h3>
                 <form onSubmit={submitRegistro} className="space-y-3">
-                    <FormField label="Marca" htmlFor="marca_id" error={registroForm.errors.marca_id} required>
-                        <SearchSelect
-                            options={marcaOptions}
-                            value={registroForm.data.marca_id}
-                            onValueChange={(v) => {
-                                registroForm.setData('marca_id', v);
-                                registroForm.setData('piezas', []);
-                            }}
-                            placeholder="Buscar marca..."
-                        />
-                    </FormField>
-
+                    {/* El proceso encabeza la captura: se elige una vez y de
+                        él cuelga qué obras se pueden capturar. */}
                     <div className="grid grid-cols-2 gap-3">
                         <FormField
                             label="Proceso"
                             htmlFor="proceso_id"
                             error={registroForm.errors.proceso_id}
-                            description={
-                                marcaElegida && procesosDisponibles.length === 0
-                                    ? 'La obra no tiene procesos configurados.'
-                                    : undefined
-                            }
                             required
                         >
                             <Select
                                 value={registroForm.data.proceso_id}
-                                onValueChange={(v) => registroForm.setData('proceso_id', v)}
+                                onValueChange={(v) => {
+                                    registroForm.setData('proceso_id', v);
+                                    // Obra, marca y paso cuelgan del proceso: al
+                                    // cambiarlo dejan de tener sentido.
+                                    setObraId('');
+                                    registroForm.setData('marca_id', '');
+                                    registroForm.setData('subproceso_id', '');
+                                    registroForm.setData('piezas', []);
+                                }}
                                 placeholder="Selecciona proceso"
                                 error={!!registroForm.errors.proceso_id}
                             >
-                                {procesosDisponibles.map((p) => (
+                                {procesos.map((p) => (
                                     <SelectItem key={p.id} value={String(p.id)}>
                                         {p.nombre}
                                     </SelectItem>
@@ -258,6 +421,97 @@ export function CapturarProduccion({
                     </div>
 
                     <FormField
+                        label="Obra"
+                        htmlFor="obra_id"
+                        description={
+                            procesoId && obraOptions.length === 0
+                                ? 'Ninguna obra con catálogo vigente paga este proceso.'
+                                : undefined
+                        }
+                        required
+                    >
+                        <SearchSelect
+                            options={obraOptions}
+                            value={obraId}
+                            onValueChange={(v) => {
+                                setObraId(v);
+                                // La marca cuelga de la obra: al cambiarla deja
+                                // de tener sentido.
+                                registroForm.setData('marca_id', '');
+                                registroForm.setData('subproceso_id', '');
+                                registroForm.setData('piezas', []);
+                            }}
+                            placeholder={procesoId ? 'Buscar obra...' : 'Elige primero un proceso'}
+                        />
+                    </FormField>
+
+                    <FormField
+                        label="Marca"
+                        htmlFor="marca_id"
+                        error={registroForm.errors.marca_id}
+                        description={
+                            obraId && !cargandoMarcas && marcaOptions.length === 0
+                                ? 'Esta obra no tiene marcas en su catálogo vigente.'
+                                : undefined
+                        }
+                        required
+                    >
+                        <SearchSelect
+                            options={marcaOptions}
+                            value={registroForm.data.marca_id}
+                            onValueChange={(v) => {
+                                registroForm.setData('marca_id', v);
+                                // La modalidad la manda la marca: el paso elegido
+                                // para otra marca no tiene por que existir aqui.
+                                registroForm.setData('subproceso_id', '');
+                                registroForm.setData('piezas', []);
+                            }}
+                            placeholder={
+                                !obraId
+                                    ? 'Elige primero una obra'
+                                    : cargandoMarcas
+                                      ? 'Cargando marcas...'
+                                      : 'Buscar marca...'
+                            }
+                        />
+                    </FormField>
+
+                    {pagaPorSubproceso && (
+                        <FormField
+                            label="Subproceso"
+                            htmlFor="subproceso_id"
+                            error={registroForm.errors.subproceso_id}
+                            description={
+                                !procesoId
+                                    ? 'Elige primero un proceso.'
+                                    : subprocesosDelProceso.length === 0
+                                      ? 'El grupo de precios de esta marca no tiene pasos capturados para este proceso; su producción se pagaría en cero.'
+                                      : 'Esta marca se paga por paso, a precio fijo por pieza. Cada paso lleva su propio tope.'
+                            }
+                            required
+                        >
+                            <Select
+                                value={registroForm.data.subproceso_id}
+                                onValueChange={(v) => {
+                                    registroForm.setData('subproceso_id', v);
+                                    registroForm.setData('piezas', []);
+                                }}
+                                placeholder="Selecciona subproceso"
+                                error={!!registroForm.errors.subproceso_id}
+                            >
+                                {subprocesosDelProceso.map((s) => (
+                                    <SelectItem key={s.id} value={String(s.id)}>
+                                        {s.nombre} — ${s.precio.toLocaleString('es-MX', {
+                                            minimumFractionDigits: 2,
+                                            maximumFractionDigits: 2,
+                                        })}/pza
+                                    </SelectItem>
+                                ))}
+                            </Select>
+                        </FormField>
+                    )}
+
+                    <FormField
                         label="% a pagar"
                         htmlFor="porcentaje"
                         error={registroForm.errors.porcentaje}
@@ -280,66 +534,113 @@ export function CapturarProduccion({
                         label="Piezas (QR)"
                         htmlFor="piezas"
                         error={registroForm.errors.piezas}
+                        accion={
+                            <span className="flex items-center gap-1.5">
+                                <label
+                                    className="label-text-alt text-base-content/60"
+                                    htmlFor="piezas_cuantas"
+                                >
+                                    Marcar
+                                </label>
+                                <Input
+                                    id="piezas_cuantas"
+                                    type="number"
+                                    className="input-xs w-20 text-right"
+                                    min={0}
+                                    max={conCupo.length}
+                                    step={1}
+                                    disabled={!listoParaElegirPiezas || conCupo.length === 0}
+                                    value={seleccionadas.length}
+                                    onChange={(e) => seleccionarPrimeras(Number(e.target.value))}
+                                />
+                                <span className="label-text-alt text-base-content/60">
+                                    de {conCupo.length}
+                                </span>
+                            </span>
+                        }
                         description={
                             marcaElegida
                                 ? `${seleccionadas.length} de ${piezasDeLaMarca.length} seleccionadas · el catálogo pide ${marcaElegida.cantidad}`
-                                : 'Elige primero una marca y un proceso.'
+                                : pagaPorSubproceso
+                                  ? 'Elige primero una marca, un proceso y un subproceso.'
+                                  : 'Elige primero una marca y un proceso.'
                         }
                         required
                     >
                         <div className="rounded-box border-base-300 max-h-52 overflow-auto border p-2">
-                            {piezasDeLaMarca.length === 0 ? (
+                            {cargandoPiezas ? (
+                                <p className="text-base-content/50 flex items-center justify-center gap-2 py-4 text-center text-sm">
+                                    <Loader2Icon className="size-4 animate-spin" /> Cargando piezas...
+                                </p>
+                            ) : visibles.length === 0 ? (
                                 <p className="text-base-content/50 py-4 text-center text-sm">
-                                    {marcaElegida ? 'Esta marca no tiene piezas cargadas.' : 'Sin marca seleccionada'}
+                                    {!marcaElegida
+                                        ? 'Sin marca seleccionada'
+                                        : piezasDeLaMarca.length === 0
+                                          ? 'Esta marca no tiene piezas cargadas.'
+                                          : 'Todas las piezas de esta marca ya están pagadas aquí.'}
                                 </p>
                             ) : (
-                                <div className="grid grid-cols-2 gap-1 sm:grid-cols-3">
-                                    {piezasDeLaMarca.map((pieza) => {
-                                        const falta = procesoId ? disponibleDe(pieza.id) : 1;
-                                        const bloqueada = sinCupo(pieza);
+                                <div className="flex flex-wrap gap-1">
+                                    {visibles.map((pieza) => {
+                                        const estado = estadoDe(pieza);
+                                        const falta = listoParaElegirPiezas ? disponibleDe(pieza) : 1;
+                                        const marcada = seleccionadas.includes(pieza.id);
 
                                         return (
-                                            <label
+                                            <button
                                                 key={pieza.id}
-                                                className={`flex cursor-pointer items-center gap-2 rounded px-2 py-1 text-sm ${
-                                                    bloqueada ? 'text-base-content/40' : 'hover:bg-base-200'
+                                                type="button"
+                                                aria-pressed={marcada}
+                                                disabled={estado !== 'libre'}
+                                                onClick={() => alternarPieza(pieza.id)}
+                                                className={`btn btn-xs font-mono ${
+                                                    estado === 'pagada'
+                                                        ? 'btn-ghost text-base-content/40 line-through'
+                                                        : estado === 'no_cabe'
+                                                          ? 'btn-outline btn-warning'
+                                                          : marcada
+                                                            ? 'btn-primary'
+                                                            : 'btn-outline'
                                                 }`}
                                                 title={[
                                                     etiquetaDeUnidad(pieza),
-                                                    bloqueada
-                                                        ? falta <= 0
-                                                            ? 'Ya está pagada al 100% en este proceso'
-                                                            : `Sólo le falta ${(falta * 100).toFixed(0)}%`
-                                                        : null,
+                                                    estado === 'pagada'
+                                                        ? pagaPorSubproceso
+                                                            ? 'Ya está pagada al 100% en este subproceso'
+                                                            : 'Ya está pagada al 100% en este proceso'
+                                                        : estado === 'no_cabe'
+                                                          ? `Sólo le falta ${(falta * 100).toFixed(0)}%`
+                                                          : null,
                                                 ]
                                                     .filter(Boolean)
                                                     .join(' · ')}
                                             >
-                                                <input
-                                                    type="checkbox"
-                                                    className="checkbox checkbox-xs shrink-0"
-                                                    checked={seleccionadas.includes(pieza.id)}
-                                                    disabled={bloqueada}
-                                                    onChange={() => alternarPieza(pieza.id)}
-                                                />
+                                                {marcada && <CheckIcon className="size-3" />}
                                                 {/* El QR identifica; el QS sólo acompaña y puede venir vacío. */}
-                                                <span className="truncate font-mono">{pieza.qr}</span>
-                                                {pieza.qs && (
-                                                    <span className="text-base-content/50 shrink-0 font-mono text-xs">
-                                                        QS {pieza.qs}
-                                                    </span>
-                                                )}
-                                                {procesoId > 0 && falta > 0 && falta < 1 && (
+                                                {pieza.qr}
+                                                {estado === 'no_cabe' && (
                                                     <span className="badge badge-xs badge-warning">
                                                         {(falta * 100).toFixed(0)}%
                                                     </span>
                                                 )}
-                                            </label>
+                                            </button>
                                         );
                                     })}
                                 </div>
                             )}
                         </div>
+                        {pagadas.length > 0 && (
+                            <button
+                                type="button"
+                                className="btn btn-ghost btn-xs mt-1 self-start"
+                                onClick={() => setMostrarPagadas((v) => !v)}
+                            >
+                                {mostrarPagadas
+                                    ? `ocultar ${pagadas.length} pagadas`
+                                    : `ver ${pagadas.length} pagadas`}
+                            </button>
+                        )}
                     </FormField>
 
                     <div className="flex items-end justify-between gap-3">
@@ -348,7 +649,7 @@ export function CapturarProduccion({
                             size="sm"
                             variant="ghost"
                             onClick={seleccionarTodasConCupo}
-                            disabled={!marcaElegida || !procesoId || piezasDeLaMarca.length === 0}
+                            disabled={!marcaElegida || !listoParaElegirPiezas || piezasDeLaMarca.length === 0}
                         >
                             Seleccionar las que faltan
                         </Button>
@@ -372,7 +673,9 @@ export function CapturarProduccion({
                         <Button
                             type="submit"
                             size="sm"
-                            disabled={registroForm.processing || seleccionadas.length === 0 || !procesoId}
+                            disabled={
+                                registroForm.processing || seleccionadas.length === 0 || !listoParaElegirPiezas
+                            }
                         >
                             {registroForm.processing && <Loader2Icon className="size-4 animate-spin" />}
                             Agregar {seleccionadas.length > 0 ? `(${seleccionadas.length})` : ''}

@@ -17,6 +17,7 @@ use App\Models\Obra;
 use App\Models\Proveedor;
 use App\Models\Usuario;
 use App\Services\Costos\OrdenCompraEstadoService;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -381,6 +382,77 @@ class OrdenCompra extends Model
     public function getPorcentajePagoAttribute(): float
     {
         return $this->ratio($this->total_pagado);
+    }
+
+    /**
+     * Las órdenes que todavía deben material: alguna de sus partidas pidió más
+     * de lo que suman sus recepciones vigentes.
+     *
+     * Suma la cantidad **bruta**, sin descontar devoluciones, igual que el tope
+     * de {@see \App\Services\Costos\RegistradorRecepcion::validarSaldos()}. Si
+     * este scope usara el neto y el tope el bruto, la orden aparecería en la
+     * lista por recibir y después rechazaría la captura.
+     *
+     * @param  Builder<self>  $query
+     * @return Builder<self>
+     */
+    public function scopePendientesDeRecibir(Builder $query): Builder
+    {
+        return $query->whereHas('detalles', fn ($q) => $q->whereRaw(
+            'costos_ordenes_compra_detalle.cantidad > ('
+            .'select coalesce(sum(ed.cantidad_recibida), 0) '
+            .'from costos_entrega_detalle ed '
+            .'inner join costos_entregas e on e.id = ed.entrega_id '
+            .'where ed.orden_compra_detalle_id = costos_ordenes_compra_detalle.id '
+            .'and e.cancelada_at is null)',
+        ));
+    }
+
+    /**
+     * Llegó todo lo que se pidió: ninguna partida deja saldo. Es el eje que
+     * saca a la orden de la lista de recepción.
+     */
+    public function recepcionCompleta(): bool
+    {
+        return ! static::query()->whereKey($this->getKey())->pendientesDeRecibir()->exists();
+    }
+
+    /**
+     * El proveedor ya facturó el total de la orden.
+     */
+    public function facturacionCompleta(): bool
+    {
+        return $this->saldo_facturable <= (float) config('costos.epsilon_monto');
+    }
+
+    /**
+     * Todas las facturas vigentes de la orden están pagadas. Una orden sin
+     * facturas no cuenta como pagada: no hay nada que se haya liquidado.
+     */
+    public function pagoCompleto(): bool
+    {
+        $facturas = $this->facturas()
+            ->where('estatus', '!=', FacturaEstatus::Cancelada->value)
+            ->get();
+
+        return $facturas->isNotEmpty()
+            && $facturas->every(fn (Factura $f): bool => $f->estatus === FacturaEstatus::Pagada);
+    }
+
+    /**
+     * La orden terminó su vida: se recibió toda la cantidad de sus renglones, se
+     * facturó por el total y se pagaron todas sus facturas.
+     *
+     * Es un derivado, no un estatus. `OrdenCompraEstatus` sigue el ciclo de la
+     * factura y no el del material: una orden de 100 con 60 recibidas y su
+     * factura de 60 ya aprobada pasa a `pendiente_aprobacion` con 40 piezas
+     * todavía por llegar.
+     */
+    public function getCompletadaAttribute(): bool
+    {
+        return $this->recepcionCompleta()
+            && $this->facturacionCompleta()
+            && $this->pagoCompleto();
     }
 
     private function ratio(float $monto): float

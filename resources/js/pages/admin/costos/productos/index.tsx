@@ -1,10 +1,9 @@
-import { Button } from '@/components/ui/button';
+import { Head, Link, router } from '@inertiajs/react';
+import { SearchIcon } from 'lucide-react';
+import { type FormEvent, useState } from 'react';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import type { CostosProducto, PaginatedData } from '@/types/models';
-import { Head, Link, router } from '@inertiajs/react';
-import { PlusIcon, SearchIcon } from 'lucide-react';
-import { type FormEvent, useState } from 'react';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
@@ -30,14 +29,12 @@ export default function ProductosIndex({ productos, filters }: Props) {
             <Head title="Catálogo de Productos" />
 
             <div className="p-6">
-                <div className="mb-6 flex items-end justify-between gap-3">
-                    <div>
-                        <h1 className="text-2xl font-semibold">Catálogo de productos</h1>
-                        <p className="mt-1 text-sm text-base-content/60">Códigos, descripciones e histórico de precios.</p>
-                    </div>
-                    <Link href="/admin/costos/productos/create" className="btn btn-primary btn-sm gap-1">
-                        <PlusIcon className="size-4" /> Nuevo producto
-                    </Link>
+                <div className="mb-6">
+                    <h1 className="text-2xl font-semibold">Catálogo de productos</h1>
+                    <p className="mt-1 text-sm text-base-content/60">
+                        Códigos, descripciones e histórico de precios. Un producto nuevo se da de alta en Almacén →
+                        Artículos, que es donde se decide si es insumo o activo.
+                    </p>
                 </div>
 
                 <form onSubmit={handleSubmit} className="mb-4 flex items-center gap-2">

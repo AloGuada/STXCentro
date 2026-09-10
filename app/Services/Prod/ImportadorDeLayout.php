@@ -7,6 +7,7 @@ use App\Models\Prod\Catalogo;
 use App\Models\Prod\Categoria;
 use App\Models\Prod\Pieza;
 use Illuminate\Support\Facades\DB;
+use RuntimeException;
 
 /**
  * Carga el layout de planta sobre un catálogo.
@@ -51,13 +52,18 @@ class ImportadorDeLayout
         $avisosDeEmpate = [];
 
         DB::transaction(function () use ($catalogo, $filas, &$categorias, &$marcasEscritas, &$piezasEscritas, &$avisosDeEmpate): void {
+            $indice = $this->indiceDeMarcas($catalogo);
+            $porEscribir = [];
+            $nuevas = [];
+            $tocadas = [];
+
             foreach ($filas as $modelo) {
                 $categoriaId = null;
                 if ($modelo['categoria'] !== '') {
-                    $categoriaId = $categorias[$modelo['categoria']] ??= Categoria::firstOrCreate(['nombre' => $modelo['categoria']])->id;
+                    $categoriaId = $categorias[$modelo['categoria']] ??= $this->categoria($modelo['categoria']);
                 }
 
-                $marca = $this->marcaDelCatalogo($catalogo, $modelo['marca'], $modelo['lote'], $avisosDeEmpate);
+                $marca = $this->marcaDelCatalogo($indice, $modelo['marca'], $modelo['lote'], $avisosDeEmpate);
 
                 $marca->fill([
                     'catalogo_id' => $catalogo->id,
@@ -70,22 +76,37 @@ class ImportadorDeLayout
                     'categoria_id' => $categoriaId,
                     'peso_unitario' => $modelo['peso_unitario'],
                     'longitud' => $modelo['longitud'],
-                ])->save();
-                $marcasEscritas++;
+                ]);
 
-                foreach ($modelo['piezas'] as $pieza) {
-                    Pieza::updateOrCreate(
-                        ['catalogo_id' => $catalogo->id, 'qr' => $pieza['qr']],
-                        ['concepto_id' => $marca->id, 'qs' => $pieza['qs']],
-                    );
-                    $piezasEscritas++;
+                // La que ya existía se guarda aquí, y `save()` no escribe nada si
+                // el renglón viene igual que la última vez: reimportar el mismo
+                // layout no toca la base. Las nuevas van al insert en bloque.
+                if ($marca->exists) {
+                    $marca->save();
+                } else {
+                    $nuevas[] = $marca;
                 }
 
-                // Se cuenta despues de escribir las piezas y sobre las que tiene
-                // la marca en el catalogo, no sobre las del archivo: asi un
-                // layout parcial suma sus piezas en vez de borrar la cuenta previa.
-                $marca->update(['cantidad' => $marca->piezas()->count()]);
+                $marcasEscritas++;
+                $tocadas[] = $marca;
+
+                foreach ($modelo['piezas'] as $pieza) {
+                    $porEscribir[] = [
+                        'marca' => $marca,
+                        'qr' => $pieza['qr'],
+                        'qs' => $pieza['qs'],
+                    ];
+                    $piezasEscritas++;
+                }
             }
+
+            $this->insertarMarcasNuevas($catalogo, $nuevas);
+            $this->escribirPiezas($catalogo, $porEscribir);
+
+            // Se cuenta despues de escribir las piezas y sobre las que tiene
+            // la marca en el catalogo, no sobre las del archivo: asi un
+            // layout parcial suma sus piezas en vez de borrar la cuenta previa.
+            $this->recontarPiezas(array_map(fn (Concepto $marca): int => (int) $marca->id, $tocadas));
         });
 
         return [
@@ -93,6 +114,157 @@ class ImportadorDeLayout
             'piezas' => $piezasEscritas,
             'avisos' => [...$avisos, ...$avisosDeEmpate, ...$this->avisosDeCantidad($filas)],
         ];
+    }
+
+    /**
+     * Las marcas que ya tiene el catálogo, agrupadas por nombre de marca.
+     *
+     * Emparejar contra la base marca por marca eran tres consultas por renglón
+     * del layout —el grueso del tiempo de un import grande, y lo que lo llevaba
+     * al timeout—. Aquí se leen todas de una vez y el emparejamiento se resuelve
+     * en memoria. El índice se va actualizando con las marcas nuevas para que
+     * las decisiones que dependen de lo ya escrito (ver `marcaDelCatalogo`)
+     * sigan viendo lo mismo que veían cuando preguntaban a la base.
+     *
+     * @return array<string, list<Concepto>>
+     */
+    private function indiceDeMarcas(Catalogo $catalogo): array
+    {
+        $indice = [];
+
+        foreach (Concepto::where('catalogo_id', $catalogo->id)->get() as $marca) {
+            $indice[trim((string) $marca->marca)][] = $marca;
+        }
+
+        return $indice;
+    }
+
+    /**
+     * Da de alta en una sola sentencia las marcas que el layout trae por primera
+     * vez y les devuelve su id, que es lo que cuelga a sus piezas.
+     *
+     * El id se recupera emparejando por el par `(marca, lote)` tal cual, que es
+     * el mismo con el que se decidió que la marca no existía: si no había fila
+     * con ese par antes del insert, la única que hay después es la recién
+     * escrita.
+     *
+     * @param  list<Concepto>  $nuevas
+     */
+    private function insertarMarcasNuevas(Catalogo $catalogo, array $nuevas): void
+    {
+        if ($nuevas === []) {
+            return;
+        }
+
+        $ahora = now();
+
+        foreach (array_chunk($nuevas, 500) as $bloque) {
+            Concepto::insert(array_map(
+                fn (Concepto $marca): array => $marca->getAttributes() + ['created_at' => $ahora, 'updated_at' => $ahora],
+                $bloque,
+            ));
+        }
+
+        $ids = Concepto::query()
+            ->where('catalogo_id', $catalogo->id)
+            ->whereIn('marca', array_values(array_unique(array_map(
+                fn (Concepto $marca): string => (string) $marca->marca,
+                $nuevas,
+            ))))
+            ->get(['id', 'marca', 'lote'])
+            ->mapWithKeys(fn (Concepto $marca): array => [$this->parDeMarca($marca->marca, $marca->lote) => (int) $marca->id]);
+
+        foreach ($nuevas as $marca) {
+            $id = $ids[$this->parDeMarca($marca->marca, $marca->lote)] ?? null;
+
+            if ($id === null) {
+                throw new RuntimeException("No se pudo recuperar la marca {$marca->etiquetaModelo()} recién insertada.");
+            }
+
+            $marca->id = $id;
+            $marca->exists = true;
+            $marca->syncOriginal();
+        }
+    }
+
+    /** El par `(marca, lote)` sin normalizar, para emparejar contra la base. */
+    private function parDeMarca(?string $marca, ?string $lote): string
+    {
+        return $marca."\0".($lote ?? "\0nulo");
+    }
+
+    /**
+     * Escribe las piezas del layout en bloque.
+     *
+     * Va en `upsert` y no en `updateOrCreate` por pieza a propósito. Cada
+     * `updateOrCreate` abre un SAVEPOINT dentro de la transacción del import, y
+     * en PostgreSQL cada subtransacción se queda con un lock hasta el commit:
+     * con un layout de miles de renglones se agota el pool de locks y revienta
+     * con «out of shared memory / max_locks_per_transaction». Un `upsert` por
+     * bloque es una sola sentencia, sin savepoints y sin ida y vuelta por fila.
+     *
+     * El `ON CONFLICT` se apoya en el unique `(catalogo_id, qr)`; el lector ya
+     * garantiza que un QR no venga dos veces en el mismo archivo, que Postgres
+     * tampoco deja tocar la misma fila dos veces en la misma sentencia.
+     *
+     * @param  list<array{marca: Concepto, qr: string, qs: ?string}>  $piezas
+     */
+    private function escribirPiezas(Catalogo $catalogo, array $piezas): void
+    {
+        foreach (array_chunk($piezas, 500) as $bloque) {
+            Pieza::upsert(
+                array_map(fn (array $pieza): array => [
+                    'catalogo_id' => $catalogo->id,
+                    'concepto_id' => (int) $pieza['marca']->id,
+                    'qr' => $pieza['qr'],
+                    'qs' => $pieza['qs'],
+                ], $bloque),
+                ['catalogo_id', 'qr'],
+                ['concepto_id', 'qs'],
+            );
+        }
+    }
+
+    /**
+     * Deja en cada marca tocada la cuenta de piezas que le quedaron colgando.
+     *
+     * Se hace al final y en bloque por lo mismo que las piezas: un `count()` y
+     * un `update()` por marca son dos viajes por renglón del layout. Las marcas
+     * se agrupan por cuenta, que casi todas comparten el mismo número.
+     *
+     * @param  array<int, int>  $marcaIds
+     */
+    private function recontarPiezas(array $marcaIds): void
+    {
+        foreach (array_chunk(array_values($marcaIds), 500) as $bloque) {
+            $conteos = Pieza::query()
+                ->whereIn('concepto_id', $bloque)
+                ->groupBy('concepto_id')
+                ->selectRaw('concepto_id, count(*) as total')
+                ->pluck('total', 'concepto_id');
+
+            $porCantidad = [];
+
+            foreach ($bloque as $id) {
+                $porCantidad[(int) ($conteos[$id] ?? 0)][] = $id;
+            }
+
+            foreach ($porCantidad as $cantidad => $ids) {
+                Concepto::whereIn('id', $ids)->update(['cantidad' => $cantidad]);
+            }
+        }
+    }
+
+    /**
+     * La categoría del layout, creándola si es nueva. Se evita `firstOrCreate`
+     * por la misma razón que en las piezas: abre un savepoint por categoría
+     * nueva dentro de la transacción del import.
+     */
+    private function categoria(string $nombre): int
+    {
+        $existente = Categoria::where('nombre', $nombre)->value('id');
+
+        return $existente ?? Categoria::create(['nombre' => $nombre])->id;
     }
 
     /**
@@ -105,45 +277,58 @@ class ImportadorDeLayout
      * cuando no hay coincidencia exacta y sólo hay una candidata evidente, se
      * reusa esa fila en vez de crear una gemela.
      *
+     * @param  array<string, list<Concepto>>  $indice
      * @param  list<string>  $avisos
      */
-    private function marcaDelCatalogo(Catalogo $catalogo, string $marca, ?string $lote, array &$avisos): Concepto
+    private function marcaDelCatalogo(array &$indice, string $marca, ?string $lote, array &$avisos): Concepto
     {
-        $delCatalogo = fn () => Concepto::query()
-            ->where('catalogo_id', $catalogo->id)
-            ->where('marca', $marca);
+        $delCatalogo = $indice[$marca] ?? [];
 
-        $exacta = $delCatalogo()->where('lote', $lote)->first();
-
-        if ($exacta !== null) {
-            return $exacta;
+        foreach ($delCatalogo as $candidata) {
+            if ($candidata->lote === $lote) {
+                return $candidata;
+            }
         }
 
         // El layout trae lote y la marca ya existía sin él: es la misma, de una
         // carga anterior. Se le asigna el lote en vez de duplicarla.
         if ($lote !== null) {
-            $sinLote = $delCatalogo()->whereNull('lote')->get();
+            $sinLote = array_values(array_filter($delCatalogo, fn (Concepto $c): bool => $c->lote === null));
 
-            if ($sinLote->count() === 1) {
+            if (count($sinLote) === 1) {
                 $avisos[] = "{$marca}: ya estaba en el catálogo sin lote; se le asignó el lote {$lote} en vez de duplicar la marca.";
 
-                return $sinLote->first();
+                return $sinLote[0];
             }
 
-            return new Concepto;
+            return $this->marcaNueva($indice, $marca);
         }
 
         // Al revés: el layout no distingue lotes y la marca vive en uno solo. Se
         // reusa ese, que si no quedarían la marca con lote y su gemela sin él.
-        $unica = $delCatalogo()->get();
+        if (count($delCatalogo) === 1) {
+            $avisos[] = "{$marca}: el layout no trae lote y la marca ya estaba en el lote {$delCatalogo[0]->lote}; se actualizó esa en vez de duplicarla.";
 
-        if ($unica->count() === 1) {
-            $avisos[] = "{$marca}: el layout no trae lote y la marca ya estaba en el lote {$unica->first()->lote}; se actualizó esa en vez de duplicarla.";
-
-            return $unica->first();
+            return $delCatalogo[0];
         }
 
-        return new Concepto;
+        return $this->marcaNueva($indice, $marca);
+    }
+
+    /**
+     * Una marca que el catálogo no tenía. Entra al índice de una vez —todavía
+     * sin id, que llega en el insert en bloque— porque los renglones que vengan
+     * después tienen que verla igual que la veían en la base cuando cada marca
+     * se guardaba en el acto.
+     *
+     * @param  array<string, list<Concepto>>  $indice
+     */
+    private function marcaNueva(array &$indice, string $marca): Concepto
+    {
+        $nueva = new Concepto;
+        $indice[$marca][] = $nueva;
+
+        return $nueva;
     }
 
     /**

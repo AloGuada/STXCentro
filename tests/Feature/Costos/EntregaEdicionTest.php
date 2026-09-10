@@ -59,16 +59,29 @@ function editar(Entrega $entrega, array $extra = []): array
     ], $extra);
 }
 
-test('corrige fecha, quien recibio y observaciones', function () {
+test('corrige quien recibio y observaciones', function () {
     $this->actingAs($this->user)
         ->post("/admin/costos/entregas/{$this->entrega->id}", editar($this->entrega))
         ->assertRedirect();
 
     $fresca = $this->entrega->fresh();
 
-    expect($fresca->fecha_entrega->toDateString())->toBe('2026-02-20')
-        ->and($fresca->recibido_por)->toBe($this->otro->id)
+    expect($fresca->recibido_por)->toBe($this->otro->id)
         ->and($fresca->observaciones)->toBe('Corregida');
+});
+
+/**
+ * La fecha de la recepción es el día en que se capturó y ya no se corrige:
+ * mandarla no la mueve, ni siquiera con una fecha válida.
+ */
+test('la fecha no se puede cambiar al editar', function () {
+    $original = $this->entrega->fecha_entrega->toDateString();
+
+    $this->actingAs($this->user)
+        ->post("/admin/costos/entregas/{$this->entrega->id}", editar($this->entrega, ['fecha_entrega' => '2026-02-20']))
+        ->assertRedirect();
+
+    expect($this->entrega->fresh()->fecha_entrega->toDateString())->toBe($original);
 });
 
 test('sin el permiso no puede editar', function () {
@@ -81,11 +94,11 @@ test('sin el permiso no puede editar', function () {
     expect($this->entrega->fresh()->observaciones)->toBe('Capturada de volada');
 });
 
-test('la fecha y quien recibio son obligatorios; la factura no', function () {
+test('quien recibio es obligatorio; la factura y la fecha no', function () {
     $this->actingAs($this->user)
         ->post("/admin/costos/entregas/{$this->entrega->id}", ['observaciones' => 'Solo esto'])
-        ->assertSessionHasErrors(['fecha_entrega', 'recibido_por'])
-        ->assertSessionDoesntHaveErrors('factura_id');
+        ->assertSessionHasErrors(['recibido_por'])
+        ->assertSessionDoesntHaveErrors(['factura_id', 'fecha_entrega']);
 });
 
 test('la relacion serializa como recibidor y no pisa el uuid de recibido_por', function () {

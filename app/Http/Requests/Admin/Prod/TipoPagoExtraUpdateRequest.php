@@ -20,6 +20,7 @@ class TipoPagoExtraUpdateRequest extends FormRequest
             'descripcion' => ['required', 'string', 'max:255'],
             'orden' => ['required', 'integer', 'min:0'],
             'desgloce' => ['required', 'boolean'],
+            'es_descuento' => ['required', 'boolean'],
         ];
     }
 

@@ -9,8 +9,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useEditLock } from '@/hooks/use-edit-lock';
 import AppLayout from '@/layouts/app-layout';
+import { etiquetaProveedor } from '@/lib/proveedores';
 import type { BreadcrumbItem } from '@/types';
-import type { CostosObraRubro, CostosSolicitudPago, CostosTipoSolicitud, Departamento, Obra, Proveedor } from '@/types/models';
+import type { CostosObraRubro, CostosSolicitudPago, CostosTipoSolicitud, Departamento, PresupuestoOption, Proveedor } from '@/types/models';
 
 function esViernes(dateStr: string): boolean {
     const date = new Date(dateStr + 'T00:00:00');
@@ -36,7 +37,7 @@ function corteAyuda(corte: CorteFechaPago): string {
 
 type DetalleForm = {
     id?: number;
-    obra_id: string;
+    presupuesto_id: string;
     obra_rubro_id: string;
     concepto: string;
     cantidad: string;
@@ -49,11 +50,11 @@ type Props = {
     departamentos: Departamento[];
     proveedores: Proveedor[];
     tipoSolicitudes: CostosTipoSolicitud[];
-    obras: Obra[];
+    presupuestos: PresupuestoOption[];
     obraRubros: CostosObraRubro[];
 };
 
-export default function SolicitudesPagoEdit({ solicitud, corteFechaPago, departamentos, proveedores, tipoSolicitudes, obras, obraRubros }: Props) {
+export default function SolicitudesPagoEdit({ solicitud, corteFechaPago, departamentos, proveedores, tipoSolicitudes, presupuestos, obraRubros }: Props) {
     const breadcrumbs: BreadcrumbItem[] = [
         { title: 'Dashboard', href: '/dashboard' },
         { title: 'Costos', href: '/admin/costos/solicitudes-pago' },
@@ -91,7 +92,7 @@ export default function SolicitudesPagoEdit({ solicitud, corteFechaPago, departa
             const matchedObraRubro = obraRubros.find((or) => or.id === d.obra_rubro_id);
             return {
                 id: d.id,
-                obra_id: matchedObraRubro ? String(matchedObraRubro.obra_id) : '',
+                presupuesto_id: matchedObraRubro ? String(matchedObraRubro.presupuesto_id) : '',
                 obra_rubro_id: String(d.obra_rubro_id),
                 concepto: d.concepto,
                 cantidad: String(d.cantidad),
@@ -114,7 +115,7 @@ export default function SolicitudesPagoEdit({ solicitud, corteFechaPago, departa
     );
 
     const addDetalle = () => {
-        setData('detalles', [...data.detalles, { obra_id: '', obra_rubro_id: '', concepto: '', cantidad: '1', precio_unitario: '0' }]);
+        setData('detalles', [...data.detalles, { presupuesto_id: '', obra_rubro_id: '', concepto: '', cantidad: '1', precio_unitario: '0' }]);
     };
 
     const removeDetalle = (index: number) => {
@@ -124,7 +125,7 @@ export default function SolicitudesPagoEdit({ solicitud, corteFechaPago, departa
     const updateDetalle = (index: number, field: keyof DetalleForm, value: string) => {
         const updated = [...data.detalles];
         updated[index] = { ...updated[index], [field]: value };
-        if (field === 'obra_id') {
+        if (field === 'presupuesto_id') {
             updated[index].obra_rubro_id = '';
         }
         setData('detalles', updated);
@@ -148,7 +149,8 @@ export default function SolicitudesPagoEdit({ solicitud, corteFechaPago, departa
 
     const [incluirCerradas, setIncluirCerradas] = useState(false);
     const esCerrado = (or: CostosObraRubro) => or.presupuesto?.estatus === 'cerrado';
-    const obrasVisibles = obras.filter((o) => incluirCerradas || o.estatus !== 'cerrada');
+    // Por presupuesto y no por obra: los de proyecto y partida no tienen obra_id.
+    const presupuestosVisibles = presupuestos.filter((p) => incluirCerradas || !p.cerrado);
 
     const formatMoney = (n: number) => n.toLocaleString('es-MX', { minimumFractionDigits: 2 });
 
@@ -218,7 +220,7 @@ export default function SolicitudesPagoEdit({ solicitud, corteFechaPago, departa
                                     >
                                         <option value="">Sin proveedor</option>
                                         {proveedores.map((p) => (
-                                            <option key={p.id} value={p.id}>{p.nombre_comercial || p.razon_social}</option>
+                                            <option key={p.id} value={p.id}>{etiquetaProveedor(p)}</option>
                                         ))}
                                     </select>
                                 </FormField>
@@ -352,16 +354,16 @@ export default function SolicitudesPagoEdit({ solicitud, corteFechaPago, departa
                                             </div>
 
                                             <div className="grid grid-cols-2 gap-4">
-                                                <FormField label="Obra" htmlFor={`det_obra_${index}`} required>
+                                                <FormField label="Presupuesto" htmlFor={`det_obra_${index}`} required>
                                                     <select
                                                         id={`det_obra_${index}`}
                                                         className="select select-bordered w-full"
-                                                        value={det.obra_id}
-                                                        onChange={(e) => updateDetalle(index, 'obra_id', e.target.value)}
+                                                        value={det.presupuesto_id}
+                                                        onChange={(e) => updateDetalle(index, 'presupuesto_id', e.target.value)}
                                                     >
-                                                        <option value="">Seleccionar obra</option>
-                                                        {obrasVisibles.map((o) => (
-                                                            <option key={o.id} value={o.id}>{o.no} - {o.descripcion}{o.estatus === 'cerrada' ? ' (Cerrada)' : ''}</option>
+                                                        <option value="">Seleccionar presupuesto</option>
+                                                        {presupuestosVisibles.map((p) => (
+                                                            <option key={p.id} value={p.id}>{p.label}{p.cerrado ? ' (Cerrado)' : ''}</option>
                                                         ))}
                                                     </select>
                                                 </FormField>
@@ -372,11 +374,11 @@ export default function SolicitudesPagoEdit({ solicitud, corteFechaPago, departa
                                                         className="select select-bordered w-full"
                                                         value={det.obra_rubro_id}
                                                         onChange={(e) => updateDetalle(index, 'obra_rubro_id', e.target.value)}
-                                                        disabled={!det.obra_id}
+                                                        disabled={!det.presupuesto_id}
                                                     >
-                                                        <option value="">{det.obra_id ? 'Seleccionar centro de costos' : 'Seleccione obra primero'}</option>
+                                                        <option value="">{det.presupuesto_id ? 'Seleccionar centro de costos' : 'Seleccione presupuesto primero'}</option>
                                                         {obraRubros
-                                                            .filter((or) => or.obra_id === Number(det.obra_id) && (incluirCerradas || !esCerrado(or)))
+                                                            .filter((or) => or.presupuesto_id === Number(det.presupuesto_id) && (incluirCerradas || !esCerrado(or)))
                                                             .map((or) => (
                                                                 <option key={or.id} value={or.id}>
                                                                     {getRubroOptionLabel(or)}

@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Admin\Costos;
 
+use App\Rules\DescripcionUnicaEnCatalogo;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -17,11 +18,11 @@ class ProductoUpdateRequest extends FormRequest
      */
     public function rules(): array
     {
-        $productoId = $this->route('producto')?->id;
+        $producto = $this->route('producto');
 
         return [
-            'codigo' => ['nullable', 'string', 'max:100', Rule::unique('costos_productos', 'codigo')->ignore($productoId)],
-            'descripcion' => ['required', 'string', 'max:255'],
+            'codigo' => ['nullable', 'string', 'max:100', Rule::unique('costos_productos', 'codigo')->ignore($producto?->id)],
+            'descripcion' => ['required', 'string', 'max:255', DescripcionUnicaEnCatalogo::paraEdicion($producto?->item_id)],
             'unidad' => ['required', 'string', 'max:30'],
             'activo' => ['boolean'],
         ];

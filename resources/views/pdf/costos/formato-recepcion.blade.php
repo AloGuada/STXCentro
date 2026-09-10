@@ -63,8 +63,15 @@
         $obra = $oc?->obra;
         $folio = $entrega->folio ?? ('REC-'.str_pad((string) $entrega->id, 4, '0', STR_PAD_LEFT));
         $total = 0.0;
+        // Base del IVA estimado: las partidas "sin impuestos" de la OC suman al
+        // recibido pero no causan IVA.
+        $baseIva = 0.0;
         foreach ($entrega->detalles as $d) {
-            $total += (float) $d->cantidad_recibida * (float) $d->precio_unitario_efectivo;
+            $importe = (float) $d->cantidad_recibida * (float) $d->precio_unitario_efectivo;
+            $total += $importe;
+            if (! $d->ordenCompraDetalle?->sin_impuestos) {
+                $baseIva += $importe;
+            }
         }
     @endphp
 
@@ -89,7 +96,7 @@
                 <div class="code-title">RECEPCIÓN</div>
                 <div class="code-box">
                     <span class="label">F O L I O:</span> {{ $folio }}<br>
-                    <span class="label">Fecha:</span> {{ $entrega->fecha_entrega?->format('d/m/Y') ?? '-' }}<br>
+                    <span class="label">Fecha:</span> {{ $entrega->fechaRecepcionLocal()?->format('d/m/Y') ?? '-' }}<br>
                     <span class="label">Orden de compra:</span> {{ $oc?->folio ?? '-' }}
                 </div>
             </td>
@@ -125,8 +132,15 @@
         </tr>
         <tr>
             <td class="label">Recibió</td>
-            <td>{{ $entrega->recibidor?->name ?? '-' }}</td>
+            <td colspan="3">{{ $entrega->recibidor?->name ?? '-' }}</td>
+        </tr>
+        {{-- Dos fechas distintas: la de recepción la pone el sistema al elaborar
+             el documento y no se edita; la de entrega es la operativa, cuándo
+             llegó el material a planta u obra. --}}
+        <tr>
             <td class="label">Fecha de recepción</td>
+            <td>{{ $entrega->fechaRecepcionLocal()?->format('d/m/Y') ?? '-' }}</td>
+            <td class="label">Fecha de Entrega</td>
             <td>{{ $entrega->fecha_entrega?->format('d/m/Y') ?? '-' }}</td>
         </tr>
         @if($entrega->observaciones)
@@ -166,8 +180,14 @@
                 $factura = $entrega->factura;
                 $monFac = $factura?->moneda ?? ($moneda ?? 'mxn');
                 $codFac = $monFac === 'mxn' ? '' : ' '.strtoupper($monFac);
-                $totalPagar = $factura ? (float) $factura->total : $total;
                 $monPagar = $factura ? $monFac : ($moneda ?? 'mxn');
+                $codImp = $factura ? $codFac : $codMon;
+                // Sin factura ligada el IVA se estima al 16% de lo recibido: el
+                // bloque tiene que cuadrar aunque el CFDI todavía no exista, y
+                // se rotula como estimado para no confundirlo con el timbrado.
+                $ivaEstimado = $factura === null;
+                $iva = $factura ? (float) $factura->iva : round($baseIva * config('costos.iva_rate'), 2);
+                $totalPagar = $factura ? (float) $factura->total : round($total + $iva, 2);
                 // `iva` guarda sólo el trasladado y `total` ya viene neto de
                 // retenciones: sin desglosarlas, el bloque no cuadra.
                 $ivaRetenido = (float) ($factura->iva_retenido ?? 0);
@@ -177,12 +197,10 @@
                 <td colspan="4" class="text-right">SUBTOTAL (RECIBIDO)</td>
                 <td class="text-right">${{ number_format($total, 2) }}{{ $codMon }}</td>
             </tr>
-            @if($factura)
             <tr class="total-row">
-                <td colspan="4" class="text-right">IVA TRASLADADO</td>
-                <td class="text-right">${{ number_format((float) $factura->iva, 2) }}{{ $codFac }}</td>
+                <td colspan="4" class="text-right">IVA TRASLADADO{{ $ivaEstimado ? ' (ESTIMADO 16%)' : '' }}</td>
+                <td class="text-right">${{ number_format($iva, 2) }}{{ $codImp }}</td>
             </tr>
-            @endif
             @if($ivaRetenido > 0)
             <tr class="total-row">
                 <td colspan="4" class="text-right">IVA RETENIDO</td>
@@ -196,8 +214,8 @@
             </tr>
             @endif
             <tr class="total-row pago-row">
-                <td colspan="4" class="text-right">TOTAL DE LA FACTURA{{ $factura ? ' ('.($factura->folio_fiscal ?? $factura->folio).')' : '' }}</td>
-                <td class="text-right">${{ number_format($totalPagar, 2) }}{{ $factura ? $codFac : $codMon }}</td>
+                <td colspan="4" class="text-right">{{ $factura ? 'TOTAL DE LA FACTURA ('.($factura->folio_fiscal ?? $factura->folio).')' : 'TOTAL ESTIMADO (SIN FACTURA)' }}</td>
+                <td class="text-right">${{ number_format($totalPagar, 2) }}{{ $codImp }}</td>
             </tr>
             <tr class="letras-row">
                 <td colspan="5">{{ \App\Support\NumeroALetras::convertir($totalPagar, $monPagar) }}</td>

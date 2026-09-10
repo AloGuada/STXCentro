@@ -359,9 +359,18 @@ Route::middleware(['permission:sti.tickets.ver'])->group(function () {
 });
 ```
 
+## Migraciones
+
+### Nomenclatura
+```
+YYYY_MM_DD_HHMMSS_create_sti_equipos_table.php
+YYYY_MM_DD_HHMMSS_create_cob_estimaciones_table.php
+```
+
 ## Verificación de Cambios
 
 1. Ejecutar migraciones: `php artisan migrate`
 2. Ejecutar seeders de roles/permisos: `php artisan db:seed --class=RolesAndPermissionsSeeder`
-3. Ejecutar tests del módulo: `php artisan test --filter=Sti` o `--filter=Cob` o `--filter=Costos`, etc.
+3. Ejecutar tests del módulo: `php -d memory_limit=1G vendor/bin/pest tests/Feature/Sti --compact` (cambiar `Sti` por `Cob`, `Costos`, etc.)
+   - `php artisan test` aborta por `memory_limit`; el fatal error parece un bug de routing pero es OOM.
 4. Verificar formato: `vendor/bin/pint --dirty`

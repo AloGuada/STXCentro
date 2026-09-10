@@ -38,6 +38,7 @@ class ConfirmacionesExport implements FromCollection, ShouldAutoSize, WithHeadin
             'Tipo',
             'Folio',
             'Proveedor',
+            'Nombre comercial',
             'Concepto',
             'Monto',
             'Moneda',
@@ -51,6 +52,7 @@ class ConfirmacionesExport implements FromCollection, ShouldAutoSize, WithHeadin
             'tipo' => $fila['tipo'] === 'solicitud_pago' ? 'Solicitud de pago' : 'Factura',
             'folio' => $fila['folio'] ?? '—',
             'proveedor' => $fila['proveedor'] ?? '—',
+            'proveedor_comercial' => $fila['proveedor_comercial'] ?? '—',
             'concepto' => $fila['concepto'] ?? '—',
             'monto' => (float) $fila['monto'],
             'moneda' => strtoupper($fila['moneda'] ?? 'mxn'),
@@ -63,8 +65,8 @@ class ConfirmacionesExport implements FromCollection, ShouldAutoSize, WithHeadin
      */
     public function styles(Worksheet $sheet): array
     {
-        $sheet->getStyle('A1:G1')->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('4472C4');
-        $sheet->getStyle('A1:G1')->getFont()->setBold(true)->getColor()->setRGB('FFFFFF');
+        $sheet->getStyle('A1:H1')->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('4472C4');
+        $sheet->getStyle('A1:H1')->getFont()->setBold(true)->getColor()->setRGB('FFFFFF');
 
         return [];
     }

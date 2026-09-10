@@ -27,6 +27,8 @@ class PendientesDeLiquidar
      *     descripcion: string,
      *     proceso_id: int,
      *     proceso: string,
+     *     subproceso_id: int|null,
+     *     subproceso: string|null,
      *     obra: string,
      *     grupo_trabajo_id: int|null,
      *     grupo_trabajo: string|null,
@@ -38,7 +40,7 @@ class PendientesDeLiquidar
     public function paraDestajo(Destajo $destajo): Collection
     {
         $parciales = Registro::query()
-            ->with(['pieza.marca.obra', 'pieza.catalogo', 'proceso', 'grupoTrabajo'])
+            ->with(['pieza.marca.obra', 'pieza.catalogo', 'proceso', 'subproceso', 'grupoTrabajo'])
             ->where('porcentaje', '<', 100)
             ->where('fecha', '<', $destajo->fecha_inicio)
             ->orderByDesc('fecha')
@@ -56,15 +58,18 @@ class PendientesDeLiquidar
             ->mapWithKeys(fn (int $obraId) => [$obraId => $this->avance->mapaDeObra($obraId)]);
 
         return $parciales
-            // Una fila por pieza y proceso: el último parcial manda para sugerir grupo.
-            ->unique(fn (Registro $registro) => $registro->pieza_id.'|'.$registro->proceso_id)
+            // Una fila por pieza, proceso y subproceso: el último parcial manda
+            // para sugerir grupo. Un "Armado" a medias no se cierra capturando
+            // "Punteado", así que cada paso arrastra su propio saldo.
+            ->unique(fn (Registro $registro) => $registro->pieza_id.'|'.$registro->proceso_id.'|'.($registro->subproceso_id ?? 0))
             ->map(function (Registro $registro) use ($capturadoPorObra) {
                 $pieza = $registro->pieza;
                 $marca = $pieza->marca;
                 $obraId = (int) $pieza->catalogo?->obra_id;
                 $procesoId = (int) $registro->proceso_id;
+                $subprocesoId = $registro->subproceso_id !== null ? (int) $registro->subproceso_id : null;
 
-                $pagado = $capturadoPorObra->get($obraId)?->capturadoDe($pieza, $procesoId) ?? 0.0;
+                $pagado = $capturadoPorObra->get($obraId)?->capturadoDe($pieza, $procesoId, $subprocesoId) ?? 0.0;
                 $saldo = round(max(0, 1 - $pagado), 4);
 
                 if ($saldo <= 0) {
@@ -80,6 +85,8 @@ class PendientesDeLiquidar
                     'descripcion' => $marca->descripcion,
                     'proceso_id' => $procesoId,
                     'proceso' => $registro->proceso?->nombre ?? '',
+                    'subproceso_id' => $subprocesoId,
+                    'subproceso' => $registro->subproceso?->nombre,
                     'obra' => $marca->obra?->no ?? '',
                     'grupo_trabajo_id' => $registro->grupo_trabajo_id,
                     'grupo_trabajo' => $registro->grupoTrabajo?->descripcion,

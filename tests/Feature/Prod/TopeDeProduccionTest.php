@@ -231,23 +231,34 @@ describe('visibilidad del avance', function () {
             ->get(route('admin.prod.catalogos.show', $this->catalogo))
             ->assertOk()
             ->assertInertia(fn ($page) => $page
-                ->has('marcas.0.piezas', 3)
+                ->has('marcas.data', 1)
                 ->has('procesos', 2)
-                ->where('marcas.0.piezas.0.avance.'.$this->soldadura->id.'.capturado', 1)
+                // El avance de la marca lo resume el servidor: 3 de sus piezas
+                // pagadas en soldadura. Los QR se piden al desplegarla.
+                ->where('avancePorMarca.'.$this->marca->id.'.'.$this->soldadura->id, 3)
             );
     });
 
     test('el destajo comparte el avance de cada pieza para capturar', function () {
         capturarPiezas([$this->pieza], $this->grupo, '2026-02-04');
 
+        // El avance viaja con las piezas de la marca, que se piden al elegirla:
+        // la pantalla del destajo ya no carga el catalogo entero.
         $this->actingAs($this->user)
             ->get(route('admin.prod.destajos.show', $this->destajo))
             ->assertOk()
             ->assertInertia(fn ($page) => $page
-                ->has('marcas')
+                ->has('obras')
                 ->has('procesos')
-                ->where('avance.'.$this->pieza->id.'.'.$this->soldadura->id.'.disponible', 0)
             );
+
+        $respuesta = $this->actingAs($this->user)
+            ->getJson(route('admin.prod.marcas.piezas', $this->marca))
+            ->assertOk();
+
+        $pieza = collect($respuesta->json('piezas'))->firstWhere('id', $this->pieza->id);
+
+        expect((float) $pieza['avance'][$this->soldadura->id]['disponible'])->toBe(0.0);
     });
 });
 

@@ -1,5 +1,5 @@
 import { Head, router } from '@inertiajs/react';
-import { EyeIcon, FileDown, FileCheckIcon } from 'lucide-react';
+import { DownloadIcon, EyeIcon, FileDown, FileCheckIcon } from 'lucide-react';
 import { formatMoney as fmtMonto } from '@/components/costos/monto';
 import { DataTable, type Column } from '@/components/data-table';
 import AppLayout from '@/layouts/app-layout';
@@ -155,6 +155,11 @@ type Props = {
 };
 
 export default function SolicitudesPagoIndex({ solicitudes, filters, sortBy, sortDir }: Props) {
+    // Los dos reportes (PDF y Excel) salen con los mismos filtros de la pantalla.
+    const reporteQuery = new URLSearchParams(
+        Object.fromEntries(Object.entries(filters).filter(([, v]) => v)),
+    ).toString();
+
     const handleEstatusChange = (estatus: string) => {
         router.get('/admin/costos/solicitudes-pago', { ...filters, estatus: estatus || undefined }, { preserveState: true });
     };
@@ -176,17 +181,22 @@ export default function SolicitudesPagoIndex({ solicitudes, filters, sortBy, sor
                     </select>
 
                     <a
-                        href={`/admin/costos/solicitudes-pago/reporte-pdf?${new URLSearchParams(
-                            Object.fromEntries(
-                                Object.entries(filters).filter(([, v]) => v),
-                            ),
-                        ).toString()}`}
+                        href={`/admin/costos/solicitudes-pago/reporte-pdf?${reporteQuery}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="btn btn-sm btn-outline ml-auto"
                     >
                         <FileDown className="size-4" />
                         Reporte PDF
+                    </a>
+
+                    <a
+                        href={`/admin/costos/solicitudes-pago/reporte-excel?${reporteQuery}`}
+                        className="btn btn-sm btn-outline"
+                        title="Mismo reporte en Excel: una hoja por tabla"
+                    >
+                        <DownloadIcon className="size-4" />
+                        Reporte Excel
                     </a>
                 </div>
 

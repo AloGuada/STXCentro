@@ -3,6 +3,7 @@
 namespace App\Models\Drive;
 
 use App\Models\Usuario;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -33,8 +34,57 @@ class Carpeta extends Model
             ->withTimestamps();
     }
 
+    public function usuarios(): BelongsToMany
+    {
+        return $this->belongsToMany(Usuario::class, 'drive_carpeta_usuario', 'carpeta_id', 'usuario_id')
+            ->withPivot('puede_escribir')
+            ->withTimestamps();
+    }
+
     public function archivos(): HasMany
     {
         return $this->hasMany(Archivo::class, 'carpeta_id');
+    }
+
+    public function esCreadaPor(Usuario $usuario): bool
+    {
+        return $this->usuario_id === $usuario->getKey();
+    }
+
+    public function usuarioTieneAcceso(Usuario $usuario): bool
+    {
+        if ($usuario->can('drive.gestionar') || $this->esCreadaPor($usuario)) {
+            return true;
+        }
+
+        return $this->usuarios()->where('usuario_id', $usuario->getKey())->exists();
+    }
+
+    public function usuarioPuedeEscribir(Usuario $usuario): bool
+    {
+        if ($usuario->can('drive.gestionar') || $this->esCreadaPor($usuario)) {
+            return true;
+        }
+
+        return $this->usuarios()
+            ->where('usuario_id', $usuario->getKey())
+            ->wherePivot('puede_escribir', true)
+            ->exists();
+    }
+
+    /**
+     * Las carpetas que el usuario puede ver: todas si administra el Drive,
+     * si no las suyas más las que le compartieron.
+     */
+    public function scopeVisiblesPara(Builder $query, Usuario $usuario): Builder
+    {
+        if ($usuario->can('drive.gestionar')) {
+            return $query;
+        }
+
+        return $query->where(function (Builder $q) use ($usuario) {
+            $q->where('usuario_id', $usuario->getKey())
+                ->orWhereHas('usuarios', fn (Builder $u) => $u->where('usuario_id', $usuario->getKey()));
+        });
     }
 }

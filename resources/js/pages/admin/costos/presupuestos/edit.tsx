@@ -1,12 +1,13 @@
 import { Head, Link, router } from '@inertiajs/react';
-import { ArrowDownIcon, ArrowLeftIcon, ArrowUpDownIcon, ArrowUpIcon, CheckIcon, ListPlusIcon, LockIcon, LockOpenIcon, Loader2Icon, PencilIcon, PlusIcon, Trash2Icon, XIcon } from 'lucide-react';
-import { useState, type FormEvent } from 'react';
+import { ArrowDownIcon, ArrowLeftIcon, ArrowUpDownIcon, ArrowUpIcon, CheckIcon, FileTextIcon, ListPlusIcon, LockIcon, LockOpenIcon, Loader2Icon, PencilIcon, PlusIcon, Trash2Icon, UploadIcon, XIcon } from 'lucide-react';
+import { useRef, useState, type FormEvent } from 'react';
 import { FormField } from '@/components/form';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { SearchSelect } from '@/components/ui/search-select';
 import { Select } from '@/components/ui/select';
 import AppLayout from '@/layouts/app-layout';
+import { MAX_FILE_SIZE_MB } from '@/lib/uploads';
 import type { BreadcrumbItem } from '@/types';
 import type { CostosObraRubro, CostosPresupuestoEstatus, CostosRubro, PresupuestableTipo, PresupuestoRow } from '@/types/models';
 
@@ -51,6 +52,9 @@ export default function PresupuestosEdit({ presupuesto, rubros, presupuestables 
     const [presupuestableSel, setPresupuestableSel] = useState(`${presupuesto.tipo}:${presupuesto.presupuestable_id}`);
     const [savingDatos, setSavingDatos] = useState(false);
     const [changingEstado, setChangingEstado] = useState(false);
+    const [documento, setDocumento] = useState<File | null>(null);
+    const [subiendoDocumento, setSubiendoDocumento] = useState(false);
+    const documentoInput = useRef<HTMLInputElement>(null);
 
     const cerrado = presupuesto.estatus === 'cerrado';
 
@@ -101,6 +105,27 @@ export default function PresupuestosEdit({ presupuesto, rubros, presupuestables 
         router.delete(`/admin/costos/obra-rubros/${obraRubroId}`, {
             preserveScroll: true,
             preserveState: true,
+        });
+    };
+
+    /**
+     * El PDF autorizado del presupuesto. Va en su propia petición porque es un
+     * archivo: el formulario de datos manda JSON y forzar multipart ahí sólo
+     * para esto le complica la vida a los tres campos de texto.
+     */
+    const handleSubirDocumento = (e: FormEvent) => {
+        e.preventDefault();
+        if (!documento) return;
+
+        setSubiendoDocumento(true);
+        router.post(`/admin/costos/presupuestos/${presupuesto.id}/documento`, { documento }, {
+            forceFormData: true,
+            preserveScroll: true,
+            onSuccess: () => {
+                setDocumento(null);
+                if (documentoInput.current) documentoInput.current.value = '';
+            },
+            onFinish: () => setSubiendoDocumento(false),
         });
     };
 
@@ -312,6 +337,52 @@ export default function PresupuestosEdit({ presupuesto, rubros, presupuestables 
                                 <Button type="submit" disabled={savingDatos}>
                                     {savingDatos ? <Loader2Icon className="size-4 animate-spin" /> : <CheckIcon className="size-4" />}
                                     Guardar
+                                </Button>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+
+                {/* Documento del presupuesto: el PDF autorizado de la obra. Se
+                    guarda aquí y se abre desde la pantalla de obras activas. */}
+                <form onSubmit={handleSubirDocumento} className="card border border-base-300 bg-base-100">
+                    <div className="card-body gap-4">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                            <h2 className="card-title text-base">Documento del presupuesto</h2>
+                            {presupuesto.documento && (
+                                <a
+                                    href={`/storage/${presupuesto.documento.path}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="link link-primary inline-flex items-center gap-1 text-sm"
+                                >
+                                    <FileTextIcon className="size-4" />
+                                    {presupuesto.documento.nombre ?? 'Ver documento'}
+                                </a>
+                            )}
+                        </div>
+                        <div className="grid gap-4 md:grid-cols-3">
+                            <FormField
+                                label="Archivo PDF"
+                                htmlFor="documento"
+                                className="md:col-span-2"
+                                description={presupuesto.documento
+                                    ? `Sustituye al documento actual. Máximo ${MAX_FILE_SIZE_MB} MB.`
+                                    : `Sólo PDF, máximo ${MAX_FILE_SIZE_MB} MB.`}
+                            >
+                                <input
+                                    id="documento"
+                                    ref={documentoInput}
+                                    type="file"
+                                    accept="application/pdf"
+                                    className="file-input file-input-bordered w-full"
+                                    onChange={(e) => setDocumento(e.target.files?.[0] ?? null)}
+                                />
+                            </FormField>
+                            <div className="flex items-end">
+                                <Button type="submit" disabled={!documento || subiendoDocumento}>
+                                    {subiendoDocumento ? <Loader2Icon className="size-4 animate-spin" /> : <UploadIcon className="size-4" />}
+                                    {presupuesto.documento ? 'Reemplazar' : 'Subir'}
                                 </Button>
                             </div>
                         </div>

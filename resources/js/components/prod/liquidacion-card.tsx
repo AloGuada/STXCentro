@@ -34,7 +34,7 @@ export function LiquidacionCard({ liquidacion }: { liquidacion: LiquidacionFull 
                                     <th>Proceso</th>
                                     <th className="text-right">%</th>
                                     <th className="text-right">Kilos</th>
-                                    <th className="text-right">$/kg</th>
+                                    <th className="text-right">Precio u.</th>
                                     <th className="text-right">Total</th>
                                 </tr>
                             </thead>
@@ -68,6 +68,11 @@ export function LiquidacionCard({ liquidacion }: { liquidacion: LiquidacionFull 
                                                 <span className="badge badge-sm badge-ghost">
                                                     {d.proceso_nombre ?? '—'}
                                                 </span>
+                                                {d.subproceso_nombre && (
+                                                    <span className="badge badge-sm badge-info ml-1">
+                                                        {d.subproceso_nombre}
+                                                    </span>
+                                                )}
                                             </td>
                                             <td className="text-right font-mono">
                                                 {Number(d.porcentaje ?? 100) < 100 ? (
@@ -79,7 +84,12 @@ export function LiquidacionCard({ liquidacion }: { liquidacion: LiquidacionFull 
                                                 )}
                                             </td>
                                             <td className="text-right font-mono">{num(d.kilos, 3)}</td>
-                                            <td className="text-right font-mono">{num(d.precio_kilo_aplicado, 4)}</td>
+                                            {/* El renglon por subproceso cobra fijo por pieza, no $/kg. */}
+                                            <td className="text-right font-mono">
+                                                {d.precio_subproceso_aplicado !== null
+                                                    ? num(d.precio_subproceso_aplicado, 2)
+                                                    : num(d.precio_kilo_aplicado ?? 0, 4)}
+                                            </td>
                                             <td className="text-right font-mono">${num(d.total)}</td>
                                         </tr>
                                     ))
@@ -101,7 +111,11 @@ export function LiquidacionCard({ liquidacion }: { liquidacion: LiquidacionFull 
                         </div>
                         <div className="flex justify-between">
                             <span className="text-base-content/70">Extras</span>
-                            <span className="font-mono">${num(liquidacion.total_extras)}</span>
+                            {/* Neto: los tipos marcados como descuento restan. */}
+                            <span className={`font-mono ${Number(liquidacion.total_extras) < 0 ? 'text-error' : ''}`}>
+                                {Number(liquidacion.total_extras) < 0 ? '-' : ''}$
+                                {num(Math.abs(Number(liquidacion.total_extras)))}
+                            </span>
                         </div>
                         <div className="flex justify-between border-t border-base-300 pt-1 font-semibold">
                             <span>Total final</span>

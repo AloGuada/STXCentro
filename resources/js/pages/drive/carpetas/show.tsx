@@ -11,7 +11,7 @@ type Archivo = {
     size: number | null;
     descripcion: string | null;
     subido_por_type: string;
-    subido_por_id: number;
+    subido_por_id: string;
     created_at: string;
 };
 

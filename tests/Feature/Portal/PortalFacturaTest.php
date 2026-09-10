@@ -4,7 +4,6 @@ use App\Models\Costos\Entrega;
 use App\Models\Costos\Factura;
 use App\Models\Costos\OrdenCompra;
 use App\Models\Proveedor;
-use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Storage;
 
@@ -30,56 +29,6 @@ function ocConRecepcion(?int $proveedorId = null, float $total = 11600): OrdenCo
     Entrega::factory()->create(['orden_compra_id' => $oc->id]);
 
     return $oc->fresh();
-}
-
-function cfdiXml(array $overrides = []): string
-{
-    $attrs = array_merge([
-        'Fecha' => '2026-05-20T10:00:00',
-        'Folio' => 'F1',
-        'SubTotal' => '10000.00',
-        'Total' => '11600.00',
-        'Moneda' => 'MXN',
-        'Uuid' => '11111111-1111-1111-1111-111111111111',
-        'RfcEmisor' => 'EME000101AAA',
-        'RfcReceptor' => 'REC000101BBB',
-        'IvaTrasladado' => '1600.00',
-        'IvaRetenido' => '0.00',
-        'IsrRetenido' => '0.00',
-    ], $overrides);
-
-    return <<<XML
-<?xml version="1.0" encoding="UTF-8"?>
-<cfdi:Comprobante
-    xmlns:cfdi="http://www.sat.gob.mx/cfd/4"
-    xmlns:tfd="http://www.sat.gob.mx/TimbreFiscalDigital"
-    Version="4.0"
-    Fecha="{$attrs['Fecha']}"
-    Folio="{$attrs['Folio']}"
-    SubTotal="{$attrs['SubTotal']}"
-    Total="{$attrs['Total']}"
-    Moneda="{$attrs['Moneda']}">
-  <cfdi:Emisor Rfc="{$attrs['RfcEmisor']}" Nombre="Emisor SA" RegimenFiscal="601"/>
-  <cfdi:Receptor Rfc="{$attrs['RfcReceptor']}" Nombre="Receptor SA" UsoCFDI="G03"/>
-  <cfdi:Impuestos TotalImpuestosTrasladados="{$attrs['IvaTrasladado']}" TotalImpuestosRetenidos="{$attrs['IvaRetenido']}">
-    <cfdi:Retenciones>
-      <cfdi:Retencion Impuesto="002" Importe="{$attrs['IvaRetenido']}"/>
-      <cfdi:Retencion Impuesto="001" Importe="{$attrs['IsrRetenido']}"/>
-    </cfdi:Retenciones>
-    <cfdi:Traslados>
-      <cfdi:Traslado Base="{$attrs['SubTotal']}" Impuesto="002" TipoFactor="Tasa" TasaOCuota="0.160000" Importe="{$attrs['IvaTrasladado']}"/>
-    </cfdi:Traslados>
-  </cfdi:Impuestos>
-  <cfdi:Complemento>
-    <tfd:TimbreFiscalDigital UUID="{$attrs['Uuid']}" FechaTimbrado="{$attrs['Fecha']}"/>
-  </cfdi:Complemento>
-</cfdi:Comprobante>
-XML;
-}
-
-function uploadXml(array $overrides = []): UploadedFile
-{
-    return UploadedFile::fake()->createWithContent('factura.xml', cfdiXml($overrides));
 }
 
 test('lista facturas del proveedor', function () {

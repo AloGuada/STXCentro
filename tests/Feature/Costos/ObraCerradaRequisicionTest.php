@@ -40,6 +40,7 @@ function crearRequisicion($test, Obra $obra): Requisicion
             'departamento_id' => $test->depto->id,
             'obra_id' => $obra->id,
             'detalles' => [[
+                'producto_id' => \App\Models\Costos\Producto::factory()->create(['descripcion' => 'Material'])->id,
                 'descripcion' => 'Material',
                 'unidad' => 'pza',
                 'cantidad' => 2,

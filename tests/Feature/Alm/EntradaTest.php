@@ -1,0 +1,369 @@
+<?php
+
+use App\Models\Alm\Almacen;
+use App\Models\Alm\Articulo;
+use App\Models\Alm\Existencia;
+use App\Models\Alm\Movimiento;
+use App\Models\Costos\Entrega;
+use App\Models\Costos\Producto;
+use App\Models\User;
+use Spatie\Permission\Models\Permission;
+
+/**
+ * @param  list<string>  $permisos
+ */
+function usuarioDeEntradas(array $permisos = ['ver', 'crear']): User
+{
+    $user = User::factory()->create();
+
+    $nombres = array_map(fn (string $a): string => "alm.entradas.{$a}", $permisos);
+    $nombres[] = 'alm.almacenes.ver-todos';
+
+    foreach ($nombres as $name) {
+        Permission::firstOrCreate(['name' => $name, 'guard_name' => 'web']);
+    }
+
+    $user->givePermissionTo($nombres);
+
+    return $user;
+}
+
+/**
+ * @param  list<array<string, mixed>>  $detalles
+ * @return array<string, mixed>
+ */
+function entradaValida(Almacen $almacen, array $detalles): array
+{
+    return [
+        'almacen_id' => $almacen->id,
+        'fecha_entrega' => now()->toDateString(),
+        'observaciones' => 'Llegó sin orden, lo trajo el proveedor',
+        'detalles' => $detalles,
+    ];
+}
+
+describe('la entrada carga el kardex', function () {
+    it('escribe en costos_entregas, no en una tabla nueva', function () {
+        $almacen = Almacen::factory()->create();
+        $producto = Producto::factory()->create();
+
+        $this->actingAs(usuarioDeEntradas())
+            ->post(route('admin.alm.entradas.store'), entradaValida($almacen, [
+                ['articulo_id' => articuloDe($producto), 'cantidad_recibida' => 100, 'precio_unitario' => 4.35],
+            ]))
+            ->assertRedirect();
+
+        $entrada = Entrega::firstOrFail();
+
+        expect($entrada->almacen_id)->toBe($almacen->id)
+            // Sin orden: el material llegó sin compra de por medio.
+            ->and($entrada->orden_compra_id)->toBeNull()
+            ->and($entrada->esSinOrden())->toBeTrue()
+            // El folio sigue siendo REC: dos prefijos sobre la misma tabla según
+            // quién capturó es dolor permanente por un rótulo.
+            ->and($entrada->folio)->toStartWith('REC-')
+            ->and((float) Existencia::firstOrFail()->cantidad)->toBe(100.0)
+            ->and((float) Existencia::firstOrFail()->costo_promedio)->toBe(4.35);
+    });
+
+    it('sella el articulo, la descripcion y la unidad en el renglon', function () {
+        $almacen = Almacen::factory()->create();
+        $producto = Producto::factory()->create(['descripcion' => 'Tornillo A325', 'unidad' => 'PZA']);
+
+        $this->actingAs(usuarioDeEntradas())
+            ->post(route('admin.alm.entradas.store'), entradaValida($almacen, [
+                ['articulo_id' => articuloDe($producto), 'cantidad_recibida' => 10, 'precio_unitario' => 5],
+            ]));
+
+        $detalle = Entrega::firstOrFail()->detalles()->firstOrFail();
+
+        // Sin orden no hay de dónde heredarlas, y el renglón tiene que poder
+        // imprimirse solo.
+        expect($detalle->producto_id)->toBe($producto->id)
+            ->and($detalle->descripcion)->toBe('Tornillo A325')
+            ->and($detalle->unidad)->toBe('PZA')
+            ->and($detalle->orden_compra_detalle_id)->toBeNull();
+    });
+
+    it('exige el costo cuando no hay orden de la cual heredarlo', function () {
+        $almacen = Almacen::factory()->create();
+        $producto = Producto::factory()->create();
+
+        $this->actingAs(usuarioDeEntradas())
+            ->post(route('admin.alm.entradas.store'), entradaValida($almacen, [
+                ['articulo_id' => articuloDe($producto), 'cantidad_recibida' => 10],
+            ]))
+            ->assertSessionHasErrors('detalles.0.precio_unitario');
+
+        expect(Entrega::count())->toBe(0);
+    });
+
+    it('no deja recibir lo que Almacen no guarda', function () {
+        // Un flete se compra pero no se almacena, asi que nadie le abrio
+        // articulo. Antes se sabia por una bandera; ahora se sabe porque no
+        // esta en el catalogo de Almacen, que es donde vive lo que si se
+        // guarda. La bandera se podia desincronizar del hecho; el renglon no.
+        $almacen = Almacen::factory()->create();
+        $flete = Producto::factory()->create(['descripcion' => 'Flete foraneo']);
+
+        expect(Articulo::where('producto_id', $flete->id)->exists())->toBeFalse();
+
+        $this->actingAs(usuarioDeEntradas())
+            ->post(route('admin.alm.entradas.store'), entradaValida($almacen, [
+                ['articulo_id' => 999999, 'cantidad_recibida' => 1, 'precio_unitario' => 8500],
+            ]))
+            ->assertSessionHasErrors('detalles.0.articulo_id');
+    });
+});
+
+describe('el registrador sobre una recepcion de orden', function () {
+    it('no toca el kardex cuando la recepcion no trae almacen', function () {
+        // Costos puede seguir capturando recepciones que no pasan por una
+        // bodega: ésas no mueven existencia.
+        $entrega = Entrega::factory()->create(['almacen_id' => null]);
+
+        expect(app(\App\Services\Alm\RegistradorEntradaAlmacen::class)->aplicar($entrega))->toBe(0)
+            ->and(Movimiento::count())->toBe(0)
+            ->and(Existencia::count())->toBe(0);
+    });
+
+    it('es idempotente: aplicar dos veces no carga dos veces', function () {
+        $almacen = Almacen::factory()->create();
+        $producto = Producto::factory()->create();
+
+        $this->actingAs(usuarioDeEntradas())
+            ->post(route('admin.alm.entradas.store'), entradaValida($almacen, [
+                ['articulo_id' => articuloDe($producto), 'cantidad_recibida' => 50, 'precio_unitario' => 10],
+            ]));
+
+        $entrada = Entrega::with('detalles')->firstOrFail();
+
+        app(\App\Services\Alm\RegistradorEntradaAlmacen::class)->aplicar($entrada);
+
+        expect((float) Existencia::firstOrFail()->cantidad)->toBe(50.0)
+            ->and(Movimiento::count())->toBe(1);
+    });
+
+    it('el reverso deja el saldo en negativo si el material ya se consumio', function () {
+        $almacen = Almacen::factory()->create();
+        $producto = Producto::factory()->create();
+
+        $this->actingAs(usuarioDeEntradas())
+            ->post(route('admin.alm.entradas.store'), entradaValida($almacen, [
+                ['articulo_id' => articuloDe($producto), 'cantidad_recibida' => 100, 'precio_unitario' => 10],
+            ]));
+
+        $entrada = Entrega::with('detalles')->firstOrFail();
+        $registrador = app(\App\Services\Alm\RegistradorEntradaAlmacen::class);
+
+        // Se gastó todo antes de que alguien cancelara la recepción.
+        app(\App\Services\Alm\AlmacenLedger::class)->registrarPorProducto(
+            $almacen->id, $producto->id, \App\Enums\Alm\MovimientoTipo::Salida, -80
+        );
+
+        expect($registrador->revertir($entrada, 'Se capturó de más'))->toBe(1);
+
+        // −20 es información correcta: se gastó algo que ahora se dice no haber
+        // recibido. Bloquear la cancelación sería un callejón sin salida.
+        expect((float) Existencia::firstOrFail()->cantidad)->toBe(-80.0)
+            ->and(Movimiento::where('es_reverso', true)->count())->toBe(1);
+    });
+
+    it('no revierte dos veces la misma recepcion', function () {
+        $almacen = Almacen::factory()->create();
+        $producto = Producto::factory()->create();
+
+        $this->actingAs(usuarioDeEntradas())
+            ->post(route('admin.alm.entradas.store'), entradaValida($almacen, [
+                ['articulo_id' => articuloDe($producto), 'cantidad_recibida' => 100, 'precio_unitario' => 10],
+            ]));
+
+        $entrada = Entrega::with('detalles')->firstOrFail();
+        $registrador = app(\App\Services\Alm\RegistradorEntradaAlmacen::class);
+
+        $registrador->revertir($entrada, 'x');
+        $registrador->revertir($entrada->refresh(), 'otra vez');
+
+        expect((float) Existencia::firstOrFail()->cantidad)->toBe(0.0)
+            ->and(Movimiento::where('es_reverso', true)->count())->toBe(1);
+    });
+});
+
+describe('permisos', function () {
+    it('ver entradas no alcanza para capturarlas', function () {
+        $almacen = Almacen::factory()->create();
+        $producto = Producto::factory()->create();
+        $usuario = usuarioDeEntradas(['ver']);
+
+        $this->actingAs($usuario)->get(route('admin.alm.entradas.index'))->assertOk();
+        $this->actingAs($usuario)->get(route('admin.alm.entradas.create'))->assertForbidden();
+        $this->actingAs($usuario)
+            ->post(route('admin.alm.entradas.store'), entradaValida($almacen, [
+                ['articulo_id' => articuloDe($producto), 'cantidad_recibida' => 1, 'precio_unitario' => 1],
+            ]))
+            ->assertForbidden();
+    });
+
+    it('el listado solo muestra los almacenes que el usuario ve', function () {
+        $suyo = Almacen::factory()->create();
+        $ajeno = Almacen::factory()->create();
+        $producto = Producto::factory()->create();
+
+        $capturista = usuarioDeEntradas();
+        $this->actingAs($capturista)->post(route('admin.alm.entradas.store'), entradaValida($suyo, [
+            ['articulo_id' => articuloDe($producto), 'cantidad_recibida' => 1, 'precio_unitario' => 1],
+        ]));
+        $this->actingAs($capturista)->post(route('admin.alm.entradas.store'), entradaValida($ajeno, [
+            ['articulo_id' => articuloDe($producto), 'cantidad_recibida' => 1, 'precio_unitario' => 1],
+        ]));
+
+        $usuario = User::factory()->create();
+        Permission::firstOrCreate(['name' => 'alm.entradas.ver', 'guard_name' => 'web']);
+        $usuario->givePermissionTo('alm.entradas.ver');
+        $suyo->usuarios()->attach($usuario->getKey());
+
+        $this->actingAs($usuario)
+            ->get(route('admin.alm.entradas.index'))
+            ->assertInertia(fn ($page) => $page->has('entradas.data', 1));
+    });
+
+    it('no expone rutas para editar ni borrar desde almacen', function () {
+        expect(fn () => route('admin.alm.entradas.edit', 1))->toThrow(Exception::class)
+            ->and(fn () => route('admin.alm.entradas.destroy', 1))->toThrow(Exception::class);
+    });
+});
+
+/**
+ * `fecha_entrega` es la fecha de la transaccion y la elige quien captura: el
+ * camion llego el viernes y el almacen lo asienta el lunes. Lo que no se puede
+ * es fechar hacia adelante. Cuando se capturo lo guarda el servidor aparte, en
+ * `created_at`, y eso no lo mueve nadie desde la pantalla.
+ */
+describe('la fecha de transaccion se elige, la de registro la pone el servidor', function () {
+    it('rechaza la entrada fechada en el futuro', function () {
+        $almacen = Almacen::factory()->create();
+        $producto = Producto::factory()->create();
+
+        $datos = entradaValida($almacen, [
+            ['articulo_id' => articuloDe($producto), 'cantidad_recibida' => 10, 'precio_unitario' => 4.35],
+        ]);
+        $datos['fecha_entrega'] = now()->addDay()->toDateString();
+
+        $this->actingAs(usuarioDeEntradas())
+            ->post(route('admin.alm.entradas.store'), $datos)
+            ->assertSessionHasErrors('fecha_entrega');
+
+        expect(Entrega::count())->toBe(0);
+    });
+
+    it('respeta la fecha capturada con retraso y sella aparte la de registro', function () {
+        $almacen = Almacen::factory()->create();
+        $producto = Producto::factory()->create();
+
+        $datos = entradaValida($almacen, [
+            ['articulo_id' => articuloDe($producto), 'cantidad_recibida' => 10, 'precio_unitario' => 4.35],
+        ]);
+        $datos['fecha_entrega'] = now()->subWeek()->toDateString();
+
+        $this->actingAs(usuarioDeEntradas())
+            ->post(route('admin.alm.entradas.store'), $datos)
+            ->assertSessionHasNoErrors();
+
+        $entrada = Entrega::firstOrFail();
+
+        expect($entrada->fecha_entrega->toDateString())->toBe(now()->subWeek()->toDateString())
+            // La de registro es de hoy, la haya fechado hacia atras o no.
+            ->and($entrada->created_at->toDateString())->toBe(today()->toDateString());
+    });
+});
+
+describe('el selector de la captura sin orden', function () {
+    /**
+     * El bug: la pantalla servia `costos_productos` a un campo que se valida
+     * contra `alm_articulos`. Como los dos catalogos tienen numeracion propia y
+     * sus rangos se traslapan casi por completo, la validacion lo dejaba pasar y
+     * la entrada abonaba el saldo al articulo vecino, sin fallar en ningun lado.
+     *
+     * Por eso estas pruebas adelantan los ids de Compras a proposito: cuando
+     * producto y articulo coinciden, el bug es invisible.
+     */
+    it('sirve ids del catalogo de Almacen, no de Compras', function () {
+        Producto::factory()->count(5)->create();
+
+        $producto = Producto::factory()->create(['descripcion' => 'Tornillo A325']);
+        $articulo = Articulo::factory()->create([
+            'producto_id' => $producto->id,
+            'descripcion' => 'Tornillo A325',
+        ]);
+
+        expect($articulo->id)->not->toBe($producto->id);
+
+        $this->actingAs(usuarioDeEntradas())
+            ->get(route('admin.alm.entradas.create'))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->has('articulos', 1)
+                ->where('articulos.0.id', $articulo->id));
+    });
+
+    it('no ofrece el articulo suelto, que no tiene compra que documentar', function () {
+        // El de la carga inicial de un almacen. La entrada documenta una compra,
+        // y algo que nadie compro no tiene con que documentarse.
+        Articulo::factory()->sinLigar()->create();
+
+        $this->actingAs(usuarioDeEntradas())
+            ->get(route('admin.alm.entradas.create'))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page->has('articulos', 0));
+    });
+
+    it('no ofrece el articulo cancelado', function () {
+        Articulo::factory()->create(['activo' => false]);
+
+        $this->actingAs(usuarioDeEntradas())
+            ->get(route('admin.alm.entradas.create'))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page->has('articulos', 0));
+    });
+
+    it('el id que ofrece la pantalla carga el saldo del articulo elegido', function () {
+        // La prueba de punta a punta: se toma el id tal como sale de la pantalla
+        // y se captura con el. Antes caia en otro articulo.
+        Producto::factory()->count(5)->create();
+
+        $producto = Producto::factory()->create(['descripcion' => 'Tornillo A325', 'unidad' => 'PZA']);
+        $articulo = Articulo::factory()->create([
+            'producto_id' => $producto->id,
+            'descripcion' => 'Tornillo A325',
+            'unidad' => 'PZA',
+        ]);
+        $vecino = Articulo::factory()->create(['descripcion' => 'Tuerca A563']);
+
+        $almacen = Almacen::factory()->create();
+        $usuario = usuarioDeEntradas();
+
+        $ofrecido = null;
+        $this->actingAs($usuario)
+            ->get(route('admin.alm.entradas.create'))
+            ->assertOk()
+            ->assertInertia(function ($page) use (&$ofrecido, $articulo) {
+                $ofrecido = collect($page->toArray()['props']['articulos'])
+                    ->firstWhere('descripcion', 'Tornillo A325')['id'];
+
+                return $page->where('articulos.0.id', $articulo->id);
+            });
+
+        $this->actingAs($usuario)
+            ->post(route('admin.alm.entradas.store'), entradaValida($almacen, [
+                ['articulo_id' => $ofrecido, 'cantidad_recibida' => 10, 'precio_unitario' => 5],
+            ]))
+            ->assertSessionHasNoErrors();
+
+        $existencia = Existencia::firstOrFail();
+
+        expect($ofrecido)->toBe($articulo->id)
+            ->and($existencia->articulo_id)->toBe($articulo->id)
+            ->and($existencia->articulo_id)->not->toBe($vecino->id)
+            ->and(Entrega::firstOrFail()->detalles()->firstOrFail()->descripcion)->toBe('Tornillo A325');
+    });
+});

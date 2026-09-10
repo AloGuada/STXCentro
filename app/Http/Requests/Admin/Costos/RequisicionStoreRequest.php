@@ -39,7 +39,9 @@ class RequisicionStoreRequest extends FormRequest
             'justificacion' => ['nullable', 'string'],
             'fecha_requerida' => ['nullable', 'date'],
             'detalles' => ['required', 'array', 'min:1'],
-            'detalles.*.producto_id' => ['nullable', 'exists:costos_productos,id'],
+            // Del catálogo, siempre: la partida tecleada al vuelo ya no estrena
+            // producto. Lo que no existe se da de alta en Almacén > Artículos.
+            'detalles.*.producto_id' => ['required', 'exists:costos_productos,id'],
             'detalles.*.descripcion' => ['required', 'string', 'max:255'],
             'detalles.*.unidad' => ['required', 'string', 'max:20'],
             'detalles.*.cantidad' => ['required', 'numeric', 'min:0.01'],
@@ -76,6 +78,8 @@ class RequisicionStoreRequest extends FormRequest
             'detalles.required' => 'Debe registrar al menos una partida.',
             'detalles.min' => 'Debe registrar al menos una partida.',
             'detalles.*.cantidad.min' => 'La cantidad debe ser mayor a cero.',
+            'detalles.*.producto_id.required' => 'Esa partida no está en el catálogo. Un producto nuevo se da de alta en Almacén → Artículos.',
+            'detalles.*.producto_id.exists' => 'Ese producto ya no existe en el catálogo.',
             'detalles.*.obra_rubro_id.required' => 'Cada partida requiere un centro de costos.',
             'detalles.*.uso_cfdi_id.required' => 'Cada partida requiere un uso de CFDI.',
             'detalles.*.uso_cfdi_id.exists' => 'El uso de CFDI seleccionado no es válido o está inactivo.',

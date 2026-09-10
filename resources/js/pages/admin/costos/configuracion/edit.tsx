@@ -17,6 +17,7 @@ type Configuracion = {
     corte_dia: number;
     corte_hora: string;
     dia_comprobante_recepcion: number | null;
+    tolerancia_recepcion: number;
     gerente_compras_id: string | null;
 };
 
@@ -58,6 +59,7 @@ export default function ConfiguracionCostosEdit({ configuracion, usuarios }: Pro
         corte_dia: number;
         corte_hora: string;
         dia_comprobante_recepcion: number | '';
+        tolerancia_recepcion: number;
         gerente_compras_id: string;
     }>({
         dias_apartado: configuracion.dias_apartado,
@@ -67,6 +69,7 @@ export default function ConfiguracionCostosEdit({ configuracion, usuarios }: Pro
         corte_dia: configuracion.corte_dia,
         corte_hora: configuracion.corte_hora,
         dia_comprobante_recepcion: configuracion.dia_comprobante_recepcion ?? '',
+        tolerancia_recepcion: Number(configuracion.tolerancia_recepcion ?? 0.01),
         gerente_compras_id: configuracion.gerente_compras_id ?? '',
     });
 
@@ -217,6 +220,29 @@ export default function ConfiguracionCostosEdit({ configuracion, usuarios }: Pro
                                 <p className="mt-1 text-xs text-base-content/60">
                                     Día en que el proveedor puede subir el comprobante de recepción de su factura en el
                                     portal. Si se deja en "Libre", puede subirlo cualquier día.
+                                </p>
+                            </FormField>
+                        </div>
+
+                        <div className="rounded-lg border border-base-300 p-4">
+                            <FormField
+                                label="Tolerancia entre factura y recepción ($)"
+                                htmlFor="tolerancia_recepcion"
+                                error={errors.tolerancia_recepcion}
+                                required
+                            >
+                                <Input
+                                    id="tolerancia_recepcion"
+                                    type="number"
+                                    step="0.01"
+                                    min={0}
+                                    value={data.tolerancia_recepcion}
+                                    onChange={(e) => setData('tolerancia_recepcion', parseFloat(e.target.value) || 0)}
+                                />
+                                <p className="mt-1 text-xs text-base-content/60">
+                                    Hasta cuántos pesos puede diferir el total del CFDI de lo que se está recibiendo en
+                                    Almacén sin que la entrada se rechace. La recepción guarda lo que entró tal cual; la
+                                    diferencia se acepta como redondeo del proveedor.
                                 </p>
                             </FormField>
                         </div>

@@ -13,7 +13,6 @@ import {
 } from '@/components/costos/copiar-requisicion-modal';
 import { RubroSelector } from '@/components/costos/rubro-selector';
 import { Button } from '@/components/ui/button';
-import { CreatableCombobox } from '@/components/ui/creatable-combobox';
 import { SearchSelect } from '@/components/ui/search-select';
 import { useFormCache } from '@/hooks/use-form-cache';
 import AppLayout from '@/layouts/app-layout';
@@ -617,11 +616,6 @@ export default function RequisicionesCreate({
                                             <div className="flex items-start justify-between gap-1">
                                                 <span className="text-sm">
                                                     {d.descripcion}
-                                                    {!d.producto_id && (
-                                                        <span className="ml-1 text-[10px] text-primary">
-                                                            (nuevo)
-                                                        </span>
-                                                    )}
                                                 </span>
                                                 <button
                                                     type="button"
@@ -638,33 +632,39 @@ export default function RequisicionesCreate({
                                                 </button>
                                             </div>
                                         ) : (
-                                            <CreatableCombobox
-                                                options={productoOptions}
-                                                placeholder="Buscar o crear producto..."
-                                                creatableLabel="Crear producto"
-                                                className="[&_input]:input-sm"
-                                                onSelect={(opt) => {
-                                                    const p = productos.find(
-                                                        (x) =>
-                                                            String(x.id) ===
-                                                            opt.value,
-                                                    );
-                                                    if (p) {
-                                                        setDetalleFields(i, {
-                                                            producto_id: p.id,
-                                                            descripcion:
-                                                                p.descripcion,
-                                                            unidad: p.unidad,
-                                                        });
-                                                    }
-                                                }}
-                                                onCreate={(text) =>
-                                                    setDetalleFields(i, {
-                                                        producto_id: null,
-                                                        descripcion: text,
-                                                    })
-                                                }
-                                            />
+                                            <div>
+                                                <SearchSelect
+                                                    options={productoOptions}
+                                                    placeholder="Buscar en el catálogo..."
+                                                    inputClassName="input-sm"
+                                                    maxOptions={25}
+                                                    value=""
+                                                    onValueChange={(valor) => {
+                                                        const p = productos.find(
+                                                            (x) => String(x.id) === valor,
+                                                        );
+                                                        if (p) {
+                                                            setDetalleFields(i, {
+                                                                producto_id: p.id,
+                                                                descripcion: p.descripcion,
+                                                                unidad: p.unidad,
+                                                            });
+                                                        }
+                                                    }}
+                                                />
+                                                <p className="mt-1 text-[10px] text-base-content/50">
+                                                    ¿No está?{' '}
+                                                    <a
+                                                        href="/admin/almacen/articulos/create"
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="link"
+                                                    >
+                                                        Dalo de alta en Artículos
+                                                    </a>{' '}
+                                                    y vuelve a buscarlo.
+                                                </p>
+                                            </div>
                                         )}
                                         {errors[
                                             `detalles.${i}.descripcion` as keyof typeof errors

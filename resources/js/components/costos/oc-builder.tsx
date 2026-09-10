@@ -1,7 +1,7 @@
 import { router } from '@inertiajs/react';
 import { PlusIcon, Trash2Icon } from 'lucide-react';
 import { Fragment, useMemo, useRef, useState } from 'react';
-import { calcularRetenciones, IVA_RATE } from '@/components/costos/retenciones';
+import { baseImpuestos, calcularRetenciones, IVA_RATE } from '@/components/costos/retenciones';
 import { Button } from '@/components/ui/button';
 import type {
     CostosRequisicion,
@@ -301,13 +301,15 @@ function OcCard({
         persistMeta({ modo_pago: modo, pagos: modo === 'credito' ? [] : pagos });
     };
 
+    const lineasFiscales = lineas.map((l) => ({
+        tipo_fiscal: l.detalle.tipo_fiscal,
+        subtotal: l.precio_unitario * l.cantidad,
+        sin_impuestos: l.detalle.sin_impuestos,
+    }));
     const subtotal = lineas.reduce((s, l) => s + l.precio_unitario * l.cantidad, 0);
-    const iva = subtotal * IVA_RATE;
+    const iva = baseImpuestos(lineasFiscales) * IVA_RATE;
     const total = subtotal + iva;
-    const retenciones = calcularRetenciones(
-        proveedor,
-        lineas.map((l) => ({ tipo_fiscal: l.detalle.tipo_fiscal, subtotal: l.precio_unitario * l.cantidad })),
-    );
+    const retenciones = calcularRetenciones(proveedor, lineasFiscales);
     const totalRet = retenciones.reduce((s, r) => s + r.monto, 0);
     const tieneRet = retenciones.length > 0;
 

@@ -47,6 +47,34 @@ function entregaConFactura(array $atributosFactura = []): Entrega
     return $entrega;
 }
 
+/**
+ * La misma recepción de 1000, pero sin factura ligada: es el caso de la entrega
+ * que se captura antes de que el proveedor timbre.
+ */
+function entregaSinFactura(): Entrega
+{
+    $oc = OrdenCompra::factory()->pendienteFactura()->create(['total' => 1000]);
+    $partida = OrdenCompraDetalle::factory()->create([
+        'orden_compra_id' => $oc->id,
+        'cantidad' => 10,
+        'precio_unitario' => 100,
+        'subtotal' => 1000,
+    ]);
+
+    $entrega = Entrega::factory()->create([
+        'orden_compra_id' => $oc->id,
+        'factura_id' => null,
+    ]);
+
+    EntregaDetalle::factory()->create([
+        'entrega_id' => $entrega->id,
+        'orden_compra_detalle_id' => $partida->id,
+        'cantidad_recibida' => 10,
+    ]);
+
+    return $entrega;
+}
+
 beforeEach(function () {
     $this->user = User::factory()->create();
 });
@@ -87,4 +115,17 @@ it('omite los renglones de retención cuando la factura no las trae', function (
     expect($html)->not->toContain('IVA RETENIDO');
     expect($html)->not->toContain('ISR RETENIDO');
     expect($html)->toContain('$1,160.00');
+});
+
+it('sin factura ligada estima el IVA al 16% de lo recibido', function () {
+    $entrega = entregaSinFactura()
+        ->load(['ordenCompra.proveedor', 'ordenCompra.obra', 'factura', 'recibidor', 'detalles.ordenCompraDetalle']);
+
+    $html = view('pdf.costos.formato-recepcion', ['entrega' => $entrega, 'moneda' => 'mxn'])->render();
+
+    expect($html)->toContain('IVA TRASLADADO (ESTIMADO 16%)');
+    expect($html)->toContain('$160.00');
+    expect($html)->toContain('TOTAL ESTIMADO (SIN FACTURA)');
+    expect($html)->toContain('$1,160.00');
+    expect($html)->not->toContain('TOTAL DE LA FACTURA');
 });

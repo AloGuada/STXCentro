@@ -7,6 +7,15 @@ type Option = {
     label: string;
 };
 
+function normalizar(texto: string): string {
+    return texto
+        .normalize('NFD')
+        .replace(/[̀-ͯ]/g, '')
+        .toLowerCase()
+        .replace(/\s+/g, ' ')
+        .trim();
+}
+
 type CreatableComboboxProps = {
     options: Option[];
     placeholder?: string;
@@ -36,8 +45,11 @@ export function CreatableCombobox({
         o.label.toLowerCase().includes(query.toLowerCase()),
     );
 
+    // Misma comparación que el catálogo maestro en el servidor: sin
+    // mayúsculas, acentos ni dobles espacios. Si lo tecleado ya existe, no se
+    // ofrece "crear", porque el servidor lo va a reutilizar de todos modos.
     const exactMatch = options.some(
-        (o) => o.label.toLowerCase() === query.trim().toLowerCase(),
+        (o) => normalizar(o.label) === normalizar(query),
     );
     const showCreate = query.trim().length > 0 && !exactMatch;
 

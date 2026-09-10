@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin\Costos;
 
+use App\Enums\Costos\DocumentoTipo;
 use App\Enums\Costos\PresupuestoEstatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\Costos\PlantaStoreRequest;
@@ -51,7 +52,7 @@ class PresupuestoController extends Controller
             ->first();
 
         $query = Presupuesto::query()
-            ->with('presupuestable')
+            ->with(['presupuestable', 'media'])
             ->withSum('rubros', 'presupuestado')
             ->withSum('rubros', 'acumulado')
             ->withSum('rubros', 'apartado')
@@ -148,7 +149,7 @@ class PresupuestoController extends Controller
     {
         Gate::authorize('costos.obra-rubros.editar');
 
-        $presupuesto->load(['presupuestable', 'rubros.rubro.tipoRubro']);
+        $presupuesto->load(['presupuestable', 'media', 'rubros.rubro.tipoRubro']);
         if ($presupuesto->presupuestable instanceof Partida) {
             $presupuesto->presupuestable->loadMissing('obra:id,no');
         }
@@ -293,19 +294,9 @@ class PresupuestoController extends Controller
         // Pantalla de consulta transversal: basta con pertenecer al modulo.
         Gate::authorize('costos.acceso');
 
-        $estatus = $request->string('estatus')->toString() === PresupuestoEstatus::Cerrado->value
-            ? PresupuestoEstatus::Cerrado->value
-            : PresupuestoEstatus::Activo->value;
+        $estatus = $this->estatusPedido($request);
 
-        $query = Presupuesto::query()
-            ->with('presupuestable')
-            ->withSum('rubros', 'presupuestado')
-            ->withSum('rubros', 'acumulado')
-            ->withSum('rubros', 'apartado')
-            ->withCount('rubros')
-            ->where('estatus', $estatus);
-
-        $this->aplicarBusqueda($query, $request->search);
+        $query = $this->consultaObrasActivas($request, $estatus);
 
         $orden = $this->aplicarOrden($query, $request, $this->columnasOrden(), 'created_at', 'desc');
 
@@ -323,6 +314,99 @@ class PresupuestoController extends Controller
             'sortBy' => $orden['by'],
             'sortDir' => $orden['dir'],
         ]);
+    }
+
+    /**
+     * La pestaña que se está viendo. Cualquier cosa que no sea "cerrado" cae en
+     * activas: es la vista por defecto de la pantalla.
+     */
+    private function estatusPedido(Request $request): string
+    {
+        return $request->string('estatus')->toString() === PresupuestoEstatus::Cerrado->value
+            ? PresupuestoEstatus::Cerrado->value
+            : PresupuestoEstatus::Activo->value;
+    }
+
+    /**
+     * La consulta detrás de "Obras activas". La comparten la pantalla y su
+     * impresión, para que el papel diga exactamente lo que se está viendo.
+     *
+     * @return Builder<Presupuesto>
+     */
+    private function consultaObrasActivas(Request $request, string $estatus): Builder
+    {
+        $query = Presupuesto::query()
+            ->with(['presupuestable', 'media'])
+            ->withSum('rubros', 'presupuestado')
+            ->withSum('rubros', 'acumulado')
+            ->withSum('rubros', 'apartado')
+            ->withCount('rubros')
+            ->where('estatus', $estatus);
+
+        $this->aplicarBusqueda($query, $request->search);
+
+        return $query;
+    }
+
+    /**
+     * Hoja para imprimir "Obras activas": las mismas obras, con el mismo filtro
+     * y el mismo orden que la pantalla, pero sin paginar. Se abre en el
+     * navegador porque lo que se quiere es mandarla a la impresora.
+     */
+    public function obrasActivasPdf(Request $request): HttpResponse
+    {
+        // Misma puerta que la pantalla: es una consulta transversal del módulo.
+        Gate::authorize('costos.acceso');
+
+        $estatus = $this->estatusPedido($request);
+
+        $query = $this->consultaObrasActivas($request, $estatus);
+
+        $this->aplicarOrden($query, $request, $this->columnasOrden(), 'created_at', 'desc');
+
+        $presupuestos = $query->get()->map(fn (Presupuesto $p) => $this->presentar($p));
+
+        $pdf = Pdf::loadView('pdf.costos.obras-activas', [
+            'presupuestos' => $presupuestos,
+            'estatus' => $estatus,
+            'busqueda' => $request->string('search')->toString() ?: null,
+            'fechaGeneracion' => now(),
+        ])->setPaper('letter', 'landscape');
+
+        $nombre = $estatus === PresupuestoEstatus::Cerrado->value ? 'obras-cerradas' : 'obras-activas';
+
+        return $pdf->stream($nombre.'-'.now()->format('Y-m-d').'.pdf');
+    }
+
+    /**
+     * Guarda el documento del presupuesto (el PDF autorizado de la obra).
+     *
+     * Es uno solo: el que se sube reemplaza al anterior, porque lo que se
+     * consulta desde "Obras activas" es la versión vigente, no el histórico.
+     */
+    public function subirDocumento(Request $request, Presupuesto $presupuesto): RedirectResponse
+    {
+        Gate::authorize('costos.obra-rubros.editar');
+
+        $request->validate([
+            'documento' => ['required', 'file', 'mimes:'.DocumentoTipo::PresupuestoDocumento->mimes(), 'max:15360'],
+        ]);
+
+        $file = $request->file('documento');
+
+        $presupuesto->media()
+            ->where('descripcion', DocumentoTipo::PresupuestoDocumento->value)
+            ->delete();
+
+        $presupuesto->media()->create([
+            'descripcion' => DocumentoTipo::PresupuestoDocumento->value,
+            'nombre_original' => $file->getClientOriginalName(),
+            'path' => $file->store("costos/presupuestos/{$presupuesto->id}", 'public'),
+            'mime' => $file->getMimeType(),
+            'size' => $file->getSize(),
+        ]);
+
+        return back()->with('success', 'Documento del presupuesto guardado.');
     }
 
     /**
@@ -400,6 +484,11 @@ class PresupuestoController extends Controller
             'sum_presupuestado' => (float) ($p->rubros_sum_presupuestado ?? 0),
             'sum_acumulado' => (float) ($p->rubros_sum_acumulado ?? 0),
             'sum_apartado' => (float) ($p->rubros_sum_apartado ?? 0),
+            // El PDF autorizado, para poder abrirlo desde el listado. Sólo
+            // cuando la consulta trajo los adjuntos: si no, sería un N+1.
+            'documento' => $p->relationLoaded('media') && ($doc = $p->documento())
+                ? ['nombre' => $doc->nombre_original, 'path' => $doc->path]
+                : null,
         ];
     }
 

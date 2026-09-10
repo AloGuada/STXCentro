@@ -70,21 +70,29 @@ test('una entrega que completa la factura la marca entregada y la avanza si ya t
         'precio_unitario' => 100,
         'subtotal' => 1000,
     ]);
-    $factura = Factura::factory()->create([
-        'orden_compra_id' => $oc->id,
-        'proveedor_id' => $proveedor->id,
-        'estatus' => 'pendiente_recepcion',
-        'total' => 1000,
-    ]);
+    // La factura ampara justo lo que va a entrar: es lo que pide la captura
+    // para dejarla ligar a la recepcion.
+    $detalles = [['orden_compra_detalle_id' => $partida->id, 'cantidad_recibida' => 10]];
+    $factura = facturaQueAmpara(
+        Factura::factory()->create([
+            'orden_compra_id' => $oc->id,
+            'proveedor_id' => $proveedor->id,
+            'estatus' => 'pendiente_recepcion',
+        ]),
+        $oc,
+        $detalles,
+    );
     agregarComprobante($factura);
 
     $this->actingAs($user)
-        ->post("/admin/costos/ordenes-compra/{$oc->id}/entregas", [
+        ->post('/admin/almacen/entradas', [
+            'orden_compra_id' => $oc->id,
+            'almacen_id' => almacenParaRecibir($user)->id,
             'fecha_entrega' => '2026-05-20',
             'tipo' => 'completa',
             'factura_id' => $factura->id,
             'completa_factura' => true,
-            'detalles' => [['orden_compra_detalle_id' => $partida->id, 'cantidad_recibida' => 10]],
+            'detalles' => $detalles,
         ])
         ->assertRedirect();
 
@@ -104,20 +112,28 @@ test('una entrega que completa la factura sin comprobante la marca pero no la av
         'precio_unitario' => 100,
         'subtotal' => 1000,
     ]);
-    $factura = Factura::factory()->create([
-        'orden_compra_id' => $oc->id,
-        'proveedor_id' => $proveedor->id,
-        'estatus' => 'pendiente_recepcion',
-        'total' => 1000,
-    ]);
+    // La factura ampara justo lo que va a entrar: es lo que pide la captura
+    // para dejarla ligar a la recepcion.
+    $detalles = [['orden_compra_detalle_id' => $partida->id, 'cantidad_recibida' => 10]];
+    $factura = facturaQueAmpara(
+        Factura::factory()->create([
+            'orden_compra_id' => $oc->id,
+            'proveedor_id' => $proveedor->id,
+            'estatus' => 'pendiente_recepcion',
+        ]),
+        $oc,
+        $detalles,
+    );
 
     $this->actingAs($user)
-        ->post("/admin/costos/ordenes-compra/{$oc->id}/entregas", [
+        ->post('/admin/almacen/entradas', [
+            'orden_compra_id' => $oc->id,
+            'almacen_id' => almacenParaRecibir($user)->id,
             'fecha_entrega' => '2026-05-20',
             'tipo' => 'completa',
             'factura_id' => $factura->id,
             'completa_factura' => true,
-            'detalles' => [['orden_compra_detalle_id' => $partida->id, 'cantidad_recibida' => 10]],
+            'detalles' => $detalles,
         ])
         ->assertRedirect();
 

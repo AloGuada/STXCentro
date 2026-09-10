@@ -18,6 +18,11 @@ use Illuminate\Support\Facades\DB;
  * aplica el impacto sobre los rubros nuevos (Aplicado, permitiendo sobregiro).
  * Todo en una transacción y con bitácora del motivo.
  *
+ * Lo que NO toca es el monto de la solicitud: reasignar es mover el gasto de
+ * un centro de costos a otro, no volver a cotizar lo que se va a pagar. El
+ * dinero ya se firmó con ese importe, y recalcularlo desde el desglose
+ * cambiaría lo que se le debe al proveedor por corregir una captura.
+ *
  * Por ahora opera sobre SolicitudPago; la mecánica (reverso + reaplicación vía
  * las primitivas compartidas) es generalizable a Afectación y OC.
  */
@@ -43,8 +48,9 @@ class ReasignacionCentroCostos
 
         $sumaNueva = round(array_sum(array_map(fn (array $d): float => (float) $d['monto'], $nuevosDetalles)), 2);
 
-        // En una solicitud pagada solo se puede redistribuir el gasto entre
-        // centros de costos: el total ya pagado no cambia.
+        // En una solicitud pagada el desglose además tiene que cuadrar con lo
+        // que ya salió del banco: ahí no hay margen para que el reparto sume
+        // distinto. En las demás sólo se avisa en pantalla.
         if ($solicitud->estatus === SolicitudPagoEstatus::Pagada) {
             $epsilon = (float) config('costos.epsilon_monto', 0.01);
             abort_if(
@@ -95,6 +101,10 @@ class ReasignacionCentroCostos
             }
 
             // 3. Aplicar el impacto sobre los rubros nuevos (Aplicado, con sobregiro).
+            // El desglose viene en la divisa de la solicitud y el presupuesto
+            // pesa en MXN: hay que reaplicar con la misma moneda y el mismo tipo
+            // de cambio con que se firmó, o el cargo se encogería al valor
+            // nominal en divisa (mover el gasto de centro no lo re-cotiza).
             $solicitud->load('detalles');
             foreach ($solicitud->detalles as $detalle) {
                 $this->apartado->aplicarCargo(
@@ -105,20 +115,21 @@ class ReasignacionCentroCostos
                     descripcion: $detalle->concepto,
                     userId: $userId,
                     allowSobregiro: true,
+                    moneda: $solicitud->tipo_moneda ?? 'mxn',
+                    tc: $solicitud->tipo_cambio ? (float) $solicitud->tipo_cambio : null,
                 );
             }
 
-            // 4. Recalcular el total salvo en pagada (donde queda fijo).
-            if ($solicitud->estatus !== SolicitudPagoEstatus::Pagada) {
-                $solicitud->update(['monto_total' => $sumaNueva]);
-            }
-
-            // 5. Bitácora de la reasignación.
+            // 4. Bitácora de la reasignación. Se guarda la suma junto al monto
+            // de la solicitud: cuando no coinciden, es lo que explica por qué el
+            // presupuesto cargado no es igual a lo que se pagó.
             activity('costos')
                 ->performedOn($solicitud)
                 ->causedBy($userId ? Usuario::find($userId) : null)
                 ->withProperties([
                     'motivo' => $motivo,
+                    'monto_total' => round((float) $solicitud->monto_total, 2),
+                    'suma_detalles' => $sumaNueva,
                     'antes' => $antes,
                     'despues' => array_map(fn (array $d): array => [
                         'obra_rubro_id' => (int) $d['obra_rubro_id'],

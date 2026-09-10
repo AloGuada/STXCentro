@@ -6,10 +6,10 @@ use App\Enums\Costos\FacturaEstatus;
 use App\Enums\Costos\SolicitudPagoEstatus;
 use App\Models\Costos\Factura;
 use App\Models\Costos\SolicitudPago;
-use App\Models\Proveedor;
 use App\Models\Usuario;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Str;
 
 /**
  * Puntos de control post-cadena de Costos y Contabilidad. Reúne, según los
@@ -166,7 +166,8 @@ class PuntosDeControl
             'paso' => $paso,
             'id' => $sp->id,
             'folio' => $sp->folio,
-            'proveedor' => $this->nombreProveedor($sp->proveedor),
+            'proveedor' => $sp->proveedor?->razon_social,
+            'proveedor_comercial' => $sp->proveedor?->nombre_comercial,
             'concepto' => $sp->concepto,
             'monto' => (float) $sp->monto_total,
             'moneda' => $sp->tipo_moneda ?? 'mxn',
@@ -186,7 +187,8 @@ class PuntosDeControl
             'paso' => $paso,
             'id' => $factura->id,
             'folio' => $factura->folio,
-            'proveedor' => $this->nombreProveedor($factura->proveedor),
+            'proveedor' => $factura->proveedor?->razon_social,
+            'proveedor_comercial' => $factura->proveedor?->nombre_comercial,
             'concepto' => $factura->folio_fiscal,
             'monto' => (float) $factura->total,
             'moneda' => $factura->moneda ?? 'mxn',
@@ -196,12 +198,56 @@ class PuntosDeControl
         ];
     }
 
-    private function nombreProveedor(?Proveedor $proveedor): ?string
+    /**
+     * Filtra las filas por un texto libre contra las mismas columnas que se ven
+     * en pantalla, sin distinguir mayúsculas ni acentos. La espeja
+     * `filtrarPuntosControl` del front (resources/js/pages/admin/costos/
+     * confirmaciones/index.tsx) para que el reporte salga idéntico a la tabla.
+     *
+     * @param  Collection<int, array<string, mixed>>  $filas
+     * @return Collection<int, array<string, mixed>>
+     */
+    public function filtrar(Collection $filas, ?string $busqueda): Collection
     {
-        if (! $proveedor) {
-            return null;
+        $termino = $this->normalizar((string) $busqueda);
+
+        if ($termino === '') {
+            return $filas->values();
         }
 
-        return $proveedor->razon_social ?: $proveedor->nombre_comercial;
+        return $filas
+            ->filter(fn (array $fila): bool => str_contains($this->textoBuscable($fila), $termino))
+            ->values();
+    }
+
+    /**
+     * Todo lo que la fila muestra, concatenado y normalizado: se busca contra lo
+     * que el usuario ve, incluyendo el monto con y sin separadores de miles.
+     *
+     * @param  array<string, mixed>  $fila
+     */
+    private function textoBuscable(array $fila): string
+    {
+        $monto = (float) ($fila['monto'] ?? 0);
+
+        return $this->normalizar(implode(' ', [
+            $fila['tipo'] === 'solicitud_pago' ? 'Solicitud de pago' : 'Factura',
+            $fila['folio'] ?? '',
+            $fila['proveedor'] ?? '',
+            $fila['proveedor_comercial'] ?? '',
+            $fila['concepto'] ?? '',
+            number_format($monto, 2, '.', ''),
+            number_format($monto, 2),
+            strtoupper((string) ($fila['moneda'] ?? '')),
+            $fila['fecha'] ? date('d/m/Y', strtotime((string) $fila['fecha'])) : '',
+        ]));
+    }
+
+    /**
+     * Minúsculas y sin acentos: "Cañón" y "canon" tienen que encontrarse.
+     */
+    private function normalizar(string $texto): string
+    {
+        return Str::lower(Str::ascii(trim($texto)));
     }
 }

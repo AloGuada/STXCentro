@@ -39,9 +39,15 @@
         .sig-role { font-size: 9px; color: #555; }
         .sig-date { font-size: 8px; color: #888; }
         .footer { position: fixed; bottom: 0; left: 0; right: 0; text-align: center; font-size: 9px; color: #555; padding: 10px 40px; }
+        .watermark { position: fixed; top: 40%; left: 0; right: 0; text-align: center; font-size: 62px; font-weight: bold; color: #e0e0e0; letter-spacing: 4px; transform: rotate(-25deg); z-index: -1; }
+        .draft-banner { border: 2px solid #b91c1c; color: #b91c1c; font-size: 11px; font-weight: bold; text-align: center; padding: 5px; margin-bottom: 12px; letter-spacing: 1px; }
     </style>
 </head>
 <body>
+    @if($esBorrador ?? false)
+    <div class="watermark">BORRADOR NO APROBADO</div>
+    @endif
+
     @php
         $fecha = $requisicion->created_at ?? now();
 
@@ -125,6 +131,12 @@
 
     <div class="title">COMPARATIVO DE COTIZACIONES</div>
 
+    @if($esBorrador ?? false)
+    <div class="draft-banner">
+        BORRADOR &mdash; NO APROBADO POR EL GERENTE DE COMPRAS. DOCUMENTO SIN VALIDEZ.
+    </div>
+    @endif
+
     <table class="info-table">
         <tr>
             <td class="label">Folio Requisicion</td>
@@ -177,6 +189,9 @@
                     {{ $d->descripcion }}
                     @if($d->solo_cotizacion)
                         <span style="font-size: 8px; color: #666; font-style: italic;">(solo cotización — no se surte en OC)</span>
+                    @endif
+                    @if($d->sin_impuestos)
+                        <span style="font-size: 8px; color: #666; font-style: italic;">(sin impuestos)</span>
                     @endif
                 </td>
                 <td>
@@ -254,16 +269,17 @@
                 <td class="text-right">-${{ number_format($ret['monto'], 2) }}{{ $sufijoMonto($b['moneda']) }}</td>
             </tr>
             @endforeach
-            @if($b['solo_cotizacion'] > 0)
-            <tr class="total-row">
-                <td colspan="{{ 3 + $numCols }}" class="text-right">(−) SOLO COTIZACIÓN (NO SE SURTE EN OC)</td>
-                <td class="text-right">-${{ number_format($b['solo_cotizacion'], 2) }}{{ $sufijoMonto($b['moneda']) }}</td>
-            </tr>
-            @endif
             <tr class="total-row">
                 <td colspan="{{ 3 + $numCols }}" class="text-right">TOTAL NETO A PAGAR{{ $sufijoEtiqueta($b['moneda']) }}</td>
                 <td class="text-right">${{ number_format($b['neto'], 2) }}{{ $sufijoMonto($b['moneda']) }}</td>
             </tr>
+            @if($b['solo_cotizacion'] > 0)
+            <tr>
+                <td colspan="{{ 4 + $numCols }}" class="text-right" style="font-size: 8px; color: #666; font-style: italic;">
+                    Incluye ${{ number_format($b['solo_cotizacion'], 2) }}{{ $sufijoMonto($b['moneda']) }} de partidas solo cotización (referencia, no se surten en OC).
+                </td>
+            </tr>
+            @endif
             @endforeach
             @php $muestraCombinado = $totales['neto_mxn'] !== null && ($multiMoneda || abs($totales['tc'] - 1) > 1e-9); @endphp
             @if($muestraCombinado)

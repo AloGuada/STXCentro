@@ -8,6 +8,7 @@ use App\Models\Costos\AprobacionDepartamento;
 use App\Models\Prod\Catalogo;
 use App\Models\Qal\Obra as ObraDeCalidad;
 use App\Models\Usuario;
+use App\Services\Alm\ResolvedorArticulo;
 use App\Services\Rh\Cv\OllamaClient;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Date;
@@ -25,6 +26,10 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->bind(OllamaClient::class, fn () => OllamaClient::fromConfig());
+
+        // Singleton porque cachea la correspondencia producto => articulo, y un
+        // import de layout resolveria el mismo producto cientos de veces.
+        $this->app->singleton(ResolvedorArticulo::class);
     }
 
     /**

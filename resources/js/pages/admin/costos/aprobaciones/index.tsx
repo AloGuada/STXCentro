@@ -1,11 +1,13 @@
 import { DocumentoUpload } from '@/components/costos/documento-upload';
+import { formatMoney } from '@/components/costos/monto';
+import OcsAdjudicadas from '@/components/costos/ocs-adjudicadas';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
-import type { CostosAprobacionSolicitud, CostosRequisicionEstatus, CostosSolicitudPago } from '@/types/models';
+import type { CostosAprobacionSolicitud, CostosRequisicionEstatus, CostosRequisicionOcResumen, CostosSolicitudPago, PaginatedData } from '@/types/models';
 import { REQUISICION_ESTATUS_COLORS, REQUISICION_ESTATUS_LABELS } from '@/types/models';
 import { Head, Link, router, useForm } from '@inertiajs/react';
 import { AlertTriangleIcon, ArrowDownIcon, ArrowUpDownIcon, ArrowUpIcon, CheckIcon, EyeIcon, FileCheckIcon, FileTextIcon, PaperclipIcon, XIcon } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
@@ -15,8 +17,14 @@ const breadcrumbs: BreadcrumbItem[] = [
 
 type Props = {
     pendientes: CostosAprobacionSolicitud[];
-    aprobadas: CostosAprobacionSolicitud[];
-    rechazadas: CostosAprobacionSolicitud[];
+    /**
+     * El historial no viaja en la carga inicial: son props opcionales del
+     * servidor y llegan paginadas por recarga parcial cuando alguien activa la
+     * pestaña. `undefined` significa "todavía no se ha pedido".
+     */
+    aprobadas?: PaginatedData<CostosAprobacionSolicitud>;
+    rechazadas?: PaginatedData<CostosAprobacionSolicitud>;
+    conteos: { aprobadas: number; rechazadas: number };
     soloLectura?: boolean;
     aprobador?: { id: string; name: string } | null;
     aprobadores?: { id: string; name: string }[];
@@ -24,8 +32,6 @@ type Props = {
 
 const fmtDate = (date: string | null) =>
     date ? new Date(date).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '-';
-
-const fmtMoney = (n: number) => `$${Number(n).toLocaleString('es-MX', { minimumFractionDigits: 2 })}`;
 
 function ObservacionesModal({ aprobacionId, tipo, onClose }: { aprobacionId: number; tipo: 'aprobar' | 'rechazar'; onClose: () => void }) {
     const esAprobacion = tipo === 'aprobar';
@@ -197,11 +203,18 @@ type RowDisplay = {
     solicitanteName: string;
     departamentoNombre: string;
     proveedor: { razon_social: string; rfc?: string | null; subLabel?: string | null } | null;
+    // Requisiciones ya adjudicadas: el proveedor que quedó en la(s) OC(s).
+    // Cuando viene con renglones, sustituye a `proveedor` en la columna.
+    ocsAdjudicadas: CostosRequisicionOcResumen[];
     tipoLabel: string;
     monto: number;
     // Para requisiciones: el monto es el neto a pagar (subtotal + IVA - retenciones)
     // cuando ya hay OC/selecciones; si aún no, es el mejor precio (estimado).
     montoEsNeto: boolean;
+    /** Divisa en la que está expresado `monto`. */
+    moneda: string;
+    /** Hay OCs en divisa pero la requisición no tiene tipo de cambio capturado. */
+    faltaTc: boolean;
     tieneSobregiro: boolean;
     detailHref: string;
     archivosCount: number;
@@ -218,6 +231,7 @@ function buildDisplay(a: CostosAprobacionSolicitud): RowDisplay | null {
     if (a.tipo === 'requisicion' && a.requisicion) {
         const req = a.requisicion;
         const mejor = req.mejor_proveedor;
+        const ocs = req.ocs_resumen ?? [];
         const cotCount = req.proveedores_cotizadores_count ?? 0;
         const subLabel = cotCount > 0
             ? `${cotCount} ${cotCount === 1 ? 'proveedor cotizó' : 'proveedores cotizaron'}`
@@ -228,16 +242,31 @@ function buildDisplay(a: CostosAprobacionSolicitud): RowDisplay | null {
             createdAt: req.created_at,
             solicitanteName: req.solicitante?.name ?? '-',
             departamentoNombre: req.departamento?.descripcion ?? '',
+            // Con OC definida manda el proveedor adjudicado; antes de eso, el
+            // mejor precio del comparativo como referencia.
             proveedor: mejor
                 ? { razon_social: mejor.nombre_comercial || mejor.razon_social, rfc: null, subLabel }
                 : { razon_social: 'Cotización parcial', rfc: null, subLabel },
+            ocsAdjudicadas: ocs,
             tipoLabel: 'Requisición de compras',
             // Al inicio (sin OC/selecciones) el neto es 0: se muestra el mejor
             // precio como estimado. Una vez definida la OC, se muestra el neto.
             monto: (a.requisicion_total ?? 0) > 0
                 ? (a.requisicion_total ?? 0)
                 : (mejor ? mejor.total : 0),
-            montoEsNeto: (a.requisicion_total ?? 0) > 0,
+            montoEsNeto: ocs.length > 0,
+            // Una sola cifra en pesos con TODAS las OCs sumadas: `total_neto`
+            // llega ya convertido con el TC del documento. Sin TC capturado la
+            // divisa se sumó en crudo, y eso hay que decirlo.
+            moneda: 'mxn',
+            faltaTc:
+                // `tipo_cambio` nace en 1: con divisa de por medio, un 1 es un
+                // TC que nadie capturó.
+                (ocs.some((oc) => (oc.moneda ?? 'mxn').toLowerCase() !== 'mxn') &&
+                    !(Number(req.tipo_cambio) > 1)) ||
+                // Antes de la OC el monto es el mejor precio del comparativo,
+                // que trae su propia bandera de conversión.
+                (ocs.length === 0 && Boolean(mejor?.falta_tc)),
             tieneSobregiro: Boolean(req.tiene_sobregiro),
             detailHref: `/admin/costos/requisiciones/${req.id}`,
             archivosCount: 0,
@@ -266,9 +295,12 @@ function buildDisplay(a: CostosAprobacionSolicitud): RowDisplay | null {
         solicitanteName: sol.solicitante?.name ?? '-',
         departamentoNombre: sol.departamento?.descripcion ?? '',
         proveedor: sol.proveedor ? { razon_social: sol.proveedor.razon_social, rfc: sol.proveedor.rfc } : null,
+        ocsAdjudicadas: [],
         tipoLabel: sol.tipo_solicitud?.titulo ?? '-',
         monto: Number(sol.monto_total ?? 0),
         montoEsNeto: true,
+        moneda: sol.tipo_moneda ?? 'mxn',
+        faltaTc: false,
         tieneSobregiro: Boolean(sol.tiene_sobregiro),
         detailHref: `/admin/costos/aprobaciones/${a.id}`,
         archivosCount: sol.archivos?.length ?? 0,
@@ -283,28 +315,60 @@ function buildDisplay(a: CostosAprobacionSolicitud): RowDisplay | null {
 
 type SortKey = 'tipo' | 'nivel' | 'folio' | 'solicitante' | 'proveedor' | 'concepto' | 'monto' | 'fecha' | 'observaciones';
 
-function AprobacionTable({ items, tipo, soloLectura = false }: { items: CostosAprobacionSolicitud[]; tipo: 'pendientes' | 'aprobadas' | 'rechazadas'; soloLectura?: boolean }) {
+type Paginacion = {
+    pagina: number;
+    ultimaPagina: number;
+    desde: number | null;
+    hasta: number | null;
+    total: number;
+    cargando: boolean;
+    onPagina: (pagina: number) => void;
+};
+
+/**
+ * Pie de la tabla paginada. Navega por número de página —no por las `links`
+ * del paginador— porque el historial viaja como recarga parcial: visitar la
+ * URL del link traería la pantalla entera de vuelta.
+ */
+function Pager({ pagina, ultimaPagina, desde, hasta, total, cargando, onPagina }: Paginacion) {
+    return (
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+            <div className="text-xs text-base-content/60">
+                <p>Mostrando {desde ?? 0}–{hasta ?? 0} de {total}</p>
+                <p className="text-base-content/40">Los encabezados ordenan las filas de esta página.</p>
+            </div>
+
+            <div className="join">
+                <button
+                    type="button"
+                    className="join-item btn btn-sm"
+                    disabled={pagina <= 1 || cargando}
+                    onClick={() => onPagina(pagina - 1)}
+                >
+                    «
+                </button>
+                <span className="join-item btn btn-sm btn-ghost pointer-events-none">
+                    Página {pagina} de {ultimaPagina}
+                </span>
+                <button
+                    type="button"
+                    className="join-item btn btn-sm"
+                    disabled={pagina >= ultimaPagina || cargando}
+                    onClick={() => onPagina(pagina + 1)}
+                >
+                    »
+                </button>
+            </div>
+        </div>
+    );
+}
+
+function AprobacionTable({ items, tipo, soloLectura = false, paginacion }: { items: CostosAprobacionSolicitud[]; tipo: 'pendientes' | 'aprobadas' | 'rechazadas'; soloLectura?: boolean; paginacion?: Paginacion }) {
     const [modalState, setModalState] = useState<{ id: number; tipo: 'aprobar' | 'rechazar' } | null>(null);
     const [pdfModal, setPdfModal] = useState<{ url: string; title: string } | null>(null);
     const [archivosModal, setArchivosModal] = useState<CostosSolicitudPago | null>(null);
     const [mediaModal, setMediaModal] = useState<{ titulo: string; archivos: { id: number; url: string; nombre: string }[] } | null>(null);
     const [sort, setSort] = useState<{ key: SortKey; dir: 'asc' | 'desc' } | null>(null);
-
-    // Preserva el scroll de la tabla al ir/volver del detalle (por pestaña).
-    const scrollRef = useRef<HTMLDivElement>(null);
-    const storageKey = `aprobaciones-scroll-${tipo}`;
-    useEffect(() => {
-        const el = scrollRef.current;
-        const saved = el && sessionStorage.getItem(storageKey);
-        if (el && saved) {
-            el.scrollTop = Number(saved) || 0;
-        }
-    }, [storageKey]);
-    const handleScroll = () => {
-        if (scrollRef.current) {
-            sessionStorage.setItem(storageKey, String(scrollRef.current.scrollTop));
-        }
-    };
 
     const toggleSort = (key: SortKey) =>
         setSort((prev) => (prev?.key === key ? (prev.dir === 'asc' ? { key, dir: 'desc' } : null) : { key, dir: 'asc' }));
@@ -322,7 +386,9 @@ function AprobacionTable({ items, tipo, soloLectura = false }: { items: CostosAp
                 case 'nivel': return a.nivel ?? 0;
                 case 'folio': return d.folio;
                 case 'solicitante': return d.solicitanteName;
-                case 'proveedor': return d.proveedor?.razon_social ?? '';
+                case 'proveedor': return d.ocsAdjudicadas[0]
+                    ? (d.ocsAdjudicadas[0].nombre_comercial || d.ocsAdjudicadas[0].razon_social)
+                    : (d.proveedor?.razon_social ?? '');
                 case 'concepto': return d.tipoLabel;
                 case 'monto': return d.monto;
                 case 'fecha': return a.fecha_respuesta ?? '';
@@ -362,7 +428,7 @@ function AprobacionTable({ items, tipo, soloLectura = false }: { items: CostosAp
 
     return (
         <>
-            <div ref={scrollRef} onScroll={handleScroll} className="overflow-auto rounded-box border border-base-300" style={{ maxHeight: '70vh' }}>
+            <div className="rounded-box border-base-300 overflow-x-auto border">
                 <table className="table">
                     <thead className="sticky top-0 z-10 bg-base-100">
                         <tr>
@@ -416,7 +482,9 @@ function AprobacionTable({ items, tipo, soloLectura = false }: { items: CostosAp
                                         </div>
                                     </td>
                                     <td>
-                                        {d.proveedor ? (
+                                        {d.ocsAdjudicadas.length > 0 ? (
+                                            <OcsAdjudicadas ocs={d.ocsAdjudicadas} />
+                                        ) : d.proveedor ? (
                                             <div>
                                                 <div className="text-sm">{d.proveedor.razon_social}</div>
                                                 {d.proveedor.rfc && (
@@ -438,8 +506,13 @@ function AprobacionTable({ items, tipo, soloLectura = false }: { items: CostosAp
                                                     <AlertTriangleIcon className="size-4 text-error" />
                                                 </span>
                                             )}
-                                            <span className="font-medium">{fmtMoney(d.monto)}</span>
+                                            <span className="font-medium">{formatMoney(d.monto, d.moneda)}</span>
                                         </div>
+                                        {d.faltaTc && (
+                                            <div className="mt-0.5 text-[11px] font-semibold text-warning" title="Hay órdenes de compra en divisa y la requisición no tiene tipo de cambio capturado">
+                                                Falta tipo de cambio
+                                            </div>
+                                        )}
                                         {!d.montoEsNeto && (
                                             <div className="mt-0.5 text-[11px] text-base-content/50" title="El neto a pagar se calcula al definir la OC">
                                                 Mejor precio (estimado)
@@ -538,6 +611,8 @@ function AprobacionTable({ items, tipo, soloLectura = false }: { items: CostosAp
                 </table>
             </div>
 
+            {paginacion && paginacion.total > 0 && <Pager {...paginacion} />}
+
             {modalState && (
                 <ObservacionesModal
                     aprobacionId={modalState.id}
@@ -561,8 +636,83 @@ function AprobacionTable({ items, tipo, soloLectura = false }: { items: CostosAp
     );
 }
 
-export default function AprobacionesIndex({ pendientes, aprobadas, rechazadas, soloLectura = false, aprobador = null, aprobadores = [] }: Props) {
+type Historial = 'aprobadas' | 'rechazadas';
+
+/** Mientras el historial viene en camino, para que la pestana no salte en seco. */
+function HistorialCargando() {
+    return (
+        <div className="rounded-box border-base-300 space-y-2 border p-4" aria-busy="true">
+            {Array.from({ length: 6 }, (_, i) => (
+                <div key={i} className="bg-base-300 h-8 animate-pulse rounded" />
+            ))}
+            <p className="text-base-content/50 pt-2 text-center text-sm">Cargando el historial…</p>
+        </div>
+    );
+}
+
+export default function AprobacionesIndex({ pendientes, aprobadas, rechazadas, conteos, soloLectura = false, aprobador = null, aprobadores = [] }: Props) {
     const titulo = soloLectura ? 'Bandeja de aprobador' : 'Mis Aprobaciones';
+    const [cargando, setCargando] = useState<Historial | null>(null);
+    const pedidos = useRef(new Set<Historial>());
+
+    /**
+     * Cada página del historial es una recarga parcial: solo esa pestaña viaja,
+     * y su número de página va como parámetro propio (`pagina_aprobadas` /
+     * `pagina_rechazadas`) para que moverse en una no arrastre a la otra.
+     */
+    const pedirHistorial = (cual: Historial, pagina: number) => {
+        if (cargando !== null) {
+            return;
+        }
+
+        pedidos.current.add(cual);
+        setCargando(cual);
+        router.reload({
+            only: [cual],
+            data: { [`pagina_${cual}`]: pagina },
+            onFinish: () => setCargando(null),
+            onError: () => pedidos.current.delete(cual),
+        });
+    };
+
+    /**
+     * Se pide la primera página la primera vez que se abre la pestaña. Después
+     * ya vive en las props y cambiar de pestaña no vuelve a pegarle al servidor.
+     */
+    const abrirHistorial = (cual: Historial) => {
+        if (pedidos.current.has(cual)) {
+            return;
+        }
+
+        pedirHistorial(cual, 1);
+    };
+
+    const panelDe = (cual: Historial, pagina: PaginatedData<CostosAprobacionSolicitud> | undefined) => {
+        // El esqueleto es solo para la primera carga; al cambiar de página se
+        // deja la tabla en pantalla y se desactivan los botones del pie.
+        if (pagina === undefined) {
+            return cargando === cual
+                ? <HistorialCargando />
+                : <p className="text-base-content/60 py-8 text-center">Abre la pestaña para cargar el historial.</p>;
+        }
+
+        return (
+            <AprobacionTable
+                items={pagina.data}
+                tipo={cual}
+                soloLectura={soloLectura}
+                paginacion={{
+                    pagina: pagina.current_page,
+                    ultimaPagina: pagina.last_page,
+                    desde: pagina.from,
+                    hasta: pagina.to,
+                    total: pagina.total,
+                    cargando: cargando === cual,
+                    onPagina: (n) => pedirHistorial(cual, n),
+                }}
+            />
+        );
+    };
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -608,15 +758,25 @@ export default function AprobacionesIndex({ pendientes, aprobadas, rechazadas, s
                             <AprobacionTable items={pendientes} tipo="pendientes" soloLectura={soloLectura} />
                         </div>
 
-                        <input type="radio" name="aprobaciones_tabs" role="tab" className="tab" aria-label={`Aprobadas (${aprobadas.length})`} />
-                        <div role="tabpanel" className="tab-content py-4">
-                            <AprobacionTable items={aprobadas} tipo="aprobadas" soloLectura={soloLectura} />
-                        </div>
+                        <input
+                            type="radio"
+                            name="aprobaciones_tabs"
+                            role="tab"
+                            className="tab"
+                            aria-label={`Aprobadas (${conteos.aprobadas})`}
+                            onChange={() => abrirHistorial('aprobadas')}
+                        />
+                        <div role="tabpanel" className="tab-content py-4">{panelDe('aprobadas', aprobadas)}</div>
 
-                        <input type="radio" name="aprobaciones_tabs" role="tab" className="tab" aria-label={`Rechazadas (${rechazadas.length})`} />
-                        <div role="tabpanel" className="tab-content py-4">
-                            <AprobacionTable items={rechazadas} tipo="rechazadas" soloLectura={soloLectura} />
-                        </div>
+                        <input
+                            type="radio"
+                            name="aprobaciones_tabs"
+                            role="tab"
+                            className="tab"
+                            aria-label={`Rechazadas (${conteos.rechazadas})`}
+                            onChange={() => abrirHistorial('rechazadas')}
+                        />
+                        <div role="tabpanel" className="tab-content py-4">{panelDe('rechazadas', rechazadas)}</div>
                     </div>
                 )}
             </div>

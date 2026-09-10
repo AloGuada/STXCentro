@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin\Prod;
 
+use App\Enums\Prod\TipoPago;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\Prod\GrupoPrecioStoreRequest;
 use App\Http\Requests\Admin\Prod\GrupoPrecioUpdateRequest;
@@ -10,6 +11,8 @@ use App\Models\Obra;
 use App\Models\Prod\GrupoPrecio;
 use App\Models\Prod\GrupoPrecioConcepto;
 use App\Models\Prod\GrupoPrecioProceso;
+use App\Models\Prod\GrupoPrecioSubproceso;
+use App\Models\Prod\LiquidacionDetalle;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -53,6 +56,7 @@ class GrupoPrecioController extends Controller
                 ->orderBy('no')
                 ->get(['id', 'no', 'descripcion']),
             'procesos' => $this->procesosDeObra($obra),
+            'tiposPago' => TipoPago::opciones(),
         ]);
     }
 
@@ -61,9 +65,10 @@ class GrupoPrecioController extends Controller
         $grupoPrecio = GrupoPrecio::create([
             'obra_id' => $request->obra_id,
             'descripcion' => $request->descripcion,
+            'tipo_pago' => $request->tipo_pago,
         ]);
 
-        $this->guardarTarifas($grupoPrecio, $request->input('precios', []));
+        $this->guardarPrecios($grupoPrecio, $request);
 
         return to_route('admin.prod.grupo-precios.show-by-obra', $request->obra_id);
     }
@@ -74,7 +79,7 @@ class GrupoPrecioController extends Controller
 
         $grupoPrecios = GrupoPrecio::query()
             ->where('obra_id', $obra->id)
-            ->with(['grupoPrecioConceptos.concepto', 'precios.proceso'])
+            ->with(['grupoPrecioConceptos.concepto', 'precios.proceso', 'subprocesos.proceso'])
             ->withCount('grupoPrecioConceptos')
             ->orderBy('descripcion')
             ->get();
@@ -92,12 +97,13 @@ class GrupoPrecioController extends Controller
             'grupoPrecios' => $grupoPrecios,
             'unassignedConceptos' => $unassignedConceptos,
             'procesos' => $this->procesosDeObra($obra),
+            'tiposPago' => TipoPago::opciones(),
         ]);
     }
 
     public function edit(GrupoPrecio $grupoPrecio): Response
     {
-        $grupoPrecio->load(['grupoPrecioConceptos.concepto.obra', 'precios', 'obra']);
+        $grupoPrecio->load(['grupoPrecioConceptos.concepto.obra', 'precios', 'subprocesos', 'obra']);
 
         return Inertia::render('admin/prod/grupo-precios/edit', [
             'grupoPrecio' => $grupoPrecio,
@@ -107,6 +113,9 @@ class GrupoPrecioController extends Controller
                 ->orderBy('no')
                 ->get(),
             'procesos' => $this->procesosDeObra($grupoPrecio->obra),
+            'tiposPago' => TipoPago::opciones(),
+            // Una vez liquidado, el renglon pagado y el nuevo no son comparables.
+            'puedeCambiarModalidad' => ! $this->yaSeLiquido($grupoPrecio),
         ]);
     }
 
@@ -129,14 +138,94 @@ class GrupoPrecioController extends Controller
 
     public function update(GrupoPrecioUpdateRequest $request, GrupoPrecio $grupoPrecio): RedirectResponse
     {
+        $nuevaModalidad = TipoPago::from($request->string('tipo_pago')->value());
+
+        // Cambiar de modalidad con semanas ya pagadas dejaria la liquidacion
+        // vieja valorada con una regla que el grupo ya no tiene, y el avance de
+        // las piezas mezclando topes por proceso con topes por paso.
+        if ($nuevaModalidad !== $grupoPrecio->tipo_pago && $this->yaSeLiquido($grupoPrecio)) {
+            return back()->withErrors([
+                'tipo_pago' => 'Este grupo ya tiene produccion liquidada; no se puede cambiar su forma de pago. Crea un grupo nuevo y reasigna las marcas.',
+            ]);
+        }
+
         $grupoPrecio->update([
             'obra_id' => $request->obra_id,
             'descripcion' => $request->descripcion,
+            'tipo_pago' => $nuevaModalidad,
         ]);
 
-        $this->guardarTarifas($grupoPrecio, $request->input('precios', []));
+        $this->guardarPrecios($grupoPrecio->refresh(), $request);
 
         return to_route('admin.prod.grupo-precios.show-by-obra', $grupoPrecio->obra_id);
+    }
+
+    /** Hay al menos un renglon pagado que cito a este grupo de precios. */
+    private function yaSeLiquido(GrupoPrecio $grupoPrecio): bool
+    {
+        return LiquidacionDetalle::query()->where('grupo_precio_id', $grupoPrecio->id)->exists();
+    }
+
+    /**
+     * Los precios que aplican segun la modalidad. Guardar los dos lados dejaria
+     * tarifas fantasma que nadie ve pero que reviven si el grupo cambia.
+     */
+    private function guardarPrecios(GrupoPrecio $grupoPrecio, GrupoPrecioStoreRequest|GrupoPrecioUpdateRequest $request): void
+    {
+        if ($grupoPrecio->pagaPorSubproceso()) {
+            $this->guardarSubprocesos($grupoPrecio, $request->input('subprocesos', []));
+
+            return;
+        }
+
+        $this->guardarTarifas($grupoPrecio, $request->input('precios', []));
+    }
+
+    /**
+     * Sincroniza los pasos del grupo: los del formulario se crean o actualizan y
+     * los que ya no vienen se apagan si tienen produccion capturada, o se borran
+     * si nunca se usaron.
+     *
+     * No se borra lo que tiene registros porque el subproceso es quien pone el
+     * precio: sin el, el renglon capturado se queda sin importe.
+     *
+     * @param  array<int, array<string, mixed>>  $subprocesos
+     */
+    private function guardarSubprocesos(GrupoPrecio $grupoPrecio, array $subprocesos): void
+    {
+        $permitidos = $this->procesosDeObra($grupoPrecio->obra)->pluck('id');
+        $vigentes = [];
+
+        foreach ($subprocesos as $orden => $subproceso) {
+            $procesoId = (int) ($subproceso['proceso_id'] ?? 0);
+
+            if (! $permitidos->contains($procesoId)) {
+                continue;
+            }
+
+            $fila = GrupoPrecioSubproceso::updateOrCreate(
+                [
+                    'grupo_precio_id' => $grupoPrecio->id,
+                    'proceso_id' => $procesoId,
+                    'nombre' => trim((string) $subproceso['nombre']),
+                ],
+                [
+                    'precio' => (float) $subproceso['precio'],
+                    'orden' => (int) ($subproceso['orden'] ?? $orden),
+                    'activo' => (bool) ($subproceso['activo'] ?? true),
+                ],
+            );
+
+            $vigentes[] = $fila->id;
+        }
+
+        $sobrantes = $grupoPrecio->subprocesos()->whereNotIn('id', $vigentes ?: [0])->get();
+
+        foreach ($sobrantes as $sobrante) {
+            $sobrante->registros()->exists()
+                ? $sobrante->update(['activo' => false])
+                : $sobrante->delete();
+        }
     }
 
     /**

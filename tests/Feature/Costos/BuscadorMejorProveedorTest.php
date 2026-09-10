@@ -11,12 +11,13 @@ beforeEach(function () {
     $this->buscador = app(BuscadorMejorProveedor::class);
 });
 
-function cotizar(RequisicionDetalle $detalle, Proveedor $proveedor, float $precio): void
+function cotizar(RequisicionDetalle $detalle, Proveedor $proveedor, float $precio, string $moneda = 'mxn'): void
 {
     RequisicionCotizacionPrecio::factory()->create([
         'requisicion_detalle_id' => $detalle->id,
         'proveedor_id' => $proveedor->id,
         'precio_unitario' => $precio,
+        'moneda' => $moneda,
     ]);
 }
 
@@ -181,4 +182,83 @@ test('el listado usa el lote y no recalcula por fila', function () {
     $req->refresh()->precargarMejorProveedor(['id' => $prov->id, 'razon_social' => 'X', 'nombre_comercial' => null, 'total' => 99.0]);
 
     expect($req->mejor_proveedor['total'])->toBe(99.0);
+});
+
+test('convierte las cotizaciones en divisa con el tipo de cambio antes de comparar', function () {
+    $req = Requisicion::factory()->create(['tipo_cambio' => 18]);
+    $p1 = RequisicionDetalle::factory()->create(['requisicion_id' => $req->id, 'cantidad' => 1]);
+
+    $enPesos = Proveedor::factory()->create();
+    $enDolares = Proveedor::factory()->create();
+
+    cotizar($p1, $enPesos, 1500);            // 1,500 MXN
+    cotizar($p1, $enDolares, 100, 'usd');    // 100 USD × 18 = 1,800 MXN
+
+    $mejor = $this->buscador->buscar($req->refresh());
+
+    // Sin convertir, los 100 dólares parecían la opción barata.
+    expect($mejor['id'])->toBe($enPesos->id);
+    expect($mejor['total'])->toBe(1500.0);
+    expect($mejor['falta_tc'])->toBeFalse();
+});
+
+test('el total del mejor proveedor viene en MXN aunque la cotización sea en divisa', function () {
+    $req = Requisicion::factory()->create(['tipo_cambio' => 18]);
+    $p1 = RequisicionDetalle::factory()->create(['requisicion_id' => $req->id, 'cantidad' => 2]);
+    $prov = Proveedor::factory()->create();
+
+    cotizar($p1, $prov, 100, 'usd'); // 2 × 100 USD × 18
+
+    $mejor = $this->buscador->buscar($req->refresh());
+
+    expect($mejor['moneda'])->toBe('mxn');
+    expect($mejor['total'])->toBe(3600.0);
+    expect($mejor['falta_tc'])->toBeFalse();
+});
+
+test('con varias opciones el mínimo se toma sobre el precio ya convertido', function () {
+    $req = Requisicion::factory()->create(['tipo_cambio' => 18]);
+    $p1 = RequisicionDetalle::factory()->create(['requisicion_id' => $req->id, 'cantidad' => 1]);
+    $prov = Proveedor::factory()->create();
+    $op1 = RequisicionCotizacionOpcion::create(['requisicion_id' => $req->id, 'proveedor_id' => $prov->id, 'orden' => 1]);
+    $op2 = RequisicionCotizacionOpcion::create(['requisicion_id' => $req->id, 'proveedor_id' => $prov->id, 'orden' => 2]);
+
+    // 50 USD = 900 MXN es más caro que 800 MXN, aunque el número sea menor.
+    RequisicionCotizacionPrecio::factory()->create(['requisicion_detalle_id' => $p1->id, 'proveedor_id' => $prov->id, 'opcion_id' => $op1->id, 'precio_unitario' => 50, 'moneda' => 'usd']);
+    RequisicionCotizacionPrecio::factory()->create(['requisicion_detalle_id' => $p1->id, 'proveedor_id' => $prov->id, 'opcion_id' => $op2->id, 'precio_unitario' => 800, 'moneda' => 'mxn']);
+
+    expect($this->buscador->buscar($req->refresh())['total'])->toBe(800.0);
+});
+
+test('sin tipo de cambio capturado el total queda en crudo y se marca falta_tc', function () {
+    // `tipo_cambio` nace en 1: nadie lo capturó.
+    $req = Requisicion::factory()->create(['tipo_cambio' => 1]);
+    $p1 = RequisicionDetalle::factory()->create(['requisicion_id' => $req->id, 'cantidad' => 2]);
+    $prov = Proveedor::factory()->create();
+
+    cotizar($p1, $prov, 100, 'usd');
+
+    $mejor = $this->buscador->buscar($req->refresh());
+
+    expect($mejor['total'])->toBe(200.0);
+    expect($mejor['falta_tc'])->toBeTrue();
+});
+
+test('buscarLote convierte igual que buscar', function () {
+    $req = Requisicion::factory()->create(['tipo_cambio' => 18]);
+    $p1 = RequisicionDetalle::factory()->create(['requisicion_id' => $req->id, 'cantidad' => 1]);
+    $enPesos = Proveedor::factory()->create();
+    $enDolares = Proveedor::factory()->create();
+    cotizar($p1, $enPesos, 1500);
+    cotizar($p1, $enDolares, 100, 'usd');
+
+    $sinTc = Requisicion::factory()->create(['tipo_cambio' => 1]);
+    $p2 = RequisicionDetalle::factory()->create(['requisicion_id' => $sinTc->id, 'cantidad' => 1]);
+    cotizar($p2, Proveedor::factory()->create(), 100, 'usd');
+
+    $lote = $this->buscador->buscarLote([$req->id, $sinTc->id]);
+
+    expect($lote[$req->id])->toBe($this->buscador->buscar($req->refresh()));
+    expect($lote[$req->id]['total'])->toBe(1500.0);
+    expect($lote[$sinTc->id]['falta_tc'])->toBeTrue();
 });

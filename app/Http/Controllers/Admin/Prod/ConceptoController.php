@@ -8,9 +8,14 @@ use App\Http\Requests\Admin\ConceptoImportCsvRequest;
 use App\Http\Requests\Admin\Prod\ConceptoStoreRequest;
 use App\Http\Requests\Admin\Prod\ConceptoUpdateRequest;
 use App\Models\Concepto;
+use App\Models\Obra;
 use App\Models\Prod\Catalogo;
 use App\Models\Prod\Categoria;
+use App\Models\Prod\Proceso;
+use App\Services\Prod\AvanceDePiezas;
 use App\Services\Prod\ImportadorDeLayout;
+use App\Services\Prod\ModalidadDePago;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -97,6 +102,69 @@ class ConceptoController extends Controller
         $concepto->delete();
 
         return to_route('admin.prod.catalogos.show', $catalogoId);
+    }
+
+    /**
+     * Las marcas del catálogo vigente de una obra.
+     *
+     * Segundo escalón de la carga del catálogo: la pantalla trae las obras y
+     * pide estas al elegir una. Nunca viajan con sus piezas —para eso está
+     * `piezas()`—, que es lo que mantiene la respuesta en unos KB por grande
+     * que sea la obra.
+     */
+    public function marcasDeObra(Obra $obra): JsonResponse
+    {
+        return response()->json([
+            'marcas' => Concepto::query()
+                ->where('obra_id', $obra->id)
+                ->deCatalogoVigente()
+                ->where('activo', true)
+                ->orderBy('marca')
+                ->orderBy('lote')
+                ->get(['id', 'obra_id', 'marca', 'lote', 'descripcion', 'cantidad']),
+        ]);
+    }
+
+    /**
+     * Las piezas de una marca con su avance por proceso: el tercer escalón, que
+     * se pide al elegir la marca o al desplegarla en el catálogo.
+     *
+     * Si el grupo de precios de la marca paga por subproceso, también bajan los
+     * pasos con su precio y el avance de cada uno: la captura tiene que ofrecer
+     * el paso, y el tope se cuenta por paso, no por proceso.
+     */
+    public function piezas(Concepto $concepto, AvanceDePiezas $avance, ModalidadDePago $modalidad): JsonResponse
+    {
+        $piezas = $concepto->piezas()
+            ->where('activo', true)
+            ->orderBy('qr')
+            ->get(['id', 'catalogo_id', 'concepto_id', 'qr', 'qs']);
+
+        $procesoIds = Proceso::activos()->pluck('id')->all();
+
+        $grupo = $modalidad->grupo((int) $concepto->id, (int) $concepto->obra_id);
+        $pagaPorSubproceso = $grupo?->pagaPorSubproceso() ?? false;
+
+        $subprocesos = $pagaPorSubproceso
+            ? $grupo->subprocesos->where('activo', true)->sortBy('orden')->values()
+            : collect();
+
+        return response()->json([
+            'paga_por_subproceso' => $pagaPorSubproceso,
+            'subprocesos' => $subprocesos->map(fn ($subproceso) => [
+                'id' => $subproceso->id,
+                'proceso_id' => $subproceso->proceso_id,
+                'nombre' => $subproceso->nombre,
+                'precio' => (float) $subproceso->precio,
+            ])->values(),
+            'piezas' => $avance->decorar($piezas, $procesoIds, $subprocesos)->map(fn ($pieza) => [
+                'id' => $pieza->id,
+                'qr' => $pieza->qr,
+                'qs' => $pieza->qs,
+                'avance' => $pieza->avance,
+                'avance_subprocesos' => $pieza->avance_subprocesos,
+            ])->values(),
+        ]);
     }
 
     public function descargarLayout(): BinaryFileResponse

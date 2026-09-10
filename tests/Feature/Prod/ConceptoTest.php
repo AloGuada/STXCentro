@@ -7,6 +7,7 @@ use App\Models\Prod\Pieza;
 use App\Models\Prod\Registro;
 use App\Models\User;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\DB;
 
 beforeEach(function () {
     $this->user = User::factory()->create();
@@ -448,6 +449,72 @@ describe('import del layout por QR', function () {
 
         expect(session('errors')->first('csv_file'))->toContain('CATEGORIAQS')
             ->and($marca->piezas()->sole()->qs)->toBeNull();
+    });
+
+    /**
+     * Cuenta las consultas del import por tabla. Es lo que separa un layout que
+     * carga de uno que se queda en el timeout: el costo tiene que depender del
+     * numero de bloques, no del de renglones.
+     *
+     * @return array{conceptos: int, piezas: int}
+     */
+    function consultasDelLayout(Catalogo $catalogo, string $filas): array
+    {
+        $conteo = ['conceptos' => 0, 'piezas' => 0];
+
+        DB::listen(function ($query) use (&$conteo) {
+            match (true) {
+                str_contains($query->sql, 'prod_piezas') => $conteo['piezas']++,
+                str_contains($query->sql, 'conceptos') => $conteo['conceptos']++,
+                default => null,
+            };
+        });
+
+        subirLayout($catalogo, $filas)->assertSessionHas('success');
+
+        return $conteo;
+    }
+
+    test('el layout se escribe en bloque, no renglon por renglon', function () {
+        $catalogo = Catalogo::factory()->create();
+
+        // 30 marcas de 2 piezas: suficiente para que un N+1 se note.
+        $filas = '';
+        foreach (range(1, 30) as $m) {
+            foreach (range(1, 2) as $p) {
+                $qr = "QR-{$m}-{$p}";
+                $filas .= "{$qr},TG-BAR-{$m},OC-BAR,Barandales,{$m}{$p},2,10,1,1000,\n";
+            }
+        }
+
+        $consultas = consultasDelLayout($catalogo, $filas);
+
+        // Pieza por pieza serian ~120 viajes (el select y el insert de cada
+        // updateOrCreate), y en PostgreSQL ademas un savepoint por pieza: es lo
+        // que agota max_locks_per_transaction con un layout de planta completo.
+        // Marca por marca eran otros ~90, que es lo que estiraba el request.
+        expect($consultas['piezas'])->toBeLessThan(10)
+            ->and($consultas['conceptos'])->toBeLessThan(10)
+            ->and(Pieza::where('catalogo_id', $catalogo->id)->count())->toBe(60)
+            ->and(Concepto::where('catalogo_id', $catalogo->id)->count())->toBe(30);
+    });
+
+    test('reimportar el mismo layout no reescribe las marcas', function () {
+        $catalogo = Catalogo::factory()->create();
+
+        $filas = '';
+        foreach (range(1, 10) as $m) {
+            $filas .= "QR-{$m},TG-BAR-{$m},OC-BAR,Barandales,{$m},1,10,1,1000,\n";
+        }
+
+        subirLayout($catalogo, $filas)->assertSessionHas('success');
+
+        $consultas = consultasDelLayout($catalogo, $filas);
+
+        // Nada cambio, asi que `save()` no manda un solo UPDATE: la segunda
+        // pasada solo lee el catalogo y reescribe las piezas.
+        expect($consultas['conceptos'])->toBeLessThan(5)
+            ->and(Concepto::where('catalogo_id', $catalogo->id)->count())->toBe(10);
     });
 
     test('el import exige archivo', function () {

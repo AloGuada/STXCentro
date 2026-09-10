@@ -8,15 +8,13 @@ use App\Enums\Costos\RubroAfectadoEstatus;
 use App\Exports\Costos\RecepcionesExport;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\Costos\EntregaCancelarRequest;
-use App\Http\Requests\Admin\Costos\EntregaStoreRequest;
 use App\Http\Requests\Admin\Costos\EntregaUpdateRequest;
 use App\Http\Requests\Admin\Costos\RecepcionesReporteRequest;
 use App\Models\Costos\Entrega;
 use App\Models\Costos\EntregaDetalle;
 use App\Models\Costos\Factura;
-use App\Models\Costos\OrdenCompra;
-use App\Models\Costos\OrdenCompraDetalle;
 use App\Models\Usuario;
+use App\Services\Alm\RegistradorEntradaAlmacen;
 use App\Services\Costos\ApartadoPresupuestal;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\RedirectResponse;
@@ -29,7 +27,10 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
 
 class EntregaController extends Controller
 {
-    public function __construct(private readonly ApartadoPresupuestal $apartado) {}
+    public function __construct(
+        private readonly ApartadoPresupuestal $apartado,
+        private readonly RegistradorEntradaAlmacen $almacen,
+    ) {}
 
     /**
      * Listado global de recepciones (folio REC-…), cada una ligada a su OC y a
@@ -174,6 +175,10 @@ class EntregaController extends Controller
         return [
             'id' => $entrega->id,
             'folio' => $entrega->folio,
+            // Dos fechas distintas y ambas se muestran: la de recepción es el
+            // sello del sistema (cuándo se elaboró el documento, no editable) y
+            // la de entrega es la operativa, la que captura quien recibe.
+            'fecha_recepcion' => $entrega->fechaRecepcionLocal()?->toDateString(),
             'fecha_entrega' => $entrega->fecha_entrega?->toDateString(),
             'tipo' => $entrega->tipo,
             'recibido_por' => $entrega->recibidor?->name,
@@ -222,128 +227,15 @@ class EntregaController extends Controller
         ];
     }
 
-    public function store(EntregaStoreRequest $request, OrdenCompra $ordenCompra): RedirectResponse
-    {
-        $partidasOrden = $ordenCompra->detalles()->pluck('id')->all();
-        $detallesInput = $request->input('detalles', []);
-
-        // Factura (opcional) a la que se liga la recepción: debe ser de esta OC.
-        // Si no se captura, la recepción nace sin factura y se liga después
-        // desde la edición.
-        $factura = null;
-        if ($facturaId = $request->integer('factura_id')) {
-            $factura = $ordenCompra->facturas()->find($facturaId);
-            if ($factura === null) {
-                return back()->withErrors(['factura_id' => 'La factura no pertenece a esta orden de compra.']);
-            }
-        }
-
-        // 1. Validar que todas las partidas enviadas pertenezcan a esta OC
-        foreach ($detallesInput as $i => $detalle) {
-            if (! in_array((int) $detalle['orden_compra_detalle_id'], $partidasOrden, true)) {
-                return back()->withErrors([
-                    "detalles.{$i}.orden_compra_detalle_id" => 'La partida no pertenece a esta orden de compra.',
-                ]);
-            }
-        }
-
-        // 2. Validar que cantidad_recibida <= cantidad_ordenada - ya_recibida (por partida)
-        $yaRecibidoPorPartida = EntregaDetalle::query()
-            ->whereIn('orden_compra_detalle_id', $partidasOrden)
-            ->whereHas('entrega', fn ($q) => $q->activa())
-            ->selectRaw('orden_compra_detalle_id, SUM(cantidad_recibida) as total')
-            ->groupBy('orden_compra_detalle_id')
-            ->pluck('total', 'orden_compra_detalle_id')
-            ->map(fn ($v) => (float) $v);
-
-        $ordenCompraDetalles = OrdenCompraDetalle::whereIn('id', $partidasOrden)
-            ->get()
-            ->keyBy('id');
-
-        $acumuladoEnviado = [];
-        foreach ($detallesInput as $i => $detalle) {
-            $ocdId = (int) $detalle['orden_compra_detalle_id'];
-            $ocd = $ordenCompraDetalles->get($ocdId);
-            $cantidadRecibida = (float) $detalle['cantidad_recibida'];
-
-            $acumuladoEnviado[$ocdId] = ($acumuladoEnviado[$ocdId] ?? 0) + $cantidadRecibida;
-
-            $saldoPendiente = (float) $ocd->cantidad - (float) ($yaRecibidoPorPartida[$ocdId] ?? 0);
-            $totalEnviado = $acumuladoEnviado[$ocdId];
-
-            if ($totalEnviado > $saldoPendiente + config('costos.epsilon_cantidad')) {
-                return back()->withErrors([
-                    "detalles.{$i}.cantidad_recibida" => sprintf(
-                        'Excede el saldo pendiente (%.2f %s) de la partida "%s".',
-                        $saldoPendiente,
-                        $ocd->unidad,
-                        $ocd->descripcion,
-                    ),
-                ]);
-            }
-        }
-
-        DB::transaction(function () use ($request, $ordenCompra, $detallesInput, $ordenCompraDetalles, $factura) {
-            $entrega = $ordenCompra->entregas()->create([
-                'recibido_por' => $request->user()->id,
-                'fecha_entrega' => $request->input('fecha_entrega'),
-                'factura_id' => $factura?->id,
-                'tipo' => $request->input('tipo'),
-                'observaciones' => $request->input('observaciones'),
-                'completa_factura' => $factura !== null && $request->boolean('completa_factura'),
-            ]);
-
-            if ($request->hasFile('archivo')) {
-                $file = $request->file('archivo');
-                $entrega->media()->create([
-                    'descripcion' => DocumentoTipo::EvidenciaRecepcion->value,
-                    'nombre_original' => $file->getClientOriginalName(),
-                    'path' => $file->store('costos/entregas', 'public'),
-                    'mime' => $file->getMimeType(),
-                    'size' => $file->getSize(),
-                ]);
-            }
-
-            foreach ($detallesInput as $detalle) {
-                $ocd = $ordenCompraDetalles->get((int) $detalle['orden_compra_detalle_id']);
-                $precioRecibido = isset($detalle['precio_unitario']) && $detalle['precio_unitario'] !== ''
-                    ? (float) $detalle['precio_unitario']
-                    : null;
-
-                $entrega->detalles()->create([
-                    'orden_compra_detalle_id' => $detalle['orden_compra_detalle_id'],
-                    'cantidad_recibida' => $detalle['cantidad_recibida'],
-                    'precio_unitario' => $precioRecibido,
-                    'observaciones' => $detalle['observaciones'] ?? null,
-                ]);
-
-                $this->ajustarPresupuestoPorDiferenciaPrecio(
-                    $ordenCompra,
-                    $ocd,
-                    $precioRecibido,
-                    (float) $detalle['cantidad_recibida'],
-                    $request->user()->id,
-                );
-            }
-
-            // Si esta recepción completa la factura, marcarla como entregada e
-            // intentar avanzarla a aprobación (requiere además el comprobante).
-            if ($factura !== null && $request->boolean('completa_factura')) {
-                $factura->update(['completamente_entregada' => true]);
-                $factura->intentarPasarAAprobacion();
-            }
-        });
-
-        return back()->with('success', 'Entrega registrada correctamente.');
-    }
-
     /**
-     * Corrige los datos de captura de una recepción: fecha, quién recibió,
+     * Corrige los datos de captura de una recepción: quién recibió,
      * observaciones, evidencia y la factura a la que se ligó (el dedazo más
      * común cuando la OC trae varias facturas del proveedor).
      *
-     * Deliberadamente NO toca cantidades ni precios: mueven saldo de partidas y
-     * presupuesto, y para eso el camino sigue siendo cancelar y volver a
+     * Deliberadamente NO toca cantidades, precios ni las fechas. Las dos
+     * primeras mueven saldo de partidas y presupuesto; la fecha de recepción es
+     * el sello del sistema y la de entrega quedó capturada al recibir. Para
+     * cualquiera de las tres el camino sigue siendo cancelar y volver a
      * capturar, que ya sabe revertir cada efecto.
      *
      * La factura es opcional: se puede ligar la que faltó, cambiarla o dejar la
@@ -399,7 +291,7 @@ class EntregaController extends Controller
 
         DB::transaction(function () use ($request, $entrega, $facturaActual, $facturaNueva, $cambiaFactura, $completabaAntes, $completaFactura) {
             $entrega->update([
-                'fecha_entrega' => $request->input('fecha_entrega'),
+                // Ninguna de las dos fechas se toca aquí.
                 'recibido_por' => $request->input('recibido_por'),
                 'observaciones' => $request->input('observaciones'),
                 'factura_id' => $facturaNueva?->id,
@@ -546,7 +438,12 @@ class EntregaController extends Controller
                 'motivo_cancelacion' => $request->input('motivo'),
             ]);
 
-            // 4. Recalcular el estatus de la OC: esta entrega ya no cuenta.
+            // 4. Devolver al kardex lo que esta recepción había cargado. Es un
+            // movimiento espejo: si el material ya se consumió el saldo puede
+            // quedar en negativo, y eso es información correcta.
+            $this->almacen->revertir($entrega, (string) $request->input('motivo'), $request->user()->id);
+
+            // 5. Recalcular el estatus de la OC: esta entrega ya no cuenta.
             $entrega->ordenCompra?->recalcularEstatus();
 
             activity('costos')
@@ -584,40 +481,5 @@ class EntregaController extends Controller
             ->setOption('margin-right', 40);
 
         return $pdf->stream("recepcion-{$entrega->folio}.pdf");
-    }
-
-    /**
-     * Al recibir a un precio distinto del de la OC (ej. acero que se iguala a la
-     * factura), el acumulado del rubro ya trae el cargo al precio de la OC. Se
-     * registra solo la diferencia: delta = (PU recibido − PU OC) × cantidad. El
-     * cargo se liga a la OC (RubroAfectado) para que se revierta si se cancela.
-     */
-    private function ajustarPresupuestoPorDiferenciaPrecio(
-        OrdenCompra $ordenCompra,
-        ?OrdenCompraDetalle $ocd,
-        ?float $precioRecibido,
-        float $cantidadRecibida,
-        string $userId,
-    ): void {
-        if ($precioRecibido === null || $ocd === null || $ocd->obra_rubro_id === null) {
-            return;
-        }
-
-        $delta = ($precioRecibido - (float) $ocd->precio_unitario) * $cantidadRecibida;
-
-        if (abs($delta) < 0.005) {
-            return;
-        }
-
-        $this->apartado->aplicarCargo(
-            entrada: $ordenCompra,
-            obraRubroId: (int) $ocd->obra_rubro_id,
-            monto: $delta,
-            estatus: RubroAfectadoEstatus::Aplicado,
-            descripcion: "Ajuste PU recepción · {$ocd->descripcion}",
-            userId: $userId,
-            allowSobregiro: true,
-            moneda: $ordenCompra->moneda ?? 'mxn',
-        );
     }
 }

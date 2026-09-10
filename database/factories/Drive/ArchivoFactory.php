@@ -24,7 +24,7 @@ class ArchivoFactory extends Factory
             'size' => fake()->numberBetween(1024, 5242880),
             'descripcion' => fake()->optional()->sentence(),
             'subido_por_type' => 'externo',
-            'subido_por_id' => 1,
+            'subido_por_id' => '1',
         ];
     }
 }

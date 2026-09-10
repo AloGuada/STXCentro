@@ -156,6 +156,7 @@ test('el reporte incluye el importe recibido', function () {
     $entrega = Entrega::factory()->create([
         'orden_compra_id' => $partida->orden_compra_id,
         'fecha_entrega' => '2026-07-15',
+        'created_at' => '2026-07-15 09:00:00',
     ]);
     EntregaDetalle::factory()->create([
         'entrega_id' => $entrega->id,
@@ -205,7 +206,11 @@ test('la obra sale del presupuesto de las partidas, no de la columna legacy de l
         'orden_compra_id' => $oc->id,
         'obra_rubro_id' => rubroDeObra('OP-100')->id,
     ]);
-    Entrega::factory()->create(['orden_compra_id' => $oc->id, 'fecha_entrega' => '2026-07-15']);
+    Entrega::factory()->create([
+        'orden_compra_id' => $oc->id,
+        'fecha_entrega' => '2026-07-15',
+        'created_at' => '2026-07-15 09:00:00',
+    ]);
 
     $this->actingAs($this->user)
         ->get(route('admin.costos.recepciones.index'))
@@ -224,7 +229,11 @@ test('una OC repartida entre varias obras las lista todas', function () {
             'obra_rubro_id' => rubroDeObra($no)->id,
         ]);
     }
-    Entrega::factory()->create(['orden_compra_id' => $oc->id, 'fecha_entrega' => '2026-07-15']);
+    Entrega::factory()->create([
+        'orden_compra_id' => $oc->id,
+        'fecha_entrega' => '2026-07-15',
+        'created_at' => '2026-07-15 09:00:00',
+    ]);
 
     $this->actingAs($this->user)
         ->get(route('admin.costos.recepciones.index'))
@@ -272,9 +281,9 @@ test('sin ningún camino a un presupuesto la columna queda vacía', function () 
 });
 
 test('el reporte solo incluye las recepciones dentro del rango de fechas', function () {
-    $dentro = Entrega::factory()->create(['fecha_entrega' => '2026-07-15']);
-    Entrega::factory()->create(['fecha_entrega' => '2026-06-30']);
-    Entrega::factory()->create(['fecha_entrega' => '2026-08-01']);
+    $dentro = Entrega::factory()->create(['created_at' => '2026-07-15 09:00:00']);
+    Entrega::factory()->create(['created_at' => '2026-06-30 09:00:00']);
+    Entrega::factory()->create(['created_at' => '2026-08-01 09:00:00']);
 
     $filas = (new RecepcionesExport(['fecha_inicio' => '2026-07-01', 'fecha_fin' => '2026-07-31']))->collection();
 
@@ -283,17 +292,78 @@ test('el reporte solo incluye las recepciones dentro del rango de fechas', funct
 });
 
 test('el reporte incluye los límites del rango', function () {
-    Entrega::factory()->create(['fecha_entrega' => '2026-07-01']);
-    Entrega::factory()->create(['fecha_entrega' => '2026-07-31']);
+    // Los extremos son días de operación en Mérida: 00:00 del 1 de julio y
+    // 23:59 del 31, que en UTC son las 06:00 del 1 y las 05:59 del 1 de agosto.
+    Entrega::factory()->create(['created_at' => '2026-07-01 06:00:00']);
+    Entrega::factory()->create(['created_at' => '2026-08-01 05:59:00']);
 
     $filas = (new RecepcionesExport(['fecha_inicio' => '2026-07-01', 'fecha_fin' => '2026-07-31']))->collection();
 
     expect($filas)->toHaveCount(2);
 });
 
+test('la pantalla manda las dos fechas: la del documento y la de la entrega', function () {
+    // Se capturó el 20 de julio un material que había entrado el 15: son dos
+    // datos distintos y la pantalla enseña los dos.
+    Entrega::factory()->create([
+        'fecha_entrega' => '2026-07-15',
+        'created_at' => '2026-07-20 09:00:00',
+    ]);
+
+    $this->actingAs($this->user)
+        ->get(route('admin.costos.recepciones.index'))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('recepciones.data.0.fecha_recepcion', '2026-07-20')
+            ->where('recepciones.data.0.fecha_entrega', '2026-07-15')
+        );
+});
+
+test('la fecha de recepción se pinta en la hora de Mérida, no en UTC', function () {
+    // Capturada el 20 de julio a las 19:00 en Mérida: el sello se guarda como
+    // el 21 en UTC, pero el documento es del 20 y así debe verse.
+    Entrega::factory()->create(['created_at' => '2026-07-21 01:00:00']);
+
+    $this->actingAs($this->user)
+        ->get(route('admin.costos.recepciones.index'))
+        ->assertInertia(fn (Assert $page) => $page->where('recepciones.data.0.fecha_recepcion', '2026-07-20'));
+});
+
+test('el reporte recorta por fecha de recepción, no por la de entrega', function () {
+    // Entrega de junio capturada en julio: cuenta en el reporte de julio, que es
+    // el mes en que se elaboró el documento.
+    $capturadaEnJulio = Entrega::factory()->create([
+        'fecha_entrega' => '2026-06-28',
+        'created_at' => '2026-07-02 09:00:00',
+    ]);
+    // Y al revés: entrega de julio capturada en agosto, fuera del rango.
+    Entrega::factory()->create([
+        'fecha_entrega' => '2026-07-30',
+        'created_at' => '2026-08-03 09:00:00',
+    ]);
+
+    $filas = (new RecepcionesExport(['fecha_inicio' => '2026-07-01', 'fecha_fin' => '2026-07-31']))->collection();
+
+    expect($filas)->toHaveCount(1)
+        ->and($filas->first()['folio'])->toBe($capturadaEnJulio->folio)
+        ->and($filas->first()['fecha_recepcion'])->toBe('02/07/2026')
+        ->and($filas->first()['fecha_entrega'])->toBe('28/06/2026');
+});
+
+test('lo capturado de noche cuenta en su día de operación, no en el siguiente', function () {
+    // 31 de julio a las 19:00 en Mérida: el sello cae al 1 de agosto en UTC,
+    // pero el documento es de julio y así tiene que salir en el reporte y en la
+    // columna, o el archivo se contradice solo.
+    Entrega::factory()->create(['created_at' => '2026-08-01 01:00:00']);
+
+    $filas = (new RecepcionesExport(['fecha_inicio' => '2026-07-01', 'fecha_fin' => '2026-07-31']))->collection();
+
+    expect($filas)->toHaveCount(1)
+        ->and($filas->first()['fecha_recepcion'])->toBe('31/07/2026');
+});
+
 test('el reporte arrastra el filtro de tipo de la pantalla', function () {
-    Entrega::factory()->create(['fecha_entrega' => '2026-07-15', 'tipo' => 'completa']);
-    Entrega::factory()->create(['fecha_entrega' => '2026-07-16', 'tipo' => 'parcial']);
+    Entrega::factory()->create(['created_at' => '2026-07-15 09:00:00', 'tipo' => 'completa']);
+    Entrega::factory()->create(['created_at' => '2026-07-16 09:00:00', 'tipo' => 'parcial']);
 
     $filas = (new RecepcionesExport([
         'fecha_inicio' => '2026-07-01',
@@ -306,7 +376,7 @@ test('el reporte arrastra el filtro de tipo de la pantalla', function () {
 });
 
 test('descarga el excel del rango pedido', function () {
-    Entrega::factory()->create(['fecha_entrega' => '2026-07-15']);
+    Entrega::factory()->create(['created_at' => '2026-07-15 09:00:00']);
 
     $this->actingAs($this->user)
         ->get(route('admin.costos.recepciones.exportar', [

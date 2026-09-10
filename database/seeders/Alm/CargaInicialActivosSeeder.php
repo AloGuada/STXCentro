@@ -1,0 +1,265 @@
+<?php
+
+namespace Database\Seeders\Alm;
+
+use App\Enums\Alm\ActivoEstatus;
+use App\Enums\Alm\ProductoTipo;
+use App\Enums\Alm\UbicacionTipo;
+use App\Models\Alm\Activo;
+use App\Models\Alm\Almacen;
+use App\Models\Alm\Area;
+use App\Models\Alm\Articulo;
+use App\Models\Alm\Ubicacion;
+use App\Models\Usuario;
+use App\Services\Alm\GeneradorCodigoArticulo;
+use App\Services\Alm\RegistradorPiezas;
+use App\Services\Catalogo\CatalogoMaestro;
+use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\DB;
+use RuntimeException;
+
+/**
+ * Carga inicial de los activos de un almacén: el padrón de piezas con el que
+ * arrancó.
+ *
+ * Es el gemelo de {@see CargaInicialSeeder} para lo que no se consume. La
+ * diferencia no es de formato sino de naturaleza: el insumo se cuenta y el
+ * activo se sigue pieza por pieza, así que aquí un renglón es *una pieza* y no
+ * un artículo. Diez esmeriladoras iguales son diez renglones bajo el mismo
+ * artículo, y es lo único que después permite saber quién trae cuál.
+ *
+ * El saldo no se escribe: cada pieza emite +1 al kardex por
+ * {@see RegistradorPiezas}, que es el único que puede crearlas. Así se sostiene
+ * el invariante de que la existencia de un artículo por pieza es exactamente el
+ * número de sus piezas vigentes.
+ *
+ * El estatus se aplica **después** del alta. `RegistradorPiezas::alta()` las
+ * nace todas `disponible` a propósito —el préstamo no es un alta— pero el
+ * layout ya viene con piezas prestadas desde el primer día, y `prestado` cuenta
+ * en existencia igual que `disponible`.
+ */
+abstract class CargaInicialActivosSeeder extends Seeder
+{
+    /** Clave del almacén cuyo padrón se está abriendo. */
+    abstract protected function almacen(): string;
+
+    /**
+     * Número de obra cuando el almacén es de obra; null es el central.
+     */
+    protected function obra(): ?string
+    {
+        return null;
+    }
+
+    /**
+     * Un renglón por artículo, con sus piezas dentro.
+     *
+     * @return list<array{descripcion: string, unidad: string, area: string|null, abc: string, ubicacion: string|null, piezas: list<array<string, mixed>>}>
+     */
+    abstract protected function articulos(): array;
+
+    public function run(): void
+    {
+        $almacen = $this->almacenDestino();
+
+        if ($almacen === null) {
+            $this->command?->error("No existe el almacén {$this->etiqueta()}: dalo de alta antes de cargarle el padrón.");
+
+            return;
+        }
+
+        // El padrón se levanta una vez. Correrlo dos veces daría de alta otro
+        // juego de piezas con las mismas series bajo artículos nuevos, y el
+        // unique (producto, serie) no lo impide porque el artículo sería otro.
+        //
+        // Se pregunta por *estos* artículos y no por si el almacén tiene piezas:
+        // que MTO ya guarde una pulidora de otro lado no quiere decir que su
+        // padrón esté levantado.
+        if ($this->yaLevantado($almacen)) {
+            $this->command?->warn("{$this->etiqueta()} ya tiene este padrón; no se vuelve a cargar.");
+
+            return;
+        }
+
+        $autoriza = Usuario::query()->role('super-admin')->orderBy('created_at')->first();
+
+        if ($autoriza === null) {
+            $this->command?->error('No hay ningún super-admin que pueda levantar el padrón.');
+
+            return;
+        }
+
+        [$articulos, $piezas] = $this->cargar($almacen, $autoriza);
+
+        $this->command?->info(sprintf(
+            '%s: %d artículos, %d piezas, $%s.',
+            $this->etiqueta(),
+            $articulos,
+            $piezas,
+            number_format($this->valuacion(), 2),
+        ));
+    }
+
+    /**
+     * @return array{0: int, 1: int}
+     */
+    private function cargar(Almacen $almacen, Usuario $autoriza): array
+    {
+        return DB::transaction(function () use ($almacen, $autoriza): array {
+            $areas = Area::query()->pluck('id', 'descripcion');
+            $generador = app(GeneradorCodigoArticulo::class);
+            $maestro = app(CatalogoMaestro::class);
+            $registrador = app(RegistradorPiezas::class);
+            $piezas = 0;
+
+            foreach ($this->articulos() as $articulo) {
+                if ($articulo['area'] !== null && ! $areas->has($articulo['area'])) {
+                    throw new RuntimeException("El área \"{$articulo['area']}\" no está en el catálogo; corre primero el seeder de catálogo.");
+                }
+
+                // El maestro decide si esto es nuevo: el mismo modelo de
+                // esmeril en dos almacenes es un artículo con piezas en dos
+                // bodegas, no dos artículos.
+                $item = $maestro->buscarOCrear($articulo['descripcion'], $articulo['unidad'], null, $autoriza->getKey());
+
+                if ($item->codigo === null) {
+                    $item->update(['codigo' => $generador->siguiente()]);
+                }
+
+                $codigo = $item->codigo;
+
+                $nuevo = $item->articulo()->first() ?? Articulo::create([
+                    'item_id' => $item->id,
+                    'producto_id' => $item->producto()->value('id'),
+                    'codigo' => $codigo,
+                    'codigo_barras' => $codigo,
+                    'descripcion' => $item->descripcion,
+                    'unidad' => $item->unidad,
+                    'area_id' => $articulo['area'] === null ? null : $areas[$articulo['area']],
+                    'clasificacion_abc' => $articulo['abc'],
+                    'stock_minimo' => null,
+                    'tipo' => ProductoTipo::Activo,
+                    'se_controla_por_pieza' => true,
+                    'requiere_verificacion' => false,
+                    'activo' => true,
+                    'creado_por' => $autoriza->getKey(),
+                ]);
+
+                $creadas = $registrador->alta(
+                    articulo: $nuevo,
+                    almacen: $almacen,
+                    piezas: $articulo['piezas'],
+                    ubicacionId: $this->ubicacion($almacen, $articulo['ubicacion']),
+                    userId: $autoriza->getKey(),
+                );
+
+                $this->aplicarEstatus($creadas, $articulo['piezas'], $autoriza->getKey());
+                $piezas += count($creadas);
+            }
+
+            return [count($this->articulos()), $piezas];
+        });
+    }
+
+    /**
+     * Lo que el layout dice que anda prestado o en reparación. No toca el saldo
+     * —las dos siguen contando en existencia— así que va por `update` directo y
+     * no por el registrador, que sólo gobierna alta, baja y traslado.
+     *
+     * @param  list<Activo>  $creadas
+     * @param  list<array<string, mixed>>  $piezas
+     */
+    /**
+     * `alta()` las nace todas `disponible` a propósito —el préstamo no es un
+     * alta— y aquí se les pone el estatus con el que venían en el layout.
+     *
+     * La baja es el único que **no** se puede poner con un `update`: prestado y
+     * en reparación siguen contando en existencia porque la pieza sigue siendo
+     * del almacén, pero una pieza dada de baja ya no está, y dejarla contada
+     * rompería el invariante de que la existencia es el número de piezas
+     * vigentes. Se descarga por el registrador, que emite su salida al kardex.
+     */
+    private function aplicarEstatus(array $creadas, array $piezas, ?string $userId): void
+    {
+        $registrador = app(RegistradorPiezas::class);
+
+        foreach ($creadas as $i => $activo) {
+            $estatus = ActivoEstatus::tryFrom($piezas[$i]['estatus'] ?? '');
+
+            if ($estatus === null || $estatus === ActivoEstatus::Disponible) {
+                continue;
+            }
+
+            if ($estatus === ActivoEstatus::Baja) {
+                $registrador->baja($activo, $piezas[$i]['observaciones'] ?? 'Dada de baja en la carga inicial.', $userId);
+
+                continue;
+            }
+
+            $activo->update(['estatus' => $estatus]);
+        }
+    }
+
+    /**
+     * Si alguno de los artículos de este layout ya tiene piezas en el almacén,
+     * el padrón ya entró. Basta uno: una carga a medias no debe completarse por
+     * su cuenta duplicando lo que sí quedó.
+     */
+    private function yaLevantado(Almacen $almacen): bool
+    {
+        $descripciones = array_column($this->articulos(), 'descripcion');
+
+        return Activo::query()
+            ->where('almacen_id', $almacen->id)
+            ->whereIn(
+                'articulo_id',
+                Articulo::query()->whereIn('descripcion', $descripciones)->select('id'),
+            )
+            ->exists();
+    }
+
+    private function almacenDestino(): ?Almacen
+    {
+        $query = Almacen::query()->where('clave', $this->almacen());
+
+        $obra = $this->obra();
+
+        if ($obra === null) {
+            return $query->whereNull('obra_id')->first();
+        }
+
+        return $query->whereHas('obra', fn ($q) => $q->where('no', $obra))->first();
+    }
+
+    private function etiqueta(): string
+    {
+        return $this->obra() === null
+            ? "central {$this->almacen()}"
+            : "{$this->almacen()} de {$this->obra()}";
+    }
+
+    private function ubicacion(Almacen $almacen, ?string $codigo): ?int
+    {
+        if ($codigo === null || trim($codigo) === '') {
+            return null;
+        }
+
+        return Ubicacion::firstOrCreate(
+            ['almacen_id' => $almacen->id, 'codigo' => trim($codigo)],
+            ['nombre' => trim($codigo), 'tipo' => UbicacionTipo::Zona, 'activa' => true],
+        )->id;
+    }
+
+    private function valuacion(): float
+    {
+        $total = 0.0;
+
+        foreach ($this->articulos() as $articulo) {
+            foreach ($articulo['piezas'] as $pieza) {
+                $total += (float) ($pieza['costo'] ?? 0);
+            }
+        }
+
+        return $total;
+    }
+}

@@ -90,7 +90,29 @@ describe('admin costos solicitudes pago', function () {
             ->has('departamentos')
             ->has('proveedores')
             ->has('tipoSolicitudes')
+            ->has('presupuestos')
         );
+    });
+
+    /**
+     * Desde el presupuesto polimórfico (2026-07-06) un presupuesto puede colgar
+     * de un proyecto o de una partida y entonces sus rubros no tienen obra_id.
+     * La pantalla filtraba centros de costos por obra y ésos nunca aparecían:
+     * "no carga los centros de costos". El selector es por presupuesto.
+     */
+    test('los centros de costos de un presupuesto de proyecto llegan al formulario', function () {
+        $presupuesto = Presupuesto::factory()->paraProyecto()->create();
+        $rubro = $presupuesto->crearRubro(\App\Models\Costos\Rubro::factory()->create()->id, 1000);
+
+        expect($rubro->obra_id)->toBeNull();
+
+        $this->actingAs($this->user)
+            ->get(route('admin.costos.solicitudes-pago.create'))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->where('presupuestos.0.id', $presupuesto->id)
+                ->where('obraRubros.0.id', $rubro->id)
+                ->where('obraRubros.0.presupuesto_id', $presupuesto->id));
     });
 
     test('solicitud sin desglose usa el monto_total capturado', function () {

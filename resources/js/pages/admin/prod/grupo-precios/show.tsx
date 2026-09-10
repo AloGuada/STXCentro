@@ -29,6 +29,37 @@ type Props = {
 
 const fmt = (n: number) => Number(n).toLocaleString('es-MX', { minimumFractionDigits: 4, maximumFractionDigits: 4 });
 
+const fmtPieza = (n: number) => Number(n).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+/**
+ * El resumen de precios del grupo. Un grupo por kilo lista una tarifa por
+ * proceso; uno por subproceso lista sus pasos con precio fijo por pieza.
+ */
+function resumenDePrecios(gp: GrupoPrecioWithConceptos, procesos: ProdProceso[]): string {
+    if (gp.tipo_pago === 'subproceso') {
+        const pasos = (gp.subprocesos ?? []).filter((s) => s.activo);
+
+        return pasos.length === 0
+            ? 'Paga por subproceso, pero no tiene pasos capturados'
+            : pasos
+                  .slice()
+                  .sort((a, b) => a.orden - b.orden)
+                  .map((s) => `${s.nombre} $${fmtPieza(s.precio)}/pza`)
+                  .join(' · ');
+    }
+
+    if (procesos.length === 0) {
+        return 'La obra no tiene procesos configurados';
+    }
+
+    return procesos
+        .map((proceso) => {
+            const tarifa = (gp.precios ?? []).find((t) => t.proceso_id === proceso.id);
+            return `${proceso.nombre} $${fmt(tarifa?.precio_kilo ?? 0)}/kg`;
+        })
+        .join(' · ');
+}
+
 export default function GrupoPreciosShow({ obra, grupoPrecios, unassignedConceptos, procesos }: Props) {
     const breadcrumbs: BreadcrumbItem[] = [
         { title: 'Dashboard', href: '/dashboard' },
@@ -87,17 +118,11 @@ export default function GrupoPreciosShow({ obra, grupoPrecios, unassignedConcept
                                 <div className="collapse-title flex items-center gap-4">
                                     <div className="flex-1">
                                         <span className="font-medium">{gp.descripcion}</span>
+                                        {gp.tipo_pago === 'subproceso' && (
+                                            <span className="badge badge-sm badge-info ml-2">Por subproceso</span>
+                                        )}
                                         <span className="ml-4 text-sm text-base-content/60">
-                                            {procesos.length === 0
-                                                ? 'La obra no tiene procesos configurados'
-                                                : procesos
-                                                      .map((proceso) => {
-                                                          const tarifa = (gp.precios ?? []).find(
-                                                              (t) => t.proceso_id === proceso.id,
-                                                          );
-                                                          return `${proceso.nombre} $${fmt(tarifa?.precio_kilo ?? 0)}/kg`;
-                                                      })
-                                                      .join(' · ')}
+                                            {resumenDePrecios(gp, procesos)}
                                         </span>
                                     </div>
                                     <div className="flex items-center gap-2">

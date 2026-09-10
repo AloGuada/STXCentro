@@ -1,32 +1,42 @@
 import { Head, Link, router, useForm } from '@inertiajs/react';
 import {
     ChevronDownIcon,
+    ChevronLeftIcon,
     ChevronRightIcon,
     CopyPlusIcon,
     DownloadIcon,
     GitCompareIcon,
+    Loader2Icon,
     PlusIcon,
     UploadIcon,
 } from 'lucide-react';
-import { type FormEvent, useMemo, useState } from 'react';
+import { type FormEvent, useCallback, useState } from 'react';
+import { SearchInput } from '@/components/data-table';
 import { FormField } from '@/components/form';
 import { ProcesosDeObra } from '@/components/prod/procesos-de-obra';
 import { Button, ButtonLink } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { useCan } from '@/hooks/use-can';
 import AppLayout from '@/layouts/app-layout';
 import { etiquetaDePieza } from '@/lib/prod/piezas';
 import type { BreadcrumbItem } from '@/types';
-import type { Concepto, ProdCatalogo, ProdPieza, ProdProceso } from '@/types/models';
+import type { Concepto, PaginatedData, ProdCatalogo, ProdPieza, ProdProceso } from '@/types/models';
 
 const fmt = (n: number) => Number(n).toLocaleString('es-MX', { minimumFractionDigits: 3, maximumFractionDigits: 3 });
 
 type VersionRow = ProdCatalogo & { conceptos_count: number };
-type MarcaConPiezas = Concepto & { piezas?: ProdPieza[] };
+/** La marca de la tabla: sin sus piezas, que se piden al desplegarla. */
+type MarcaDelCatalogo = Concepto & { piezas_count: number };
+type PiezaConAvance = Pick<ProdPieza, 'id' | 'qr' | 'qs'> & {
+    avance: Record<number, { capturado: number; disponible: number }>;
+};
 
 type Props = {
     catalogo: ProdCatalogo;
-    marcas: MarcaConPiezas[];
+    marcas: PaginatedData<MarcaDelCatalogo>;
+    /** Piezas ya pagadas por marca y proceso: marcaId => procesoId => pagadas. */
+    avancePorMarca: Record<number, Record<number, number>>;
+    /** Del catálogo completo, no de la página que se está viendo. */
+    totales: { marcas: number; piezas: number; declaradas: number; peso: number };
     /** Los que paga la obra: una columna de avance por cada uno. */
     procesos: ProdProceso[];
     procesosDisponibles: ProdProceso[];
@@ -57,6 +67,8 @@ const ESTATUS_MODELO: Record<string, string> = {
 export default function CatalogoShow({
     catalogo,
     marcas,
+    avancePorMarca,
+    totales,
     procesos,
     procesosDisponibles,
     versiones,
@@ -83,38 +95,36 @@ export default function CatalogoShow({
         { title: `${catalogo.nombre} v${catalogo.version}`, href: `/admin/prod/catalogos/${catalogo.id}` },
     ];
 
-    const [search, setSearch] = useState(filters.search ?? '');
     const [abiertas, setAbiertas] = useState<number[]>([]);
+    // Los QR de una marca se piden al desplegarla y se quedan cacheados: el
+    // catálogo de una obra son decenas de miles y no caben en la pantalla.
+    const [piezasPorMarca, setPiezasPorMarca] = useState<Record<number, PiezaConAvance[]>>({});
+    const [cargando, setCargando] = useState<number[]>([]);
 
-    const alternar = (marcaId: number) =>
-        setAbiertas((prev) => (prev.includes(marcaId) ? prev.filter((id) => id !== marcaId) : [...prev, marcaId]));
+    const cargarPiezas = useCallback(
+        (marcaId: number) => {
+            if (piezasPorMarca[marcaId] || cargando.includes(marcaId)) {
+                return;
+            }
 
-    const filtered = useMemo(() => {
-        if (!search) return marcas;
-        const s = search.toLowerCase();
-        return marcas.filter(
-            (m) =>
-                [m.marca, m.lote, m.descripcion].some((campo) => (campo ?? '').toLowerCase().includes(s)) ||
-                (m.piezas ?? []).some(
-                    (p) =>
-                        (p.qs ?? '').toLowerCase().includes(s) || p.qr.toLowerCase().includes(s),
-                ),
-        );
-    }, [marcas, search]);
+            setCargando((prev) => [...prev, marcaId]);
 
-    /** Piezas pagadas de la marca en un proceso: la suma del avance de sus piezas. */
-    const pagadasEn = (marca: MarcaConPiezas, procesoId: number) =>
-        (marca.piezas ?? []).reduce((sum, p) => sum + (p.avance?.[procesoId]?.capturado ?? 0), 0);
-
-    const totals = useMemo(
-        () => ({
-            marcas: filtered.length,
-            piezas: filtered.reduce((sum, m) => sum + (m.piezas?.length ?? 0), 0),
-            declaradas: filtered.reduce((sum, m) => sum + Number(m.cantidad), 0),
-            pesoTotal: filtered.reduce((sum, m) => sum + (m.piezas?.length ?? 0) * Number(m.peso_unitario), 0),
-        }),
-        [filtered],
+            fetch(`/admin/prod/marcas/${marcaId}/piezas`, { headers: { Accept: 'application/json' } })
+                .then((res) => (res.ok ? res.json() : Promise.reject(res)))
+                .then((datos) => setPiezasPorMarca((prev) => ({ ...prev, [marcaId]: datos.piezas ?? [] })))
+                .catch(() => setPiezasPorMarca((prev) => ({ ...prev, [marcaId]: [] })))
+                .finally(() => setCargando((prev) => prev.filter((id) => id !== marcaId)));
+        },
+        [piezasPorMarca, cargando],
     );
+
+    const alternar = (marcaId: number) => {
+        setAbiertas((prev) => (prev.includes(marcaId) ? prev.filter((id) => id !== marcaId) : [...prev, marcaId]));
+        cargarPiezas(marcaId);
+    };
+
+    /** Piezas pagadas de la marca en un proceso, ya resumidas por el servidor. */
+    const pagadasEn = (marca: MarcaDelCatalogo, procesoId: number) => avancePorMarca[marca.id]?.[procesoId] ?? 0;
 
     const csvForm = useForm<{ csv_file: File | null }>({ csv_file: null });
 
@@ -132,7 +142,7 @@ export default function CatalogoShow({
     const nuevaVersion = () => {
         if (
             confirm(
-                `¿Crear la versión ${catalogo.version + 1}? Se copian las ${totals.marcas} marcas con sus piezas y ` +
+                `¿Crear la versión ${catalogo.version + 1}? Se copian las ${totales.marcas} marcas con sus piezas y ` +
                     `precios; la v${catalogo.version} queda congelada como histórico.`,
             )
         ) {
@@ -225,10 +235,9 @@ export default function CatalogoShow({
                 )}
 
                 <div className="mb-4 w-full max-w-xs">
-                    <Input
+                    <SearchInput
                         placeholder="Buscar por marca, lote, QS, QR o descripcion..."
-                        value={search}
-                        onChange={(e) => setSearch(e.target.value)}
+                        defaultValue={filters.search ?? ''}
                     />
                 </div>
 
@@ -254,22 +263,24 @@ export default function CatalogoShow({
                                 </tr>
                             </thead>
                             <tbody>
-                                {filtered.length === 0 ? (
+                                {marcas.data.length === 0 ? (
                                     <tr>
                                         <td
                                             colSpan={10 + procesos.length}
                                             className="text-base-content/50 py-6 text-center"
                                         >
-                                            Este catálogo no tiene marcas todavía
+                                            {filters.search
+                                                ? 'Ninguna marca coincide con la búsqueda'
+                                                : 'Este catálogo no tiene marcas todavía'}
                                         </td>
                                     </tr>
                                 ) : (
-                                    filtered.flatMap((m) => {
-                                        const piezas = m.piezas ?? [];
+                                    marcas.data.flatMap((m) => {
+                                        const piezas = piezasPorMarca[m.id] ?? [];
                                         const abierta = abiertas.includes(m.id);
                                         // El layout declara cuántas piezas tiene el modelo; si no
                                         // cuadra con las piezas cargadas, el archivo vino incompleto.
-                                        const descuadre = piezas.length !== Number(m.cantidad);
+                                        const descuadre = m.piezas_count !== Number(m.cantidad);
 
                                         const fila = (
                                             <tr key={m.id} className="hover">
@@ -313,13 +324,13 @@ export default function CatalogoShow({
                                                 </td>
                                                 <td className="text-right font-mono">
                                                     <span className={descuadre ? 'text-warning font-semibold' : ''}>
-                                                        {piezas.length}
+                                                        {m.piezas_count}
                                                     </span>
                                                     <span className="text-base-content/40"> / {m.cantidad}</span>
                                                 </td>
                                                 {procesos.map((p) => {
                                                     const pagadas = pagadasEn(m, p.id);
-                                                    const completo = piezas.length > 0 && pagadas >= piezas.length;
+                                                    const completo = m.piezas_count > 0 && pagadas >= m.piezas_count;
 
                                                     return (
                                                         <td key={p.id} className="text-right font-mono">
@@ -334,7 +345,7 @@ export default function CatalogoShow({
                                                                     })}
                                                                     <span className="text-base-content/40">
                                                                         {' '}
-                                                                        / {piezas.length}
+                                                                        / {m.piezas_count}
                                                                     </span>
                                                                 </>
                                                             )}
@@ -371,7 +382,12 @@ export default function CatalogoShow({
                                                     <div className="mb-1 text-xs font-medium">
                                                         Piezas de {etiquetaDePieza(m.marca, m.lote)}
                                                     </div>
-                                                    {piezas.length === 0 ? (
+                                                    {cargando.includes(m.id) ? (
+                                                        <p className="text-base-content/50 flex items-center gap-2 text-sm">
+                                                            <Loader2Icon className="size-4 animate-spin" /> Cargando
+                                                            piezas...
+                                                        </p>
+                                                    ) : piezas.length === 0 ? (
                                                         <p className="text-base-content/50 text-sm">
                                                             Esta marca no tiene piezas cargadas: vuelve a subir el layout.
                                                         </p>
@@ -403,16 +419,43 @@ export default function CatalogoShow({
                         </table>
                     </div>
 
-                    {filtered.length > 0 && (
-                        <div className="border-base-300 bg-base-200 flex items-center justify-between border-t px-4 py-2 text-sm">
-                            <span>
-                                {totals.marcas} marcas ·{' '}
-                                <span className="font-mono">{totals.piezas.toLocaleString('es-MX')}</span> piezas
-                                cargadas de{' '}
-                                <span className="font-mono">{totals.declaradas.toLocaleString('es-MX')}</span> que
-                                declara el layout
+                    <div className="border-base-300 bg-base-200 flex flex-wrap items-center justify-between gap-2 border-t px-4 py-2 text-sm">
+                        {/* Los totales son del catálogo completo, no de la página. */}
+                        <span>
+                            {totales.marcas} marcas ·{' '}
+                            <span className="font-mono">{totales.piezas.toLocaleString('es-MX')}</span> piezas cargadas
+                            de <span className="font-mono">{totales.declaradas.toLocaleString('es-MX')}</span> que
+                            declara el layout
+                        </span>
+                        <span className="font-mono">Peso total: {fmt(totales.peso)} kg</span>
+                    </div>
+
+                    {marcas.last_page > 1 && (
+                        <div className="border-base-300 flex items-center justify-between border-t px-4 py-2 text-sm">
+                            <span className="text-base-content/60">
+                                {marcas.from}–{marcas.to} de {marcas.total} marcas
                             </span>
-                            <span className="font-mono">Peso total: {fmt(totals.pesoTotal)} kg</span>
+                            <div className="join">
+                                <Link
+                                    href={marcas.prev_page_url ?? '#'}
+                                    className={`join-item btn btn-sm ${marcas.prev_page_url ? '' : 'btn-disabled'}`}
+                                    preserveState
+                                    preserveScroll
+                                >
+                                    <ChevronLeftIcon className="size-4" />
+                                </Link>
+                                <button className="join-item btn btn-sm btn-ghost pointer-events-none">
+                                    {marcas.current_page} / {marcas.last_page}
+                                </button>
+                                <Link
+                                    href={marcas.next_page_url ?? '#'}
+                                    className={`join-item btn btn-sm ${marcas.next_page_url ? '' : 'btn-disabled'}`}
+                                    preserveState
+                                    preserveScroll
+                                >
+                                    <ChevronRightIcon className="size-4" />
+                                </Link>
+                            </div>
                         </div>
                     )}
                 </div>

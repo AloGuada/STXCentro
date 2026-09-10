@@ -72,6 +72,21 @@ class BadgeConfigSeeder extends Seeder
                 'nav_href' => '/admin/costos/requisiciones',
                 'filter_href' => '/admin/costos/requisiciones?estatus=pendiente_aprobacion_interno',
             ],
+            [
+                // El valor a ejecutar del proyecto cambió y el ICSOE ya se
+                // recalculó: alguien de cobranza debe revisarlo antes de
+                // reportar al IMSS. La fila gemela vive en la migración que crea
+                // `cob_icsoe_seguimientos` (producción no corre seeders).
+                'nombre' => 'ICSOE pendientes de verificación',
+                'tabla' => 'cob_icsoe_seguimientos',
+                'campo_estatus' => 'estatus',
+                'operador' => '=',
+                'valor_estatus' => 'pendiente_verificacion',
+                'condiciones_extra' => null,
+                'rol' => 'admin-cobranza',
+                'nav_href' => '/admin/cob/icsoe',
+                'filter_href' => '/admin/cob/icsoe?estatus=pendiente_verificacion',
+            ],
         ];
 
         foreach ($configs as $config) {

@@ -94,16 +94,31 @@ class Requisicion extends Model implements Aprobable
         return $this->firma_adicional_aprobador_id;
     }
 
+    /** @var list<array<string, mixed>>|null */
+    private ?array $ocsResumenCache = null;
+
     /**
-     * Total neto a pagar (subtotal + IVA - retenciones) agrupando las
-     * selecciones por (proveedor, OC) con {@see \App\Services\Costos\RetencionCalculator}.
-     * Es 0 mientras no haya selecciones (antes de definir la OC).
+     * Resumen de las OCs adjudicadas: un renglón por grupo (proveedor, numero_oc)
+     * de las selecciones, con el proveedor elegido, su neto a pagar y —si la
+     * requisición ya se liberó— el folio de la orden de compra generada.
+     * Vacío mientras no haya selecciones (antes de definir la OC).
+     *
+     * Un grupo por (proveedor, numero_oc, moneda): una OC no puede mezclar
+     * monedas ({@see \App\Services\Costos\OrdenCompraGenerator}), y sumar
+     * importes de divisas distintas en un mismo `total` daría un número sin
+     * unidad. `total` está expresado en `moneda`.
+     *
+     * @return list<array{numero_oc: int, folio: string|null, proveedor_id: int, razon_social: string, nombre_comercial: string|null, moneda: string, total: float}>
      */
-    public function getTotalNetoAttribute(): float
+    public function getOcsResumenAttribute(): array
     {
+        if ($this->ocsResumenCache !== null) {
+            return $this->ocsResumenCache;
+        }
+
         $calculador = new \App\Services\Costos\RetencionCalculator;
 
-        /** @var array<string, array{proveedor: \App\Models\Proveedor, lineas: list<array{tipo_fiscal: ?string, subtotal: float}>}> $grupos */
+        /** @var array<string, array{numero_oc: int, folio: string|null, moneda: string, proveedor: \App\Models\Proveedor, lineas: list<array{tipo_fiscal: ?string, subtotal: float, sin_impuestos: bool}>}> $grupos */
         $grupos = [];
         foreach ($this->detalles as $detalle) {
             if ($detalle->solo_cotizacion) {
@@ -115,23 +130,61 @@ class Requisicion extends Model implements Aprobable
                     continue;
                 }
 
-                $clave = $seleccion->proveedor_id.'|'.($seleccion->numero_oc ?? 1);
+                $numeroOc = (int) ($seleccion->numero_oc ?? 1);
+                $moneda = strtolower((string) ($seleccion->cotizacionPrecio?->moneda ?? 'mxn'));
+                $clave = $seleccion->proveedor_id.'|'.$numeroOc.'|'.$moneda;
                 $subtotal = (float) ($seleccion->cotizacionPrecio?->precio_unitario ?? 0) * (float) $seleccion->cantidad;
 
+                $grupos[$clave]['numero_oc'] ??= $numeroOc;
+                $grupos[$clave]['moneda'] ??= $moneda;
                 $grupos[$clave]['proveedor'] ??= $seleccion->proveedor;
+                $grupos[$clave]['folio'] ??= $seleccion->ordenCompraDetalle?->ordenCompra?->folio;
                 $grupos[$clave]['lineas'][] = [
                     'tipo_fiscal' => $detalle->tipo_fiscal?->value,
                     'subtotal' => $subtotal,
+                    'sin_impuestos' => (bool) $detalle->sin_impuestos,
                 ];
             }
         }
 
-        $neto = 0.0;
+        $resumen = [];
         foreach ($grupos as $grupo) {
-            $neto += $calculador->calcular($grupo['proveedor'], $grupo['lineas'])['total_neto'];
+            $proveedor = $grupo['proveedor'];
+            $resumen[] = [
+                'numero_oc' => $grupo['numero_oc'],
+                'folio' => $grupo['folio'] ?? null,
+                'proveedor_id' => (int) $proveedor->id,
+                'razon_social' => (string) $proveedor->razon_social,
+                'nombre_comercial' => $proveedor->nombre_comercial,
+                'moneda' => $grupo['moneda'],
+                'total' => $calculador->calcular($proveedor, $grupo['lineas'])['total_neto'],
+            ];
         }
 
-        return round($neto, 2);
+        usort($resumen, fn (array $a, array $b) => [$a['numero_oc'], $a['razon_social'], $a['moneda']] <=> [$b['numero_oc'], $b['razon_social'], $b['moneda']]);
+
+        return $this->ocsResumenCache = $resumen;
+    }
+
+    /**
+     * Total neto a pagar (subtotal + IVA - retenciones) sumando el neto de cada
+     * OC adjudicada. Es 0 mientras no haya selecciones (antes de definir la OC).
+     *
+     * Siempre en MXN: las OCs en divisa se convierten con el tipo de cambio del
+     * documento, igual que el neto combinado del comparativo. Sin sumarlas en
+     * una sola unidad, una requisición con OCs en monedas distintas devolvía la
+     * suma cruda de pesos con dólares.
+     */
+    public function getTotalNetoAttribute(): float
+    {
+        $tipoCambio = (float) ($this->tipo_cambio ?: 1);
+
+        return round(array_sum(array_map(
+            fn (array $oc): float => $oc['moneda'] === 'mxn'
+                ? (float) $oc['total']
+                : (float) $oc['total'] * $tipoCambio,
+            $this->ocs_resumen,
+        )), 2);
     }
 
     public function controlador(): BelongsTo
@@ -263,12 +316,14 @@ class Requisicion extends Model implements Aprobable
 
     /**
      * Mejor proveedor: aquel que cotizó TODAS las partidas y cuya suma de
-     * (cantidad × precio_unitario) por partida es la menor. La lógica vive en
-     * {@see BuscadorMejorProveedor}.
+     * (cantidad × precio_unitario) por partida es la menor. `total` va siempre
+     * en MXN (las cotizaciones en divisa se convierten con el tipo de cambio del
+     * documento) y `falta_tc` marca que hay divisa sin tipo de cambio capturado.
+     * La lógica vive en {@see BuscadorMejorProveedor}.
      *
-     * @return array{id: int, razon_social: string, nombre_comercial: string|null, total: float}|null
+     * @return array{id: int, razon_social: string, nombre_comercial: string|null, moneda: string, total: float, falta_tc: bool}|null
      */
-    /** @var array{id: int, razon_social: string, nombre_comercial: string|null, total: float}|null */
+    /** @var array{id: int, razon_social: string, nombre_comercial: string|null, moneda: string, total: float, falta_tc: bool}|null */
     private ?array $mejorProveedorPrecargado = null;
 
     private bool $mejorProveedorResuelto = false;
@@ -278,7 +333,7 @@ class Requisicion extends Model implements Aprobable
      * BuscadorMejorProveedor::buscarLote) para que el accessor no dispare
      * queries por fila en listados.
      *
-     * @param  array{id: int, razon_social: string, nombre_comercial: string|null, total: float}|null  $mejor
+     * @param  array{id: int, razon_social: string, nombre_comercial: string|null, moneda: string, total: float, falta_tc: bool}|null  $mejor
      */
     public function precargarMejorProveedor(?array $mejor): void
     {

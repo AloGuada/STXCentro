@@ -15,6 +15,18 @@ type SearchSelectProps = {
     onValueChange: (value: string) => void;
     placeholder?: string;
     className?: string;
+    /**
+     * Va sobre el campo, no sobre el contenedor. Lo pide la captura por
+     * renglón, donde el control tiene que medir lo mismo que los `input-sm`
+     * que trae al lado.
+     */
+    inputClassName?: string;
+    /**
+     * Cuántas coincidencias se ofrecen a la vez. En un catálogo que crece, una
+     * lista larga no se lee: con tope, la forma de llegar es teclear más, no
+     * scrollear. Las que no caben se anuncian. Sin él se ofrecen todas.
+     */
+    maxOptions?: number;
     disabled?: boolean;
 };
 
@@ -24,6 +36,8 @@ export function SearchSelect({
     onValueChange,
     placeholder = 'Buscar...',
     className,
+    inputClassName,
+    maxOptions,
     disabled = false,
 }: SearchSelectProps) {
     const selected = options.find((o) => o.value === value);
@@ -35,9 +49,14 @@ export function SearchSelect({
     const inputRef = useRef<HTMLInputElement>(null);
     const dropdownRef = useRef<HTMLUListElement>(null);
 
-    const filtered = options.filter((o) =>
+    const coincidencias = options.filter((o) =>
         o.label.toLowerCase().includes(query.toLowerCase()),
     );
+
+    // El tope corta la lista que se ofrece, no sólo la que se pinta: el teclado
+    // tiene que recorrer lo mismo que el ojo, y Enter elegir lo que se ve.
+    const filtered = maxOptions === undefined ? coincidencias : coincidencias.slice(0, maxOptions);
+    const ocultas = coincidencias.length - filtered.length;
 
     // Posiciona el dropdown (portal) bajo el input para que no lo recorte ningún
     // contenedor con overflow; se realinea al hacer scroll/resize.
@@ -127,7 +146,7 @@ export function SearchSelect({
             <input
                 ref={inputRef}
                 type="text"
-                className="input input-bordered w-full"
+                className={cn('input input-bordered w-full', inputClassName)}
                 placeholder={selected ? selected.label : placeholder}
                 value={open ? query : selected?.label ?? ''}
                 disabled={disabled}
@@ -140,12 +159,18 @@ export function SearchSelect({
                 onFocus={openDropdown}
                 onKeyDown={handleKeyDown}
             />
-            {open && !disabled && filtered.length > 0 && coords && createPortal(
+            {/* Tambien se abre sin coincidencias: un desplegable que desaparece al
+                teclear parece descompuesto, y no dice lo unico que hay que saber,
+                que es que eso no esta en el catalogo. */}
+            {open && !disabled && coords && createPortal(
                 <ul
                     ref={dropdownRef}
                     className="menu bg-base-100 border-base-300 fixed z-[1000] max-h-60 overflow-auto rounded border shadow-lg"
                     style={{ top: coords.top, left: coords.left, width: coords.width }}
                 >
+                    {filtered.length === 0 && (
+                        <li className="text-base-content/50 px-3 py-2 text-sm">Sin coincidencias</li>
+                    )}
                     {filtered.map((option, idx) => (
                         <li key={option.value}>
                             <button
@@ -163,6 +188,13 @@ export function SearchSelect({
                             </button>
                         </li>
                     ))}
+                    {/* Que no aparezca no quiere decir que no esté: sin este
+                        aviso, teclear de menos parece un catálogo incompleto. */}
+                    {ocultas > 0 && (
+                        <li className="text-base-content/50 px-3 py-2 text-xs">
+                            +{ocultas} más. Teclea para acotar.
+                        </li>
+                    )}
                 </ul>,
                 document.body,
             )}

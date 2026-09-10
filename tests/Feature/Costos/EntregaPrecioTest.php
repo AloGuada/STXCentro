@@ -6,9 +6,12 @@ use App\Models\Costos\OrdenCompra;
 use App\Models\Costos\OrdenCompraDetalle;
 use App\Models\Costos\RubroAfectado;
 use App\Models\User;
+use Illuminate\Support\Facades\Storage;
 use Spatie\Permission\Models\Permission;
 
 beforeEach(function () {
+    Storage::fake('public');
+
     $this->user = User::factory()->create();
     Permission::firstOrCreate(['name' => 'costos.entregas.crear', 'guard_name' => 'web']);
 });
@@ -41,15 +44,16 @@ function ocConRubro(float $cantidad = 10, float $precio = 100): array
 
 test('guarda el precio recibido en el detalle de la entrega', function () {
     [$oc, $partida, , $factura] = ocConRubro(10, 100);
+    $detalles = [['orden_compra_detalle_id' => $partida->id, 'cantidad_recibida' => 10, 'precio_unitario' => 120]];
 
     $this->actingAs($this->user)
-        ->post("/admin/costos/ordenes-compra/{$oc->id}/entregas", [
+        ->post('/admin/almacen/entradas', [
+            'orden_compra_id' => $oc->id,
+            'almacen_id' => almacenParaRecibir($this->user)->id,
             'fecha_entrega' => '2026-07-20',
-            'factura_id' => $factura->id,
+            'factura_id' => facturaQueAmpara($factura, $oc, $detalles)->id,
             'tipo' => 'completa',
-            'detalles' => [
-                ['orden_compra_detalle_id' => $partida->id, 'cantidad_recibida' => 10, 'precio_unitario' => 120],
-            ],
+            'detalles' => $detalles,
         ])
         ->assertRedirect();
 
@@ -62,15 +66,16 @@ test('guarda el precio recibido en el detalle de la entrega', function () {
 
 test('un precio recibido distinto ajusta el acumulado por la diferencia', function () {
     [$oc, $partida, $rubro, $factura] = ocConRubro(10, 100);
+    $detalles = [['orden_compra_detalle_id' => $partida->id, 'cantidad_recibida' => 10, 'precio_unitario' => 120]];
 
     $this->actingAs($this->user)
-        ->post("/admin/costos/ordenes-compra/{$oc->id}/entregas", [
+        ->post('/admin/almacen/entradas', [
+            'orden_compra_id' => $oc->id,
+            'almacen_id' => almacenParaRecibir($this->user)->id,
             'fecha_entrega' => '2026-07-20',
-            'factura_id' => $factura->id,
+            'factura_id' => facturaQueAmpara($factura, $oc, $detalles)->id,
             'tipo' => 'completa',
-            'detalles' => [
-                ['orden_compra_detalle_id' => $partida->id, 'cantidad_recibida' => 10, 'precio_unitario' => 120],
-            ],
+            'detalles' => $detalles,
         ])
         ->assertRedirect();
 
@@ -86,15 +91,16 @@ test('un precio recibido distinto ajusta el acumulado por la diferencia', functi
 
 test('recibir al mismo precio de la OC no genera ajuste presupuestal', function () {
     [$oc, $partida, $rubro, $factura] = ocConRubro(10, 100);
+    $detalles = [['orden_compra_detalle_id' => $partida->id, 'cantidad_recibida' => 10, 'precio_unitario' => 100]];
 
     $this->actingAs($this->user)
-        ->post("/admin/costos/ordenes-compra/{$oc->id}/entregas", [
+        ->post('/admin/almacen/entradas', [
+            'orden_compra_id' => $oc->id,
+            'almacen_id' => almacenParaRecibir($this->user)->id,
             'fecha_entrega' => '2026-07-20',
-            'factura_id' => $factura->id,
+            'factura_id' => facturaQueAmpara($factura, $oc, $detalles)->id,
             'tipo' => 'completa',
-            'detalles' => [
-                ['orden_compra_detalle_id' => $partida->id, 'cantidad_recibida' => 10, 'precio_unitario' => 100],
-            ],
+            'detalles' => $detalles,
         ])
         ->assertRedirect();
 
@@ -104,16 +110,17 @@ test('recibir al mismo precio de la OC no genera ajuste presupuestal', function 
 
 test('un precio recibido menor reduce el acumulado', function () {
     [$oc, $partida, $rubro, $factura] = ocConRubro(10, 100);
+    $detalles = [['orden_compra_detalle_id' => $partida->id, 'cantidad_recibida' => 10, 'precio_unitario' => 90]];
     $rubro->update(['acumulado' => 1000]);
 
     $this->actingAs($this->user)
-        ->post("/admin/costos/ordenes-compra/{$oc->id}/entregas", [
+        ->post('/admin/almacen/entradas', [
+            'orden_compra_id' => $oc->id,
+            'almacen_id' => almacenParaRecibir($this->user)->id,
             'fecha_entrega' => '2026-07-20',
-            'factura_id' => $factura->id,
+            'factura_id' => facturaQueAmpara($factura, $oc, $detalles)->id,
             'tipo' => 'completa',
-            'detalles' => [
-                ['orden_compra_detalle_id' => $partida->id, 'cantidad_recibida' => 10, 'precio_unitario' => 90],
-            ],
+            'detalles' => $detalles,
         ])
         ->assertRedirect();
 
@@ -123,15 +130,16 @@ test('un precio recibido menor reduce el acumulado', function () {
 
 test('el monto recibido de la OC usa el precio recibido', function () {
     [$oc, $partida, , $factura] = ocConRubro(10, 100);
+    $detalles = [['orden_compra_detalle_id' => $partida->id, 'cantidad_recibida' => 10, 'precio_unitario' => 120]];
 
     $this->actingAs($this->user)
-        ->post("/admin/costos/ordenes-compra/{$oc->id}/entregas", [
+        ->post('/admin/almacen/entradas', [
+            'orden_compra_id' => $oc->id,
+            'almacen_id' => almacenParaRecibir($this->user)->id,
             'fecha_entrega' => '2026-07-20',
-            'factura_id' => $factura->id,
+            'factura_id' => facturaQueAmpara($factura, $oc, $detalles)->id,
             'tipo' => 'completa',
-            'detalles' => [
-                ['orden_compra_detalle_id' => $partida->id, 'cantidad_recibida' => 10, 'precio_unitario' => 120],
-            ],
+            'detalles' => $detalles,
         ])
         ->assertRedirect();
 

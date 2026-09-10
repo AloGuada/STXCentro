@@ -19,6 +19,7 @@ class TipoPagoExtra extends Model
         'descripcion',
         'orden',
         'desgloce',
+        'es_descuento',
     ];
 
     /**
@@ -29,6 +30,7 @@ class TipoPagoExtra extends Model
         return [
             'orden' => 'integer',
             'desgloce' => 'boolean',
+            'es_descuento' => 'boolean',
         ];
     }
 }

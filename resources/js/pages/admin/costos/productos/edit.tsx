@@ -73,6 +73,28 @@ export default function ProductosEdit({ producto }: Props) {
                                 <input type="checkbox" className="checkbox checkbox-sm" checked={data.activo} onChange={(e) => setData('activo', e.target.checked)} />
                                 <span className="text-sm">Activo</span>
                             </label>
+
+                            {/* El otro lado del ligado. Es una etiqueta, no un
+                                campo: emparejar no se hace desde aquí. */}
+                            <div>
+                                <span className="label-text">Artículo en Almacén</span>
+                                <p className="mt-1 text-sm">
+                                    {producto.articulo ? (
+                                        <Link
+                                            href={`/admin/almacen/articulos/${producto.articulo.id}`}
+                                            className="link link-hover"
+                                        >
+                                            <span className="font-mono">{producto.articulo.codigo ?? 'Sin código'}</span>
+                                            <span className="text-base-content/60"> — {producto.articulo.descripcion}</span>
+                                        </Link>
+                                    ) : (
+                                        <span className="text-base-content/50">
+                                            Sin ligar: no lleva kardex. Es un servicio, un flete, o algo que nadie ha
+                                            clasificado todavía.
+                                        </span>
+                                    )}
+                                </p>
+                            </div>
                             <div className="flex justify-end gap-2">
                                 <Button variant="outline" asChild>
                                     <Link href="/admin/costos/productos">Volver</Link>

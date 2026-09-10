@@ -13,7 +13,8 @@ use PhpOffice\PhpSpreadsheet\Style\Fill;
 use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 
 /**
- * Exporta el listado de recepciones acotado por fecha de entrega, con las
+ * Exporta el listado de recepciones acotado por fecha de recepción —el sello
+ * del sistema, no la fecha operativa que captura el almacenista—, con las
  * mismas columnas que la pantalla: un renglón por recepción. Los filtros
  * (búsqueda, tipo y visibilidad) se aplican con el mismo scope que el index,
  * para que el reporte no muestre de más ni de menos.
@@ -43,6 +44,7 @@ class RecepcionesExport implements FromCollection, ShouldAutoSize, WithHeadings,
         return [
             'Folio',
             'Fecha de recepción',
+            'Fecha de Entrega',
             'Orden de compra',
             'Solicitudes de pago',
             'Proveedor',
@@ -65,8 +67,8 @@ class RecepcionesExport implements FromCollection, ShouldAutoSize, WithHeadings,
      */
     public function styles(Worksheet $sheet): array
     {
-        $sheet->getStyle('A1:K1')->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('4472C4');
-        $sheet->getStyle('A1:K1')->getFont()->setBold(true)->getColor()->setRGB('FFFFFF');
+        $sheet->getStyle('A1:L1')->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('4472C4');
+        $sheet->getStyle('A1:L1')->getFont()->setBold(true)->getColor()->setRGB('FFFFFF');
 
         return [];
     }
@@ -99,6 +101,9 @@ class RecepcionesExport implements FromCollection, ShouldAutoSize, WithHeadings,
 
                 return [
                     'folio' => $entrega->folio ?? '—',
+                    // Cuándo se elaboró el documento (sistema) y cuándo entró el
+                    // material (operativa): son fechas distintas y se reportan las dos.
+                    'fecha_recepcion' => $entrega->fechaRecepcionLocal()?->format('d/m/Y') ?? '—',
                     'fecha_entrega' => $entrega->fecha_entrega?->format('d/m/Y') ?? '—',
                     'orden_compra' => $oc?->folio ?? '—',
                     // Una OC de contado puede tener varias solicitudes ligadas;

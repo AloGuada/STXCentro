@@ -6,7 +6,6 @@ import { FormattedDate } from '@/components/ui/formatted-date';
 import { CancelarModal } from '@/components/costos/cancelar-modal';
 import { DevolverItemModal } from '@/components/costos/devolver-item-modal';
 import { EditarRecepcionModal, type RecepcionEditable } from '@/components/costos/editar-recepcion-modal';
-import { EntregaModal } from '@/components/costos/entrega-modal';
 import { formatMoney as fmtMonto } from '@/components/costos/monto';
 import { CONTADO_STEPS, getContadoStep } from '@/components/costos/oc-contado';
 import { SubirFacturaContadoModal } from '@/components/costos/subir-factura-contado-modal';
@@ -62,7 +61,6 @@ export default function OrdenesCompraShow({ ordenCompra, retenciones, usuarios }
     const currentStep = esContado ? getContadoStep(ordenCompra) : getStepIndex(ordenCompra.estatus);
     const [activeTab, setActiveTab] = useState<'datos' | 'facturas' | 'recepciones' | 'documentos' | 'historial'>('datos');
     const [showCancelarModal, setShowCancelarModal] = useState(false);
-    const [showEntregaModal, setShowEntregaModal] = useState(false);
     const [showSubirFacturaModal, setShowSubirFacturaModal] = useState(false);
     const [devolverTarget, setDevolverTarget] = useState<DevolverTarget | null>(null);
     const [cancelarEntregaId, setCancelarEntregaId] = useState<number | null>(null);
@@ -147,6 +145,13 @@ export default function OrdenesCompraShow({ ordenCompra, retenciones, usuarios }
                             <span className="text-lg font-semibold">{formatMoney(ordenCompra.total)}</span>
                             {ordenCompra.pagada_anticipo_contado && (
                                 <span className="badge badge-success">Pagada (anticipo contado)</span>
+                            )}
+                            {/* Recibida al total, facturada al total y pagada al total: la orden
+                                terminó su vida y deja de aparecer entre las que esperan material. */}
+                            {ordenCompra.completada && (
+                                <span className="badge badge-success" title="Se recibió todo, se facturó el total y se pagaron todas las facturas.">
+                                    Completada
+                                </span>
                             )}
                             {ordenCompra.solicitudes_pago?.[0] && (
                                 <Link
@@ -414,11 +419,8 @@ export default function OrdenesCompraShow({ ordenCompra, retenciones, usuarios }
 
                 {activeTab === 'recepciones' && (
                     <div className="space-y-4">
-                        {['pendiente_entrega', 'pendiente_factura', 'pendiente_aprobacion'].includes(ordenCompra.estatus) && can('costos.entregas.crear') && (
-                            <div className="flex justify-end">
-                                <Button onClick={() => setShowEntregaModal(true)}>Registrar entrega</Button>
-                            </div>
-                        )}
+                        {/* La recepción se captura en Almacén: es ahí donde se dice a qué
+                            almacén entra el material, que es lo que mueve el kardex. */}
                         {(!ordenCompra.entregas || ordenCompra.entregas.length === 0) ? (
                             <p className="text-base-content/60">No hay entregas registradas.</p>
                         ) : (
@@ -431,7 +433,10 @@ export default function OrdenesCompraShow({ ordenCompra, retenciones, usuarios }
                                             {entrega.cancelada_at && (
                                                 <span className="ml-2 badge badge-sm badge-error">Cancelada</span>
                                             )}
+                                            {/* Recepción: cuándo se elaboró el documento.
+                                                Entrega: cuándo llegó el material. */}
                                             <span className="ml-2 text-sm text-base-content/60">
+                                                Recepción <FormattedDate value={entrega.created_at} /> · Entrega{' '}
                                                 <FormattedDate value={entrega.fecha_entrega} />
                                             </span>
                                         </div>
@@ -457,6 +462,7 @@ export default function OrdenesCompraShow({ ordenCompra, retenciones, usuarios }
                                                         setEditandoEntrega({
                                                             id: entrega.id,
                                                             folio: entrega.folio ?? null,
+                                                            fecha_recepcion: entrega.created_at ?? null,
                                                             fecha_entrega: entrega.fecha_entrega,
                                                             recibido_por_id: entrega.recibido_por ?? null,
                                                             observaciones: entrega.observaciones ?? null,
@@ -629,12 +635,6 @@ export default function OrdenesCompraShow({ ordenCompra, retenciones, usuarios }
                     title={`Cancelar orden ${ordenCompra.folio}`}
                     description="La orden quedará cancelada y se revertirá su impacto presupuestal. Esta acción no se puede deshacer."
                     submitLabel="Cancelar orden"
-                />
-
-                <EntregaModal
-                    open={showEntregaModal}
-                    onClose={() => setShowEntregaModal(false)}
-                    ordenCompra={ordenCompra}
                 />
 
                 <SubirFacturaContadoModal

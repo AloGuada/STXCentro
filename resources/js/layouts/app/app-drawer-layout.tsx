@@ -2,7 +2,9 @@ import { Link, usePage } from '@inertiajs/react';
 import {
     BadgeCheck,
     BadgeDollarSign,
+    Barcode,
     BookOpen,
+    Boxes,
     Briefcase,
     Building,
     Building2,
@@ -30,6 +32,7 @@ import {
     KeyRound,
     Landmark,
     LogOut,
+    MapPin,
     MenuIcon,
     Monitor,
     Network,
@@ -41,8 +44,11 @@ import {
     Puzzle,
     Radar,
     Receipt,
+    Scale,
+    ScanBarcode,
     Settings,
     Shield,
+    ShieldAlert,
     ShieldCheck,
     ShoppingCart,
     Table2,
@@ -50,10 +56,12 @@ import {
     Ticket,
     TrendingDown,
     TriangleAlert,
+    Undo2,
     Users,
     HardDrive,
     HardHat,
     UserCheck,
+    Warehouse,
     Wrench,
 } from 'lucide-react';
 import { type ReactNode, useEffect, useRef, useState } from 'react';
@@ -322,6 +330,126 @@ const navGroups: NavGroup[] = [
                         permission: 'qal.reporte-semanal.ver',
                     },
                 ],
+            },
+        ],
+    },
+    {
+        title: 'Inventarios',
+        icon: Warehouse,
+        items: [
+            {
+                title: 'Existencias',
+                href: '/admin/almacen/existencias',
+                icon: Package,
+                permission: 'alm.existencias.ver',
+            },
+            {
+                title: 'Pedidos',
+                href: '/admin/almacen/pedidos',
+                icon: ClipboardCheck,
+                permission: 'alm.pedidos.ver',
+            },
+            {
+                title: 'Entradas',
+                href: '/admin/almacen/entradas',
+                icon: PackageCheck,
+                permission: 'alm.entradas.ver',
+            },
+            {
+                title: 'Salidas',
+                href: '/admin/almacen/salidas',
+                icon: ClipboardList,
+                permission: 'alm.salidas.ver',
+            },
+            {
+                title: 'Transferencias',
+                href: '/admin/almacen/transferencias',
+                icon: Network,
+                permission: 'alm.transferencias.ver',
+            },
+            {
+                title: 'Ajustes',
+                href: '/admin/almacen/ajustes',
+                icon: Scale,
+                permission: 'alm.ajustes.ver',
+            },
+            {
+                title: 'Inventarios Cíclicos',
+                href: '/admin/almacen/conteos',
+                icon: ClipboardCheck,
+                permission: 'alm.conteos.ver',
+            },
+            {
+                title: 'Kardex',
+                href: '/admin/almacen/kardex',
+                icon: BookOpen,
+                permission: 'alm.kardex.ver',
+            },
+            {
+                title: 'Artículos',
+                href: '/admin/almacen/articulos',
+                icon: Boxes,
+                permission: 'alm.articulos.ver',
+            },
+            {
+                title: 'Códigos de Barras',
+                href: '/admin/almacen/etiquetas',
+                icon: Barcode,
+                permission: 'alm.etiquetas.ver',
+            },
+            {
+                title: 'Almacenes',
+                href: '/admin/almacen/almacenes',
+                icon: Building2,
+                permission: 'alm.almacenes.ver',
+            },
+            {
+                title: 'Ubicaciones',
+                href: '/admin/almacen/ubicaciones',
+                icon: MapPin,
+                permission: 'alm.ubicaciones.ver',
+            },
+            {
+                title: 'Áreas',
+                href: '/admin/almacen/areas',
+                icon: Layers,
+                permission: 'alm.areas.ver',
+            },
+            {
+                title: 'Aprobaciones',
+                href: '/admin/almacen/aprobaciones',
+                icon: UserCheck,
+                permission: 'alm.aprobaciones.ver',
+            },
+        ],
+    },
+    /**
+     * Lo que se presta y se devuelve, no lo que se consume. Un activo tiene
+     * número de serie y siempre es de alguien: sale con un resguardo y sólo
+     * deja de pesar cuando vuelve. Por eso vive aparte de Inventarios, donde
+     * el material se descarga y se acabó.
+     */
+    {
+        title: 'Activos',
+        icon: ScanBarcode,
+        items: [
+            {
+                title: 'Activos',
+                href: '/admin/almacen/activos',
+                icon: ScanBarcode,
+                permission: 'alm.activos.ver',
+            },
+            {
+                title: 'Préstamos',
+                href: '/admin/almacen/prestamos',
+                icon: Wrench,
+                permission: 'alm.prestamos.ver',
+            },
+            {
+                title: 'Devoluciones',
+                href: '/admin/almacen/devoluciones',
+                icon: Undo2,
+                permission: 'alm.devoluciones.ver',
             },
         ],
     },
@@ -601,6 +729,25 @@ const navGroups: NavGroup[] = [
                 permission: 'cob.tipos-retenciones.ver',
             },
             {
+                title: 'ICSOE',
+                href: '/admin/cob/icsoe',
+                icon: ShieldAlert,
+                children: [
+                    {
+                        title: 'Seguimientos',
+                        href: '/admin/cob/icsoe',
+                        icon: ShieldAlert,
+                        permission: 'cob.icsoe.ver',
+                    },
+                    {
+                        title: 'SBC por año',
+                        href: '/admin/cob/icsoe-sbc',
+                        icon: Calculator,
+                        permission: 'cob.icsoe-sbc.ver',
+                    },
+                ],
+            },
+            {
                 title: 'Secciones Doc.',
                 href: '/admin/cob/documento-secciones',
                 icon: FolderTree,
@@ -742,13 +889,13 @@ const navGroups: NavGroup[] = [
                 title: 'Dashboard',
                 href: '/admin/drive',
                 icon: LayoutGrid,
-                permission: 'drive.gestionar',
+                permissionModulo: 'drive',
             },
             {
                 title: 'Carpetas',
                 href: '/admin/drive/carpetas',
                 icon: FolderTree,
-                permission: 'drive.gestionar',
+                permissionModulo: 'drive',
             },
             {
                 title: 'Usuarios Externos',
@@ -858,6 +1005,11 @@ function SidebarMenuItem({
 
     if (item.children && item.children.length > 0) {
         const hasActiveChild = item.children.some((c) => isCurrentUrl(c.href));
+        // El contenedor apunta a la pantalla de alguno de sus hijos; si además
+        // pintara el badge, el mismo número saldría dos veces al desplegarlo.
+        const hijoConMismoDestino = item.children.some(
+            (c) => String(c.href) === String(item.href),
+        );
 
         return (
             <li>
@@ -873,7 +1025,9 @@ function SidebarMenuItem({
                         >
                             {item.title}
                         </Link>
-                        <SidebarBadge href={String(item.href)} />
+                        {!hijoConMismoDestino && (
+                            <SidebarBadge href={String(item.href)} />
+                        )}
                     </summary>
                     <ul className="ml-2 border-l border-base-300">
                         {item.children.map((child) => (

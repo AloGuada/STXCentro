@@ -2,12 +2,15 @@
 
 namespace App\Models\Costos;
 
+use App\Enums\Costos\DocumentoTipo;
 use App\Enums\Costos\PresupuestoEstatus;
 use App\Models\Concerns\HasStateMachine;
+use App\Models\Media;
 use App\Models\Obra;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 
 /**
@@ -55,6 +58,24 @@ class Presupuesto extends Model
     public function rubros(): HasMany
     {
         return $this->hasMany(ObraRubro::class, 'presupuesto_id');
+    }
+
+    /**
+     * @return MorphMany<Media, $this>
+     */
+    public function media(): MorphMany
+    {
+        return $this->morphMany(Media::class, 'mediable');
+    }
+
+    /**
+     * El documento autorizado del presupuesto. Es uno solo: al subir otro se
+     * reemplaza, porque lo que se consulta es la última versión vigente.
+     */
+    public function documento(): ?Media
+    {
+        return $this->media
+            ->firstWhere('descripcion', DocumentoTipo::PresupuestoDocumento->value);
     }
 
     /**

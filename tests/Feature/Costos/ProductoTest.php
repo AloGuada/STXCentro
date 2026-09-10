@@ -35,36 +35,20 @@ test('requiere permiso para ver el catálogo', function () {
         ->assertForbidden();
 });
 
-test('crea un producto', function () {
+test('Compras ya no da de alta productos: la puerta es Almacén > Artículos', function () {
+    // El producto nace en Almacén con las dos caras del maestro, donde se
+    // decide si es insumo o activo. Aquí sólo se consulta y se edita.
     $this->actingAs($this->user)
-        ->post('/admin/costos/productos', [
-            'codigo' => 'TORN-14',
-            'descripcion' => 'Tornillo 1/4"',
-            'unidad' => 'pza',
-            'activo' => true,
-        ])
-        ->assertRedirect();
+        ->post('/admin/costos/productos', ['codigo' => 'TORN-14', 'descripcion' => 'Tornillo 1/4"', 'unidad' => 'pza'])
+        ->assertStatus(405);
 
-    $producto = Producto::first();
-    expect($producto->codigo)->toBe('TORN-14')
-        ->and($producto->descripcion)->toBe('Tornillo 1/4"')
-        ->and($producto->creado_por)->toBe($this->user->id);
-});
-
-test('rechaza un código duplicado', function () {
-    Producto::factory()->create(['codigo' => 'DUP-1']);
-
+    // Sin ruta de alta, /create cae en el parametro {producto}, que solo
+    // acepta DELETE: por eso es 405 y no 404.
     $this->actingAs($this->user)
-        ->post('/admin/costos/productos', ['codigo' => 'DUP-1', 'descripcion' => 'x', 'unidad' => 'pza'])
-        ->assertSessionHasErrors(['codigo']);
-});
+        ->get('/admin/costos/productos/create')
+        ->assertStatus(405);
 
-test('permite producto sin código', function () {
-    $this->actingAs($this->user)
-        ->post('/admin/costos/productos', ['codigo' => '', 'descripcion' => 'Sin código', 'unidad' => 'pza'])
-        ->assertRedirect();
-
-    expect(Producto::where('descripcion', 'Sin código')->exists())->toBeTrue();
+    expect(Producto::count())->toBe(0);
 });
 
 test('actualiza un producto', function () {

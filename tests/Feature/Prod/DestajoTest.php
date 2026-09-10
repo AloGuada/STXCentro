@@ -152,15 +152,36 @@ describe('admin destajos', function () {
                 ->has('pagosExtraPreview')
                 ->has('piezasSinPrecio')
                 ->has('gruposTrabajo')
-                ->has('marcas')
+                ->has('obras')
                 ->has('procesos')
                 ->has('tipos')
             );
     });
 
-    test('el catalogo de captura manda el QR de cada pieza', function () {
+    test('la pantalla solo manda las obras, no el catalogo', function () {
+        $marca = marcaConPiezas(3);
+
+        $destajo = Destajo::factory()->create([
+            'fecha_inicio' => '2026-02-03',
+            'fecha_fin' => '2026-02-09',
+        ]);
+
+        // Una obra son decenas de miles de piezas: mandarlas en la pantalla la
+        // tumbaba por memoria. El catalogo baja en tres tiempos y aqui solo
+        // viaja el primero.
+        $this->actingAs($this->user)
+            ->get(route('admin.prod.destajos.show', $destajo))
+            ->assertInertia(fn ($page) => $page
+                ->has('obras', 1)
+                ->where('obras.0.id', $marca->obra_id)
+                ->missing('marcas')
+                ->missing('avance')
+            );
+    });
+
+    test('la obra sin catalogo vigente no sale en la captura', function () {
         $marca = marcaConPiezas(1);
-        $marca->piezas[0]->update(['qs' => null]);
+        $marca->catalogo->update(['vigente' => false]);
 
         $destajo = Destajo::factory()->create([
             'fecha_inicio' => '2026-02-03',
@@ -169,10 +190,73 @@ describe('admin destajos', function () {
 
         $this->actingAs($this->user)
             ->get(route('admin.prod.destajos.show', $destajo))
-            ->assertInertia(fn ($page) => $page
-                ->where('marcas.0.piezas.0.qr', $marca->piezas[0]->qr)
-                ->where('marcas.0.piezas.0.qs', null)
-            );
+            ->assertInertia(fn ($page) => $page->has('obras', 0));
+    });
+
+    test('las marcas de la obra se piden aparte', function () {
+        $marca = marcaConPiezas(2);
+        $otraObra = marcaConPiezas(1);
+
+        $destajo = Destajo::factory()->create([
+            'fecha_inicio' => '2026-02-03',
+            'fecha_fin' => '2026-02-09',
+        ]);
+
+        $respuesta = $this->actingAs($this->user)
+            ->getJson(route('admin.prod.obras.marcas', $marca->obra_id))
+            ->assertOk();
+
+        $marcas = collect($respuesta->json('marcas'));
+
+        // Solo las de esa obra, y sin arrastrar sus piezas.
+        expect($marcas->pluck('id')->all())->toBe([$marca->id])
+            ->and($marcas->first())->not->toHaveKey('piezas')
+            ->and($marcas->pluck('id'))->not->toContain($otraObra->id);
+    });
+
+    test('las piezas de una marca se piden aparte, con su avance', function () {
+        $marca = marcaConPiezas(2);
+        $marca->piezas[0]->update(['qs' => null]);
+        $proceso = proceso();
+
+        $destajo = Destajo::factory()->create([
+            'fecha_inicio' => '2026-02-03',
+            'fecha_fin' => '2026-02-09',
+        ]);
+
+        $respuesta = $this->actingAs($this->user)
+            ->getJson(route('admin.prod.marcas.piezas', $marca))
+            ->assertOk();
+
+        $piezas = collect($respuesta->json('piezas'));
+
+        expect($piezas)->toHaveCount(2)
+            ->and($piezas->firstWhere('id', $marca->piezas[0]->id))
+            ->toMatchArray(['qr' => $marca->piezas[0]->qr, 'qs' => null])
+            ->and((float) $piezas->first()['avance'][$proceso->id]['disponible'])->toBe(1.0);
+    });
+
+    test('la pieza ya pagada llega sin cupo en su proceso', function () {
+        $marca = marcaConPiezas(1);
+        $proceso = proceso();
+
+        $destajo = Destajo::factory()->create([
+            'fecha_inicio' => '2026-02-03',
+            'fecha_fin' => '2026-02-09',
+        ]);
+
+        Registro::factory()->create([
+            'pieza_id' => $marca->piezas[0]->id,
+            'proceso_id' => $proceso->id,
+            'fecha' => '2026-02-04',
+            'porcentaje' => 100,
+        ]);
+
+        $respuesta = $this->actingAs($this->user)
+            ->getJson(route('admin.prod.marcas.piezas', $marca))
+            ->assertOk();
+
+        expect((float) $respuesta->json("piezas.0.avance.{$proceso->id}.disponible"))->toBe(0.0);
     });
 
     test('destajo can be deleted if not cerrado', function () {
@@ -458,6 +542,52 @@ describe('destajo pagos extra', function () {
             'grupo_trabajo_id' => $grupo->id,
             'precio' => 150,
         ]);
+    });
+
+    test('los dias del pago extra admiten fracciones y el monto las respeta', function () {
+        // Media jornada del sabado es medio dia. Redondearla a uno le regala al
+        // grupo el doble de lo que trabajo.
+        $grupo = GrupoTrabajo::factory()->create();
+        $tipo = TipoPagoExtra::create(['descripcion' => 'Horas Extra', 'orden' => 1, 'desgloce' => true]);
+        $destajo = Destajo::factory()->create();
+
+        $this->actingAs($this->user)
+            ->post(route('admin.prod.destajos.pagos-extra.store', $destajo), [
+                'descripcion' => 'Sabado medio dia',
+                'tipo_id' => $tipo->id,
+                'grupo_trabajo_id' => $grupo->id,
+                'precio' => 300,
+                'dias' => 1.5,
+                'personas' => 2,
+            ])
+            ->assertRedirect(route('admin.prod.destajos.show', $destajo));
+
+        $pago = PagoExtra::query()->latest('id')->first();
+
+        expect((float) $pago->dias)->toBe(1.5)
+            ->and($pago->monto)->toBe(900.0);
+    });
+
+    test('los dias no aceptan cero ni mas de dos decimales', function () {
+        $grupo = GrupoTrabajo::factory()->create();
+        $tipo = TipoPagoExtra::create(['descripcion' => 'Horas Extra', 'orden' => 1, 'desgloce' => true]);
+        $destajo = Destajo::factory()->create();
+
+        $base = [
+            'descripcion' => 'Sabado medio dia',
+            'tipo_id' => $tipo->id,
+            'grupo_trabajo_id' => $grupo->id,
+            'precio' => 300,
+            'personas' => 2,
+        ];
+
+        $this->actingAs($this->user)
+            ->post(route('admin.prod.destajos.pagos-extra.store', $destajo), [...$base, 'dias' => 0])
+            ->assertSessionHasErrors(['dias']);
+
+        $this->actingAs($this->user)
+            ->post(route('admin.prod.destajos.pagos-extra.store', $destajo), [...$base, 'dias' => 1.234])
+            ->assertSessionHasErrors(['dias']);
     });
 
     test('pago extra cannot be added to cerrado destajo', function () {

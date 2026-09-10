@@ -17,7 +17,7 @@ class SolicitudArchivoStoreRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'archivo' => ['required', 'file', 'max:10240'],
+            'archivo' => ['required', 'file', 'max:15360'],
             'archivo_id' => ['required', 'exists:costos_documentos,id'],
             'texto_adicional' => ['nullable', 'string', 'max:255'],
         ];

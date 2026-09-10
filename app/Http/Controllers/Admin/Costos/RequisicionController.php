@@ -58,13 +58,18 @@ class RequisicionController extends Controller
             ->with([
                 'solicitante:id,name',
                 'departamento:id,descripcion',
-                'detalles:id,requisicion_id,cantidad,tipo_fiscal',
+                'detalles:id,requisicion_id,cantidad,tipo_fiscal,solo_cotizacion,sin_impuestos',
                 'detalles.cotizaciones:id,requisicion_detalle_id,proveedor_id,precio_unitario',
                 'detalles.cotizaciones.proveedor:id,razon_social,nombre_comercial',
                 // Para el neto a pagar (cuando ya hay OC definida) — ver total_neto.
-                'detalles.selecciones:id,requisicion_detalle_id,proveedor_id,numero_oc,cantidad,cotizacion_precio_id',
+                'detalles.selecciones:id,requisicion_detalle_id,proveedor_id,numero_oc,cantidad,cotizacion_precio_id,orden_compra_detalle_id',
                 'detalles.selecciones.proveedor.regimenFiscal',
-                'detalles.selecciones.cotizacionPrecio:id,precio_unitario',
+                // `moneda` es indispensable: sin ella ocs_resumen daba todo por
+                // MXN y total_neto no convertía las OCs en divisa.
+                'detalles.selecciones.cotizacionPrecio:id,precio_unitario,moneda',
+                // Folio de la OC ya generada (nulo mientras la requisición no se libera).
+                'detalles.selecciones.ordenCompraDetalle:id,orden_compra_id',
+                'detalles.selecciones.ordenCompraDetalle.ordenCompra:id,folio',
             ])
             // Los usuarios comunes solo ven sus requisiciones; los operadores con
             // `ver-todas` ven las de todos. Con `ver-departamentos-aprobador`, un
@@ -120,7 +125,7 @@ class RequisicionController extends Controller
 
         $requisiciones->getCollection()->each(function ($r) use ($mejores) {
             $r->precargarMejorProveedor($mejores[$r->id] ?? null);
-            $r->append(['mejor_proveedor', 'proveedores_cotizadores_count', 'total_neto']);
+            $r->append(['mejor_proveedor', 'proveedores_cotizadores_count', 'total_neto', 'ocs_resumen']);
         });
 
         return Inertia::render('admin/costos/requisiciones/index', [
@@ -165,7 +170,7 @@ class RequisicionController extends Controller
             ]);
 
             foreach ($request->input('detalles', []) as $d) {
-                $producto = $this->resolverProducto($d, $request->user()->id);
+                $producto = $this->resolverProducto($d);
 
                 $requisicion->detalles()->create([
                     'producto_id' => $producto->id,
@@ -200,23 +205,17 @@ class RequisicionController extends Controller
     }
 
     /**
-     * Resuelve el producto del catálogo de una partida: usa el `producto_id`
-     * elegido o crea uno nuevo al vuelo con la descripción capturada.
+     * El producto del catálogo de una partida. Siempre viene elegido: la
+     * partida tecleada al vuelo dejó de estrenar productos el 2026-09-09,
+     * porque un producto nacido aquí no dice si es insumo o activo y la
+     * herramienta terminaba en el kardex como consumible. Lo que no existe se
+     * da de alta en Almacén > Artículos, que abre las dos caras del maestro.
      *
      * @param  array<string, mixed>  $d
      */
-    private function resolverProducto(array $d, string $userId): \App\Models\Costos\Producto
+    private function resolverProducto(array $d): \App\Models\Costos\Producto
     {
-        if (! empty($d['producto_id'])) {
-            return \App\Models\Costos\Producto::findOrFail($d['producto_id']);
-        }
-
-        return \App\Models\Costos\Producto::create([
-            'descripcion' => $d['descripcion'],
-            'unidad' => $d['unidad'] ?? 'pza',
-            'codigo' => $d['codigo_producto'] ?? null,
-            'creado_por' => $userId,
-        ]);
+        return \App\Models\Costos\Producto::findOrFail($d['producto_id']);
     }
 
     /**
@@ -270,6 +269,7 @@ class RequisicionController extends Controller
                     'obra_rubro_id' => $detalle->obra_rubro_id,
                     'uso_cfdi_id' => $detalle->uso_cfdi_id,
                     'tipo_fiscal' => $detalle->tipo_fiscal,
+                    'sin_impuestos' => $detalle->sin_impuestos,
                     'notas' => $detalle->notas,
                 ]);
 
@@ -437,6 +437,12 @@ class RequisicionController extends Controller
         $requisicion->presupuesto?->append(['nombre_mostrar', 'op_mostrar']);
         $requisicion->detalles->each(fn (RequisicionDetalle $d) => $d->obraRubro?->presupuesto?->append('nombre_mostrar'));
 
+        // El comparativo en pantalla resuelve el importe de referencia con la
+        // misma regla del PDF (precio del mejor proveedor global, y solo si no
+        // cotizó la partida, el menor precio). Sin este append la pantalla se
+        // quedaba siempre con el menor y podía diferir del PDF.
+        $requisicion->append('mejor_proveedor');
+
         // Último precio cotizado por cada proveedor (opción) para el insumo
         // (producto) de cada partida, en OTRAS requisiciones. Permite a compras
         // reutilizar un precio anterior con un clic. Clave: "productoId|proveedorId".
@@ -484,22 +490,14 @@ class RequisicionController extends Controller
     /**
      * Formato comparativo de la requisición en PDF. Mismo render que el que se
      * obtiene desde la OC, pero accesible directamente desde la requisición.
+     * Se puede imprimir en cualquier estatus; mientras el gerente de compras no
+     * dé la aprobación interna (`control_at`), el PDF sale marcado como borrador.
      */
     public function pdf(Requisicion $requisicion): HttpResponse
     {
         Gate::authorize('costos.requisiciones.ver');
 
-        abort_unless(
-            in_array($requisicion->estatus, [
-                RequisicionEstatus::PendienteAprobacionInterna,
-                RequisicionEstatus::AprobadaInterna,
-                RequisicionEstatus::PendienteAprobacion,
-                RequisicionEstatus::Aprobada,
-                RequisicionEstatus::Liberada,
-            ], true),
-            403,
-            'El comparativo solo puede generarse una vez enviada a aprobación.'
-        );
+        $esBorrador = $requisicion->control_at === null;
 
         $requisicion->load([
             'solicitante',
@@ -515,18 +513,23 @@ class RequisicionController extends Controller
 
         // Las partidas "solo cotización" (ej. fletes de cantidad variable) sí se
         // muestran en el comparativo como referencia; el builder de totales las
-        // excluye de la suma y la vista las marca.
+        // suma al total y al neto con ese precio, y la vista las marca.
         $firmas = app(FirmasPdfBuilder::class)->build(
             $requisicion->tipoAprobacion(),
             $requisicion->departamento_id,
             $requisicion->aprobaciones()->with('aprobador')->get(),
         );
 
+        $nombre = $esBorrador
+            ? "Comparativo-BORRADOR-{$requisicion->folio}.pdf"
+            : "Comparativo-{$requisicion->folio}.pdf";
+
         return Pdf::loadView('pdf.costos.formato-requisicion-comparativo', [
             'requisicion' => $requisicion,
             'firmas' => $firmas,
             'totales' => app(ComparativoTotalesBuilder::class)->build($requisicion),
-        ])->setPaper('letter', 'landscape')->stream("Comparativo-{$requisicion->folio}.pdf");
+            'esBorrador' => $esBorrador,
+        ])->setPaper('letter', 'landscape')->stream($nombre);
     }
 
     /**
@@ -823,16 +826,26 @@ class RequisicionController extends Controller
                     // codigo_producto y tipo_fiscal se gestionan en el tab de
                     // cotización (Compras), no en la edición de la requisición:
                     // no se tocan aquí para no pisar lo capturado.
-                    RequisicionDetalle::where('id', $d['id'])
+                    $detalle = RequisicionDetalle::where('id', $d['id'])
                         ->where('requisicion_id', $requisicion->id)
-                        ->update([
-                            'descripcion' => $d['descripcion'],
-                            'unidad' => $d['unidad'] ?? 'pza',
-                            'cantidad' => $d['cantidad'],
-                            'obra_rubro_id' => $sinCentroCostos ? null : $d['obra_rubro_id'],
-                            'uso_cfdi_id' => $d['uso_cfdi_id'],
-                            'notas' => $d['notas'] ?? null,
-                        ]);
+                        ->first();
+
+                    if (! $detalle) {
+                        continue;
+                    }
+
+                    $cantidadAnterior = (float) $detalle->cantidad;
+
+                    $detalle->update([
+                        'descripcion' => $d['descripcion'],
+                        'unidad' => $d['unidad'] ?? 'pza',
+                        'cantidad' => $d['cantidad'],
+                        'obra_rubro_id' => $sinCentroCostos ? null : $d['obra_rubro_id'],
+                        'uso_cfdi_id' => $d['uso_cfdi_id'],
+                        'notas' => $d['notas'] ?? null,
+                    ]);
+
+                    $this->sincronizarSeleccionesConCantidad($detalle, $cantidadAnterior);
                 } else {
                     $requisicion->detalles()->create([
                         'descripcion' => $d['descripcion'],
@@ -859,6 +872,55 @@ class RequisicionController extends Controller
 
         return to_route('admin.costos.requisiciones.show', $requisicion)
             ->with('success', 'Requisición actualizada.');
+    }
+
+    /**
+     * Las selecciones del comparativo (cantidad adjudicada por proveedor) se
+     * capturan sobre la cantidad de la partida; si ésta cambia al editar la
+     * requisición, se reparten de nuevo para que el importe del comparativo y
+     * la OC sigan la cantidad nueva. Una sola selección toma la cantidad
+     * completa; un split conserva la proporción de cada proveedor.
+     */
+    private function sincronizarSeleccionesConCantidad(RequisicionDetalle $detalle, float $cantidadAnterior): void
+    {
+        $cantidadNueva = (float) $detalle->cantidad;
+
+        if (abs($cantidadNueva - $cantidadAnterior) < config('costos.epsilon_cantidad')) {
+            return;
+        }
+
+        $selecciones = $detalle->selecciones()->get();
+
+        if ($selecciones->isEmpty()) {
+            return;
+        }
+
+        if ($selecciones->count() === 1) {
+            $selecciones->first()->update(['cantidad' => $cantidadNueva]);
+
+            return;
+        }
+
+        $sumaAnterior = (float) $selecciones->sum('cantidad');
+
+        if ($sumaAnterior <= 0) {
+            return;
+        }
+
+        $asignado = 0.0;
+        $ultima = $selecciones->last();
+
+        foreach ($selecciones as $seleccion) {
+            if ($seleccion->is($ultima)) {
+                $seleccion->update(['cantidad' => round($cantidadNueva - $asignado, 2)]);
+
+                break;
+            }
+
+            $parte = round($cantidadNueva * ((float) $seleccion->cantidad / $sumaAnterior), 2);
+            $seleccion->update(['cantidad' => $parte]);
+            $asignado += $parte;
+        }
     }
 
     public function cancelar(CancelarRequest $request, Requisicion $requisicion): RedirectResponse
@@ -1397,22 +1459,7 @@ class RequisicionController extends Controller
      */
     private function presupuestosOptions(): \Illuminate\Support\Collection
     {
-        return Presupuesto::with('presupuestable')
-            ->get()
-            ->map(function (Presupuesto $p) {
-                // OP y descripción internas del presupuesto; cada una cae a la
-                // de cobranza (número/descripción del presupuestable) si falta.
-                $partes = array_filter([$p->opMostrar(), $p->descripcionMostrar()]);
-                $label = implode(' - ', $partes);
-
-                return [
-                    'id' => $p->id,
-                    'label' => $label !== '' ? $label : $p->nombreMostrar(),
-                    'cerrado' => $p->estaCerrado(),
-                ];
-            })
-            ->sortBy('label', SORT_NATURAL | SORT_FLAG_CASE)
-            ->values();
+        return app(\App\Services\Costos\OpcionesPresupuestales::class)->presupuestos();
     }
 
     /**

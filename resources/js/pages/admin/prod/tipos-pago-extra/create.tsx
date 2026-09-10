@@ -19,6 +19,7 @@ export default function TiposPagoExtraCreate() {
         descripcion: '',
         orden: '0',
         desgloce: false,
+        es_descuento: false,
     });
 
     const handleSubmit = (e: FormEvent) => {
@@ -63,6 +64,21 @@ export default function TiposPagoExtraCreate() {
                                 onChange={(e) => setData('desgloce', e.target.checked)}
                             />
                             <span className="text-sm">Desgloce</span>
+                        </label>
+
+                        <label className="flex cursor-pointer items-start gap-2">
+                            <input
+                                type="checkbox"
+                                className="checkbox checkbox-sm mt-0.5"
+                                checked={data.es_descuento}
+                                onChange={(e) => setData('es_descuento', e.target.checked)}
+                            />
+                            <span className="text-sm">
+                                Es descuento
+                                <span className="block text-xs text-base-content/60">
+                                    El importe resta del total del grupo (el precio se sigue capturando en positivo).
+                                </span>
+                            </span>
                         </label>
 
                         <div className="flex justify-end gap-2">

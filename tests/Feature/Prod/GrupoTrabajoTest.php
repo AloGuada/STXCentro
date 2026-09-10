@@ -270,6 +270,103 @@ describe('admin grupos trabajo', function () {
             );
     });
 
+    test('se le cambia la categoria a un integrante sin sacarlo del grupo', function () {
+        $grupo = GrupoTrabajo::factory()->create();
+        $empleado = GrupoEmpleado::factory()->create([
+            'grupo_trabajo_id' => $grupo->id,
+            'categoria_empleado_id' => CategoriaEmpleado::factory()->create()->id,
+        ]);
+        $nueva = CategoriaEmpleado::factory()->create();
+
+        $this->actingAs($this->user)
+            ->patch(route('admin.prod.grupos-trabajo.empleados.update', [$grupo, $empleado]), [
+                'categoria_empleado_id' => $nueva->id,
+            ])
+            ->assertRedirect();
+
+        expect($empleado->fresh()->categoria_empleado_id)->toBe($nueva->id);
+    });
+
+    test('se le puede quitar la categoria', function () {
+        $grupo = GrupoTrabajo::factory()->create();
+        $empleado = GrupoEmpleado::factory()->create([
+            'grupo_trabajo_id' => $grupo->id,
+            'categoria_empleado_id' => CategoriaEmpleado::factory()->create()->id,
+        ]);
+
+        $this->actingAs($this->user)
+            ->patch(route('admin.prod.grupos-trabajo.empleados.update', [$grupo, $empleado]), [
+                'categoria_empleado_id' => null,
+            ])
+            ->assertSessionHasNoErrors();
+
+        expect($empleado->fresh()->categoria_empleado_id)->toBeNull();
+    });
+
+    test('vincular la persona refresca el nombre y el numero copiados de RH', function () {
+        $grupo = GrupoTrabajo::factory()->create();
+        $categoria = CategoriaEmpleado::factory()->create();
+        $empleado = GrupoEmpleado::factory()->create([
+            'grupo_trabajo_id' => $grupo->id,
+            'persona_id' => null,
+            'nombre' => 'Capturado A Mano',
+            'no_empleado' => null,
+            'categoria_empleado_id' => $categoria->id,
+        ]);
+
+        $persona = Persona::factory()->create(['nombre' => 'Jose', 'apellido' => 'Ramirez']);
+        PeriodoLaboral::factory()->create([
+            'persona_id' => $persona->id,
+            'estado' => 'activo',
+            'numero_empleado' => 'E123',
+        ]);
+
+        $this->actingAs($this->user)
+            ->patch(route('admin.prod.grupos-trabajo.empleados.update', [$grupo, $empleado]), [
+                'persona_id' => $persona->id,
+            ])
+            ->assertSessionHasNoErrors();
+
+        $empleado->refresh();
+
+        // La categoria no viajo en la peticion: se queda como estaba.
+        expect($empleado->persona_id)->toBe($persona->id)
+            ->and($empleado->nombre)->toBe('Jose Ramirez')
+            ->and($empleado->no_empleado)->toBe('E123')
+            ->and($empleado->categoria_empleado_id)->toBe($categoria->id);
+    });
+
+    test('no se vincula a alguien que ya esta en otro grupo', function () {
+        $persona = Persona::factory()->create();
+        GrupoEmpleado::factory()->create([
+            'grupo_trabajo_id' => GrupoTrabajo::factory()->create()->id,
+            'persona_id' => $persona->id,
+        ]);
+
+        $grupo = GrupoTrabajo::factory()->create();
+        $empleado = GrupoEmpleado::factory()->create(['grupo_trabajo_id' => $grupo->id, 'persona_id' => null]);
+
+        $this->actingAs($this->user)
+            ->patch(route('admin.prod.grupos-trabajo.empleados.update', [$grupo, $empleado]), [
+                'persona_id' => $persona->id,
+            ])
+            ->assertSessionHasErrors('persona_id');
+
+        expect($empleado->fresh()->persona_id)->toBeNull();
+    });
+
+    test('editar a un integrante de otro grupo da 404', function () {
+        $empleado = GrupoEmpleado::factory()->create([
+            'grupo_trabajo_id' => GrupoTrabajo::factory()->create()->id,
+        ]);
+
+        $this->actingAs($this->user)
+            ->patch(route('admin.prod.grupos-trabajo.empleados.update', [GrupoTrabajo::factory()->create(), $empleado]), [
+                'categoria_empleado_id' => CategoriaEmpleado::factory()->create()->id,
+            ])
+            ->assertNotFound();
+    });
+
     test('empleado can be removed from grupo', function () {
         $grupo = GrupoTrabajo::factory()->create();
         $empleado = GrupoEmpleado::factory()->create(['grupo_trabajo_id' => $grupo->id]);

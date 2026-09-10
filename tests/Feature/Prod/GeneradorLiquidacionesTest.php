@@ -129,7 +129,7 @@ test('ordenDePago (abierto) calcula del preview con secciones y empleados', func
         ->and($seccionHorasExtra['pagos'])->toHaveCount(1);
 });
 
-test('ordenDePago separa un renglon por proceso', function () {
+test('ordenDePago junta la misma marca en un renglon aunque pase por varios procesos', function () {
     $marca = marcaConPiezas(2, ['peso_unitario' => 10.000]);
     $pintura = proceso('Pintura');
 
@@ -144,10 +144,52 @@ test('ordenDePago separa un renglon por proceso', function () {
 
     $piezas = $this->service->ordenDePago($this->destajo)->first()['piezas'];
 
-    expect($piezas)->toHaveCount(2)
-        ->and(collect($piezas)->pluck('proceso')->sort()->values()->all())->toBe(['Pintura', 'Soldadura'])
+    // La hoja lee "cuantas de esta marca y cuanto valieron"; el desglose por
+    // proceso, con su tarifa cada uno, sigue en la liquidacion.
+    expect($piezas)->toHaveCount(1)
+        ->and($piezas[0]['proceso'])->toBe('Soldadura, Pintura')
+        // Dos piezas fisicas, aunque cada una se pago dos veces.
+        ->and($piezas[0]['pzs'])->toBe(2)
+        // Dos tarifas distintas: no hay un precio unitario que imprimir.
+        ->and($piezas[0]['precio_unitario'])->toBeNull()
         // 2 pz x 10 kg = 20 kg: $100 soldando y $40 pintando.
-        ->and(collect($piezas)->sum('importe'))->toBe(140.0);
+        ->and($piezas[0]['importe'])->toBe(140.0);
+});
+
+test('ordenDePago agrupa las piezas por obra y tipo con subtotales', function () {
+    $columna = App\Models\Prod\Categoria::factory()->create(['nombre' => 'Columna']);
+    $viga = App\Models\Prod\Categoria::factory()->create(['nombre' => 'Viga']);
+
+    $col = marcaConPiezas(2, ['marca' => 'C-1', 'peso_unitario' => 10.000, 'categoria_id' => $columna->id]);
+    $vig = marcaConPiezas(3, ['marca' => 'V-1', 'peso_unitario' => 10.000, 'categoria_id' => $viga->id, 'obra_id' => $col->obra_id, 'catalogo_id' => $col->catalogo_id]);
+    $otraObra = marcaConPiezas(1, ['marca' => 'C-9', 'peso_unitario' => 10.000, 'categoria_id' => $columna->id]);
+
+    obraPagaProcesos($col->obra_id);
+    obraPagaProcesos($otraObra->obra_id);
+    $grupoPrecio = tarifaDeMarca($col, 5);
+    tarifaDeMarca($vig, 5, null, $grupoPrecio);
+    tarifaDeMarca($otraObra, 5);
+
+    GrupoEmpleado::factory()->create(['grupo_trabajo_id' => $this->grupo->id]);
+
+    capturarPiezas($col->piezas, $this->grupo, '2026-03-04');
+    capturarPiezas($vig->piezas, $this->grupo, '2026-03-04');
+    capturarPiezas($otraObra->piezas, $this->grupo, '2026-03-04');
+
+    $grupos = $this->service->ordenDePago($this->destajo)->first()['grupos_piezas'];
+
+    expect($grupos)->toHaveCount(2);
+
+    $obraDeDos = collect($grupos)->firstWhere('pzs', 5);
+
+    expect($obraDeDos['tipos'])->toHaveCount(2)
+        ->and(collect($obraDeDos['tipos'])->pluck('tipo')->all())->toBe(['Columna', 'Viga'])
+        ->and($obraDeDos['tipos'][0]['pzs'])->toBe(2)
+        ->and($obraDeDos['tipos'][0]['importe'])->toBe(100.0)
+        ->and($obraDeDos['tipos'][1]['pzs'])->toBe(3)
+        ->and($obraDeDos['tipos'][1]['importe'])->toBe(150.0)
+        ->and($obraDeDos['importe'])->toBe(250.0)
+        ->and($obraDeDos['kilos'])->toBe(50.0);
 });
 
 test('ordenDePago (cerrado) lee de las liquidaciones inmutables', function () {

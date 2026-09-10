@@ -24,7 +24,17 @@ class ProcesoStoreRequest extends FormRequest
             'eventos' => ['nullable', 'array'],
             // El evento es unico en todo el catalogo: si el mismo numero pagara
             // dos procesos, un movimiento se cargaria a los dos.
-            'eventos.*.evento' => ['required', 'string', 'max:20', Rule::unique('prod_proceso_eventos', 'evento')],
+            //
+            // `distinct` cubre lo que `unique` no ve: la regla consulta la base,
+            // no el formulario, asi que el mismo numero repetido en dos
+            // renglones pasaba y se guardaba uno solo, sin decir nada.
+            'eventos.*.evento' => [
+                'required',
+                'string',
+                'max:20',
+                'distinct',
+                Rule::unique('prod_proceso_eventos', 'evento'),
+            ],
             'eventos.*.descripcion' => ['nullable', 'string', 'max:255'],
         ];
     }

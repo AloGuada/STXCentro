@@ -8,6 +8,7 @@ use App\Http\Requests\Admin\Prod\CatalogoUpdateRequest;
 use App\Http\Requests\Admin\Prod\NuevaVersionCatalogoRequest;
 use App\Models\Obra;
 use App\Models\Prod\Catalogo;
+use App\Models\Prod\Pieza;
 use App\Models\Prod\Proceso;
 use App\Models\Proyecto;
 use App\Models\Qal\Modelo;
@@ -89,23 +90,31 @@ class CatalogoController extends Controller
 
         $procesos = $catalogo->obra?->procesos ?? collect();
 
+        // Las marcas van paginadas y sin sus piezas: un catalogo de obra son
+        // decenas de miles de QR, y traerlos todos costaba 9.5 MB de respuesta
+        // y cientos de MB de memoria. Los QR de cada marca se piden al
+        // desplegarla, contra `prod/marcas/{concepto}/piezas`.
         $marcas = $catalogo->conceptos()
-            ->with(['categoria', 'piezas' => fn ($q) => $q->orderBy('qs')])
+            ->with('categoria')
+            ->withCount('piezas as piezas_count')
             ->when($request->search, fn ($q, $s) => $q->where(fn ($q) => $q->where('marca', 'like', "%{$s}%")
                 ->orWhere('lote', 'like', "%{$s}%")
                 ->orWhere('descripcion', 'like', "%{$s}%")
-                ->orWhereHas('piezas', fn ($p) => $p->where('qs', 'like', "%{$s}%"))))
+                ->orWhereHas('piezas', fn ($p) => $p->where('qs', 'like', "%{$s}%")
+                    ->orWhere('qr', 'like', "%{$s}%"))))
             ->orderBy('marca')
             ->orderBy('lote')
-            ->get();
-
-        // El avance vive en la pieza: una marca "va al 70%" porque 7 de sus 10
-        // QS ya se pagaron en ese proceso.
-        $avance->decorar($marcas->flatMap->piezas, $procesos->pluck('id')->all());
+            ->paginate(25)
+            ->withQueryString();
 
         return Inertia::render('admin/prod/catalogos/show', [
             'catalogo' => $catalogo,
             'marcas' => $marcas,
+            // El avance vive en la pieza: una marca "va al 70%" porque 7 de sus
+            // 10 QR ya se pagaron en ese proceso. Se resume aqui para las marcas
+            // de la pagina, que son las unicas que se pintan.
+            'avancePorMarca' => $this->avancePorMarca($marcas->getCollection(), $procesos, $avance),
+            'totales' => $this->totalesDelCatalogo($catalogo),
             'procesos' => $procesos->values(),
             'procesosDisponibles' => Proceso::activos()->orderBy('orden')->get(),
             'versiones' => Catalogo::query()
@@ -124,6 +133,60 @@ class CatalogoController extends Controller
                     ->first(['id', 'version', 'estatus', 'nombre_original', 'error', 'procesado_at', 'resumen']),
             ],
         ]);
+    }
+
+    /**
+     * Cuantas piezas de cada marca ya se pagaron en cada proceso.
+     *
+     * Solo se cargan las piezas de las marcas visibles: son 25 marcas, no el
+     * catalogo entero.
+     *
+     * @param  \Illuminate\Support\Collection<int, \App\Models\Concepto>  $marcas
+     * @param  \Illuminate\Support\Collection<int, Proceso>  $procesos
+     * @return array<int, array<int, float>>
+     */
+    private function avancePorMarca($marcas, $procesos, AvanceDePiezas $avance): array
+    {
+        if ($marcas->isEmpty()) {
+            return [];
+        }
+
+        $procesoIds = $procesos->pluck('id')->all();
+
+        $piezas = Pieza::query()
+            ->whereIn('concepto_id', $marcas->pluck('id'))
+            ->get(['id', 'catalogo_id', 'concepto_id', 'qr']);
+
+        $resumen = [];
+
+        foreach ($avance->decorar($piezas, $procesoIds) as $pieza) {
+            foreach ($procesoIds as $procesoId) {
+                $resumen[$pieza->concepto_id][$procesoId] =
+                    ($resumen[$pieza->concepto_id][$procesoId] ?? 0) + $pieza->avance[$procesoId]['capturado'];
+            }
+        }
+
+        return $resumen;
+    }
+
+    /**
+     * Los totales del catalogo completo, no de la pagina: al paginar, sumarlos
+     * en el navegador solo contaria las 25 marcas a la vista.
+     *
+     * @return array{marcas: int, piezas: int, declaradas: int, peso: float}
+     */
+    private function totalesDelCatalogo(Catalogo $catalogo): array
+    {
+        $marcas = $catalogo->conceptos()
+            ->withCount('piezas as piezas_count')
+            ->get(['id', 'cantidad', 'peso_unitario']);
+
+        return [
+            'marcas' => $marcas->count(),
+            'piezas' => (int) $marcas->sum('piezas_count'),
+            'declaradas' => (int) $marcas->sum('cantidad'),
+            'peso' => round($marcas->sum(fn ($m) => $m->piezas_count * (float) $m->peso_unitario), 3),
+        ];
     }
 
     public function update(CatalogoUpdateRequest $request, Catalogo $catalogo): RedirectResponse
