@@ -350,13 +350,56 @@ describe('el pedido', function () {
             ->post(route('admin.alm.pedidos.store'), [
                 'almacen_id' => $almacen->id,
                 'departamento_id' => Departamento::factory()->create()->id,
-                'obra_id' => Obra::factory()->create()->id,
+                'almacen_destino_id' => Almacen::factory()->deObra()->create()->id,
                 'recibe_nombre' => 'A. Pérez',
                 'fecha' => now()->toDateString(),
                 'fecha_requerida' => now()->addDay()->toDateString(),
                 'detalles' => [['articulo_id' => articuloDe($producto), 'cantidad_solicitada' => 10]],
             ])
             ->assertSessionHasErrors('recibe_nombre');
+    });
+
+    it('el destino es un almacen de obra y de ahi sale la obra', function () {
+        $almacen = Almacen::factory()->create();
+        $destino = Almacen::factory()->deObra()->create();
+        $producto = Producto::factory()->create();
+
+        $this->actingAs(usuarioDeSalidas())
+            ->post(route('admin.alm.pedidos.store'), [
+                'almacen_id' => $almacen->id,
+                'departamento_id' => Departamento::factory()->create()->id,
+                'almacen_destino_id' => $destino->id,
+                'fecha' => now()->toDateString(),
+                'fecha_requerida' => now()->addDay()->toDateString(),
+                'detalles' => [['articulo_id' => articuloDe($producto), 'cantidad_solicitada' => 10]],
+            ])
+            ->assertSessionHasNoErrors();
+
+        $pedido = Pedido::firstOrFail();
+
+        expect($pedido->almacen_destino_id)->toBe($destino->id)
+            ->and($pedido->obra_id)->toBe($destino->obra_id)
+            ->and($pedido->seSurteConTransferencia())->toBeTrue();
+    });
+
+    it('no acepta de destino un almacen que no es de obra', function () {
+        $almacen = Almacen::factory()->create();
+        $producto = Producto::factory()->create();
+
+        // Sin obra es consumo interno: se deja el destino vacío, no se elige
+        // otro almacén de planta.
+        $this->actingAs(usuarioDeSalidas())
+            ->post(route('admin.alm.pedidos.store'), [
+                'almacen_id' => $almacen->id,
+                'departamento_id' => Departamento::factory()->create()->id,
+                'almacen_destino_id' => Almacen::factory()->create()->id,
+                'fecha' => now()->toDateString(),
+                'fecha_requerida' => now()->addDay()->toDateString(),
+                'detalles' => [['articulo_id' => articuloDe($producto), 'cantidad_solicitada' => 10]],
+            ])
+            ->assertSessionHasErrors('almacen_destino_id');
+
+        expect(Pedido::count())->toBe(0);
     });
 
     /** El almacén decide si surte parcial o si hay que comprar. */

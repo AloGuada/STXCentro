@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Admin\Alm;
 
+use App\Models\Alm\Almacen;
 use App\Models\Alm\Pedido;
 use App\Models\Alm\PedidoDetalle;
 use App\Services\Alm\AlmacenLedger;
@@ -119,6 +120,22 @@ class TransferenciaStoreRequest extends FormRequest
             $validator->errors()->add(
                 'pedido_id',
                 'Ese pedido es de consumo interno: el material se queda en planta y sale con una salida.',
+            );
+
+            return;
+        }
+
+        // A dónde va lo dice el pedido: su almacén destino o, en los que se
+        // levantaron antes de guardarlo, cualquiera de su obra.
+        $destinoId = $this->integer('almacen_destino_id');
+        $vaAlDestino = $pedido->almacen_destino_id !== null
+            ? (int) $pedido->almacen_destino_id === $destinoId
+            : (int) Almacen::whereKey($destinoId)->value('obra_id') === (int) $pedido->obra_id;
+
+        if (! $vaAlDestino) {
+            $validator->errors()->add(
+                'almacen_destino_id',
+                'Ese pedido va a otro almacén: el material llegaría a otro lado del que se pidió.',
             );
 
             return;

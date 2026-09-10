@@ -14,8 +14,10 @@ class PedidoStoreRequest extends FormRequest
     }
 
     /**
-     * `obra_id` es opcional a propósito: sin obra es consumo interno de planta,
-     * y fabricación, pintura y mantenimiento también piden material.
+     * `almacen_destino_id` es opcional a propósito: sin destino es consumo
+     * interno de planta, y fabricación, pintura y mantenimiento también piden
+     * material. Con destino sólo vale un almacén de obra: la obra del pedido se
+     * saca de ahí, no se captura aparte.
      *
      * A diferencia de la salida, aquí **sí** se puede pedir más de lo que hay:
      * el almacén decide si surte parcial o si hay que comprar. Pedir de más sólo
@@ -28,7 +30,10 @@ class PedidoStoreRequest extends FormRequest
         return [
             'almacen_id' => ['required', 'integer', 'exists:alm_almacenes,id'],
             'departamento_id' => ['required', 'integer', 'exists:departamentos,id'],
-            'obra_id' => ['nullable', 'integer', 'exists:obras,id'],
+            'almacen_destino_id' => [
+                'nullable', 'integer', 'different:almacen_id',
+                Rule::exists('alm_almacenes', 'id')->whereNotNull('obra_id')->where('activo', true),
+            ],
             'recibe_nombre' => ['nullable', 'string', 'max:255'],
             'grupo_trabajo_id' => ['nullable', 'integer', 'exists:prod_grupos_trabajo,id'],
             'fecha' => ['required', 'date'],
@@ -55,7 +60,7 @@ class PedidoStoreRequest extends FormRequest
     public function withValidator(Validator $validator): void
     {
         $validator->after(function (Validator $validator): void {
-            if (! $this->filled('obra_id')) {
+            if (! $this->filled('almacen_destino_id')) {
                 return;
             }
 
@@ -78,6 +83,8 @@ class PedidoStoreRequest extends FormRequest
         return [
             'almacen_id.required' => 'Indica a qué almacén se le está pidiendo.',
             'departamento_id.required' => 'Indica qué área lo pide: siempre hay un responsable.',
+            'almacen_destino_id.exists' => 'El destino tiene que ser un almacén de obra; si se queda en planta, déjalo en consumo interno.',
+            'almacen_destino_id.different' => 'El destino no puede ser el mismo almacén al que se le pide.',
             'fecha_requerida.after_or_equal' => 'No se puede necesitar el material antes de haberlo pedido.',
             'detalles.required' => 'Captura al menos un artículo.',
             'detalles.*.cantidad_solicitada.gt' => 'Pedir cero no es pedir.',

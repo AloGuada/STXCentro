@@ -349,11 +349,11 @@ describe('cancelacion', function () {
 describe('surtir un pedido de obra', function () {
     it('descuenta con lo enviado, no con lo confirmado', function () {
         $origen = Almacen::factory()->create();
-        $destino = Almacen::factory()->create();
         $producto = Producto::factory()->create();
         sembrarEn($origen, $producto, 500, 5);
 
         $pedido = Pedido::factory()->de($origen)->paraObra()->create();
+        $destino = $pedido->almacenDestino;
         $renglon = $pedido->detalles()->create([
             'producto_id' => $producto->id,
             'cantidad_solicitada' => 100,
@@ -401,6 +401,47 @@ describe('surtir un pedido de obra', function () {
                 ['articulo_id' => articuloDe($producto), 'pedido_detalle_id' => $renglon->id, 'cantidad_enviada' => 100],
             ], ['pedido_id' => $pedido->id]))
             ->assertSessionHasErrors('pedido_id');
+    });
+
+    it('el destino tiene que ser el almacen al que va el pedido', function () {
+        $origen = Almacen::factory()->create();
+        $otraObra = Almacen::factory()->deObra()->create();
+        $producto = Producto::factory()->create();
+        sembrarEn($origen, $producto, 500, 5);
+
+        $pedido = Pedido::factory()->de($origen)->paraObra()->create();
+        $renglon = $pedido->detalles()->create([
+            'producto_id' => $producto->id,
+            'cantidad_solicitada' => 10,
+        ]);
+
+        $this->actingAs(usuarioDeTransferencias())
+            ->post(route('admin.alm.transferencias.store'), envioValido($origen, $otraObra, [
+                ['articulo_id' => articuloDe($producto), 'pedido_detalle_id' => $renglon->id, 'cantidad_enviada' => 10],
+            ], ['pedido_id' => $pedido->id]))
+            ->assertSessionHasErrors('almacen_destino_id');
+
+        expect(Transferencia::count())->toBe(0);
+    });
+
+    it('el envio ofrece los pedidos de todos los almacenes con su origen y su destino', function () {
+        $origen = Almacen::factory()->create();
+        $producto = Producto::factory()->create();
+
+        $pedido = Pedido::factory()->de($origen)->paraObra()->create();
+        $pedido->detalles()->create([
+            'producto_id' => $producto->id,
+            'cantidad_solicitada' => 10,
+        ]);
+
+        // Sin elegir origen: el pedido se escoge primero y es él quien lo dice.
+        $this->actingAs(usuarioDeTransferencias())
+            ->get(route('admin.alm.transferencias.create'))
+            ->assertInertia(fn ($page) => $page
+                ->has('pedidosTransferibles', 1)
+                ->where('pedidosTransferibles.0.almacen_id', $origen->id)
+                ->where('pedidosTransferibles.0.almacen_destino_id', $pedido->almacen_destino_id)
+                ->where('pedidosTransferibles.0.detalles.0.articulo_id', articuloDe($producto)));
     });
 });
 

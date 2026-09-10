@@ -7,7 +7,7 @@ import AppLayout from '@/layouts/app-layout';
 import { etiquetaDeAlmacen } from '@/lib/alm/almacenes';
 import type { BreadcrumbItem } from '@/types';
 import type { AlmAlmacenOpcion, AlmPartidaBorrador, AlmProductoOpcion } from '@/types/models';
-import { Head, Link, router, useForm } from '@inertiajs/react';
+import { Head, Link, useForm } from '@inertiajs/react';
 import { InfoIcon, TruckIcon } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
@@ -26,6 +26,11 @@ const numero = (n: number) => n.toLocaleString('es-MX', { maximumFractionDigits:
 type PedidoTransferible = {
     id: number;
     folio: string | null;
+    /** El almacén al que se le pidió: de ahí sale el envío. */
+    almacen_id: number;
+    almacen: string | null;
+    /** El almacén de obra al que va. `null` en los pedidos levantados antes de guardarlo. */
+    almacen_destino_id: number | null;
     obra_id: number | null;
     obra: string | null;
     fecha_requerida: string | null;
@@ -42,6 +47,15 @@ type PedidoTransferible = {
 type Renglon = AlmPartidaBorrador & { pedido_detalle_id: string };
 
 const RENGLON_VACIO: Renglon = { ...PARTIDA_VACIA, pedido_detalle_id: '' };
+
+/** Lo que le falta al pedido, ya como renglones del envío. */
+const renglonesDe = (pedido: PedidoTransferible): Renglon[] =>
+    pedido.detalles.map((d) => ({
+        ...RENGLON_VACIO,
+        articulo_id: String(d.articulo_id),
+        pedido_detalle_id: String(d.id),
+        cantidad: String(d.pendiente),
+    }));
 
 type Props = {
     almacenes: AlmAlmacenOpcion[];
@@ -70,19 +84,18 @@ type Saldo = {
  *
  * La recepción es otra pantalla y de otra persona — el `show` del documento.
  */
-export default function TransferenciaCreate({
-    almacenes,
-    productos,
-    pedidosTransferibles,
-    pedidoSeleccionado,
-}: Props) {
+export default function TransferenciaCreate({ almacenes, pedidosTransferibles, pedidoSeleccionado }: Props) {
+    // Si se llega desde el pedido ("Surtir con transferencia"), ya viene todo
+    // resuelto: de dónde sale, a dónde va y qué le falta.
+    const inicial = pedidosTransferibles.find((p) => p.id === pedidoSeleccionado);
+
     const form = useForm({
-        almacen_origen_id: '',
-        almacen_destino_id: '',
-        pedido_id: pedidoSeleccionado === null ? '' : String(pedidoSeleccionado),
+        almacen_origen_id: inicial ? String(inicial.almacen_id) : '',
+        almacen_destino_id: inicial?.almacen_destino_id ? String(inicial.almacen_destino_id) : '',
+        pedido_id: inicial ? String(inicial.id) : '',
         fecha_envio: HOY,
         observaciones: '',
-        detalles: [{ ...RENGLON_VACIO }] as Renglon[],
+        detalles: inicial ? renglonesDe(inicial) : [{ ...RENGLON_VACIO }],
     });
 
     const [saldos, setSaldos] = useState<Saldo[]>([]);
@@ -111,28 +124,38 @@ export default function TransferenciaCreate({
     const pedido = pedidosTransferibles.find((p) => String(p.id) === form.data.pedido_id);
 
     // El destino no puede ser el origen: mover material a sí mismo no es nada.
-    const destinos = almacenes.filter((a) => String(a.id) !== form.data.almacen_origen_id);
+    // Con pedido, además, sólo vale a donde va el pedido: su almacén o, en los
+    // viejos que no lo guardaron, cualquiera de su obra.
+    const destinos = almacenes.filter((a) => {
+        if (String(a.id) === form.data.almacen_origen_id) {
+            return false;
+        }
+
+        if (pedido === undefined) {
+            return true;
+        }
+
+        return pedido.almacen_destino_id !== null ? a.id === pedido.almacen_destino_id : a.obra_id === pedido.obra_id;
+    });
 
     const cargarPedido = (id: string) => {
-        form.setData('pedido_id', id);
-
         const elegido = pedidosTransferibles.find((p) => String(p.id) === id);
 
         if (elegido === undefined) {
-            form.setData('detalles', [{ ...RENGLON_VACIO }]);
+            form.setData({ ...form.data, pedido_id: '', detalles: [{ ...RENGLON_VACIO }] });
 
             return;
         }
 
-        form.setData(
-            'detalles',
-            elegido.detalles.map((d) => ({
-                ...RENGLON_VACIO,
-                articulo_id: String(d.articulo_id),
-                pedido_detalle_id: String(d.id),
-                cantidad: String(d.pendiente),
-            })),
-        );
+        // El pedido dice de dónde sale —el almacén al que se le pidió— y a dónde
+        // va —el almacén de su obra—: no queda nada que elegir a mano.
+        form.setData({
+            ...form.data,
+            pedido_id: id,
+            almacen_origen_id: String(elegido.almacen_id),
+            almacen_destino_id: elegido.almacen_destino_id === null ? '' : String(elegido.almacen_destino_id),
+            detalles: renglonesDe(elegido),
+        });
     };
 
     const disponibleDe = (productoId: number) => saldos.find((s) => s.articulo_id === productoId)?.cantidad ?? 0;
@@ -173,23 +196,46 @@ export default function TransferenciaCreate({
                     <div className="rounded-box border-base-300 border p-4">
                         <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
                             <FormField
+                                label="Surte el pedido"
+                                htmlFor="pedido_id"
+                                error={form.errors.pedido_id}
+                                className="md:col-span-3"
+                                description="Elige el pedido y se llenan solos el origen, el destino y lo que le falta. Sólo aparecen los de obra: los de planta salen con una salida."
+                            >
+                                <Select
+                                    id="pedido_id"
+                                    value={form.data.pedido_id}
+                                    onValueChange={cargarPedido}
+                                    placeholder="Sin pedido"
+                                >
+                                    <SelectItem value="">Sin pedido</SelectItem>
+                                    {pedidosTransferibles.map((p) => (
+                                        <SelectItem key={p.id} value={String(p.id)}>
+                                            {p.folio} — {p.obra} (se le pidió a {p.almacen})
+                                        </SelectItem>
+                                    ))}
+                                </Select>
+                            </FormField>
+
+                            <FormField
                                 label="Almacén origen"
                                 htmlFor="almacen_origen_id"
                                 error={form.errors.almacen_origen_id}
+                                description={pedido ? 'Lo fija el pedido: sale del almacén al que se le pidió.' : undefined}
                                 required
                             >
                                 <Select
                                     id="almacen_origen_id"
                                     value={form.data.almacen_origen_id}
-                                    onValueChange={(v) => {
-                                        form.setData('almacen_origen_id', v);
-                                        form.setData('almacen_destino_id', '');
-                                        router.get(
-                                            '/admin/almacen/transferencias/create',
-                                            { almacen_origen_id: v },
-                                            { preserveState: true, replace: true, only: ['pedidosTransferibles'] },
-                                        );
-                                    }}
+                                    onValueChange={(v) =>
+                                        form.setData({
+                                            ...form.data,
+                                            almacen_origen_id: v,
+                                            almacen_destino_id:
+                                                form.data.almacen_destino_id === v ? '' : form.data.almacen_destino_id,
+                                        })
+                                    }
+                                    disabled={pedido !== undefined}
                                     placeholder="¿De dónde sale?"
                                 >
                                     {almacenes.map((a) => (
@@ -204,40 +250,21 @@ export default function TransferenciaCreate({
                                 label="Almacén destino"
                                 htmlFor="almacen_destino_id"
                                 error={form.errors.almacen_destino_id}
+                                description={
+                                    pedido?.almacen_destino_id ? 'Lo fija el pedido: va al almacén de su obra.' : undefined
+                                }
                                 required
                             >
                                 <Select
                                     id="almacen_destino_id"
                                     value={form.data.almacen_destino_id}
                                     onValueChange={(v) => form.setData('almacen_destino_id', v)}
-                                    disabled={form.data.almacen_origen_id === ''}
+                                    disabled={form.data.almacen_origen_id === '' || !!pedido?.almacen_destino_id}
                                     placeholder="¿A dónde va?"
                                 >
                                     {destinos.map((a) => (
                                         <SelectItem key={a.id} value={String(a.id)}>
                                             {etiquetaDeAlmacen(a)} — {a.nombre}
-                                        </SelectItem>
-                                    ))}
-                                </Select>
-                            </FormField>
-
-                            <FormField
-                                label="Surte el pedido"
-                                htmlFor="pedido_id"
-                                error={form.errors.pedido_id}
-                                description="Sólo aparecen los pedidos de obra: los de planta salen con una salida."
-                            >
-                                <Select
-                                    id="pedido_id"
-                                    value={form.data.pedido_id}
-                                    onValueChange={cargarPedido}
-                                    disabled={form.data.almacen_origen_id === ''}
-                                    placeholder="Sin pedido"
-                                >
-                                    <SelectItem value="">Sin pedido</SelectItem>
-                                    {pedidosTransferibles.map((p) => (
-                                        <SelectItem key={p.id} value={String(p.id)}>
-                                            {p.folio} — {p.obra}
                                         </SelectItem>
                                     ))}
                                 </Select>
@@ -262,7 +289,7 @@ export default function TransferenciaCreate({
                                 label="Observaciones"
                                 htmlFor="observaciones"
                                 error={form.errors.observaciones}
-                                className="md:col-span-2"
+                                className="md:col-span-3"
                                 description="En qué va, con quién, qué hay que cuidar en el camino."
                             >
                                 <Input
@@ -308,7 +335,7 @@ export default function TransferenciaCreate({
                         )}
                         {form.data.almacen_origen_id === '' && (
                             <p className="text-base-content/60 mb-2 text-sm">
-                                Elige el almacén origen para ver cuánto hay de cada artículo.
+                                Elige el pedido o el almacén origen para ver cuánto hay de cada artículo.
                             </p>
                         )}
                         <CapturadorPartidas

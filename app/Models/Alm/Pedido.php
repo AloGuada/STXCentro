@@ -40,6 +40,7 @@ class Pedido extends Model
         'almacen_id',
         'departamento_id',
         'obra_id',
+        'almacen_destino_id',
         'solicitante_id',
         'recibe_nombre',
         'grupo_trabajo_id',
@@ -88,6 +89,17 @@ class Pedido extends Model
     public function obra(): BelongsTo
     {
         return $this->belongsTo(Obra::class);
+    }
+
+    /**
+     * El almacén de obra al que va el material. `null` es consumo interno de
+     * planta; con destino, `obra_id` es la obra de ese almacén.
+     *
+     * @return BelongsTo<Almacen, $this>
+     */
+    public function almacenDestino(): BelongsTo
+    {
+        return $this->belongsTo(Almacen::class, 'almacen_destino_id');
     }
 
     /**

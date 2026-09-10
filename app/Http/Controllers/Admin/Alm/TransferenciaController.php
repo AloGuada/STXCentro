@@ -57,13 +57,13 @@ class TransferenciaController extends Controller
 
     public function create(Request $request): Response
     {
-        $origenId = $request->integer('almacen_origen_id') ?: null;
-
         return Inertia::render('admin/almacen/transferencias/create', [
             'almacenes' => $this->almacenes($request),
             'productos' => $this->productos(),
-            // Sólo los de obra: los de planta se surten con una salida.
-            'pedidosTransferibles' => $this->pedidosTransferibles($request, $origenId),
+            // Sólo los de obra: los de planta se surten con una salida. Van
+            // todos los visibles, porque el pedido se elige primero y es él
+            // quien dice de qué almacén sale y a cuál va.
+            'pedidosTransferibles' => $this->pedidosTransferibles($request),
             'pedidoSeleccionado' => $request->integer('pedido_id') ?: null,
         ]);
     }
@@ -257,17 +257,20 @@ class TransferenciaController extends Controller
     /**
      * @return list<array<string, mixed>>
      */
-    private function pedidosTransferibles(Request $request, ?int $origenId): array
+    private function pedidosTransferibles(Request $request): array
     {
         return Pedido::query()
-            ->transferibles($origenId)
+            ->transferibles()
             ->whereIn('almacen_id', $this->almacenesVisibles($request))
-            ->with(['obra:id,no,descripcion', 'detalles.articulo:id,codigo,descripcion,unidad'])
+            ->with(['almacen:id,clave', 'obra:id,no,descripcion', 'detalles.articulo:id,codigo,descripcion,unidad'])
             ->orderBy('fecha_requerida')
             ->get()
             ->map(fn (Pedido $p): array => [
                 'id' => $p->id,
                 'folio' => $p->folio,
+                'almacen_id' => $p->almacen_id,
+                'almacen' => $p->almacen?->clave,
+                'almacen_destino_id' => $p->almacen_destino_id,
                 'obra_id' => $p->obra_id,
                 'obra' => $p->obra === null ? null : trim($p->obra->no.' — '.$p->obra->descripcion),
                 'fecha_requerida' => $p->fecha_requerida?->toDateString(),
@@ -276,6 +279,7 @@ class TransferenciaController extends Controller
                     ->map(fn (PedidoDetalle $d): array => [
                         'id' => $d->id,
                         'producto_id' => $d->producto_id,
+                        'articulo_id' => $d->articulo_id,
                         'codigo' => $d->articulo?->codigo,
                         'descripcion' => $d->articulo?->descripcion,
                         'unidad' => $d->articulo?->unidad,

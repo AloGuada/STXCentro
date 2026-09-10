@@ -36,18 +36,19 @@ type Saldo = {
 type Props = {
     almacenes: AlmAlmacenOpcion[];
     departamentos: { id: number; descripcion: string }[];
-    obras: { id: number; no: string; descripcion: string }[];
+    /** Los almacenes de obra: el pedido va a uno de éstos o se queda en planta. */
+    destinos: AlmAlmacenOpcion[];
     gruposTrabajo: { id: number; descripcion: string }[];
 };
 
-export default function PedidoCreate({ almacenes, departamentos, obras, gruposTrabajo }: Props) {
+export default function PedidoCreate({ almacenes, departamentos, destinos, gruposTrabajo }: Props) {
     const hoy = new Date().toISOString().slice(0, 10);
     const [saldos, setSaldos] = useState<Saldo[]>([]);
 
     const form = useForm({
         almacen_id: '',
         departamento_id: '',
-        obra_id: '',
+        almacen_destino_id: '',
         recibe_nombre: '',
         grupo_trabajo_id: '',
         fecha: hoy,
@@ -78,9 +79,10 @@ export default function PedidoCreate({ almacenes, departamentos, obras, gruposTr
         };
     }, [form.data.almacen_id]);
 
-    // Con obra hay que llevar el material a otro domicilio, así que lo surte una
-    // transferencia y la obra confirma. Sin obra se queda aquí y sale directo.
-    const esDeObra = form.data.obra_id !== '';
+    // Con almacén de obra hay que llevar el material a otro domicilio, así que lo
+    // surte una transferencia y la obra confirma. Sin él se queda aquí y sale
+    // directo.
+    const esDeObra = form.data.almacen_destino_id !== '';
 
     const enviar = (e: React.FormEvent) => {
         e.preventDefault();
@@ -117,7 +119,15 @@ export default function PedidoCreate({ almacenes, departamentos, obras, gruposTr
                                 <Select
                                     id="almacen_id"
                                     value={form.data.almacen_id}
-                                    onValueChange={(v) => form.setData('almacen_id', v)}
+                                    onValueChange={(v) =>
+                                        form.setData({
+                                            ...form.data,
+                                            almacen_id: v,
+                                            // Pedirle a un almacén que se mande a sí mismo no es nada.
+                                            almacen_destino_id:
+                                                form.data.almacen_destino_id === v ? '' : form.data.almacen_destino_id,
+                                        })
+                                    }
                                     placeholder="¿A quién se le pide?"
                                 >
                                     {almacenes.map((a) => (
@@ -151,31 +161,34 @@ export default function PedidoCreate({ almacenes, departamentos, obras, gruposTr
 
                             <FormField
                                 label="Obra destino"
-                                htmlFor="obra_id"
-                                error={form.errors.obra_id}
-                                description="Déjalo vacío si el material se queda en la planta."
+                                htmlFor="almacen_destino_id"
+                                error={form.errors.almacen_destino_id}
+                                description="El almacén de la obra a la que va, o consumo interno si se queda en planta."
                             >
                                 <Select
-                                    id="obra_id"
-                                    value={form.data.obra_id}
-                                    onValueChange={(v) => {
-                                        form.setData('obra_id', v);
-
-                                        // En un pedido de obra recibe el almacén
-                                        // destino, no una persona.
-                                        if (v !== '') {
-                                            form.setData('recibe_nombre', '');
-                                            form.setData('grupo_trabajo_id', '');
-                                        }
-                                    }}
+                                    id="almacen_destino_id"
+                                    value={form.data.almacen_destino_id}
+                                    onValueChange={(v) =>
+                                        form.setData({
+                                            ...form.data,
+                                            almacen_destino_id: v,
+                                            // En un pedido de obra recibe el almacén
+                                            // destino, no una persona ni una cuadrilla.
+                                            recibe_nombre: v === '' ? form.data.recibe_nombre : '',
+                                            grupo_trabajo_id: v === '' ? form.data.grupo_trabajo_id : '',
+                                        })
+                                    }
                                     placeholder="Consumo interno de planta"
                                 >
                                     <SelectItem value="">Consumo interno de planta</SelectItem>
-                                    {obras.map((o) => (
-                                        <SelectItem key={o.id} value={String(o.id)}>
-                                            {o.no} — {o.descripcion}
-                                        </SelectItem>
-                                    ))}
+                                    {destinos
+                                        .filter((a) => String(a.id) !== form.data.almacen_id)
+                                        .map((a) => (
+                                            <SelectItem key={a.id} value={String(a.id)}>
+                                                {etiquetaDeAlmacen(a)} — {a.nombre}
+                                                {a.obra?.descripcion ? ` (${a.obra.descripcion})` : ''}
+                                            </SelectItem>
+                                        ))}
                                 </Select>
                             </FormField>
 

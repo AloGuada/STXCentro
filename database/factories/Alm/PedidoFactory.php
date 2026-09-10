@@ -28,6 +28,7 @@ class PedidoFactory extends Factory
             // Por default es consumo interno de planta, que es el caso que se
             // surte con una salida.
             'obra_id' => null,
+            'almacen_destino_id' => null,
             'solicitante_id' => Usuario::factory(),
             'fecha' => now()->toDateString(),
             'fecha_requerida' => now()->addDays(2)->toDateString(),
@@ -40,12 +41,17 @@ class PedidoFactory extends Factory
         return $this->state(fn (): array => ['almacen_id' => $almacen->id]);
     }
 
-    /** Un pedido de obra: se surte con transferencia, no con salida. */
+    /**
+     * Un pedido de obra: se surte con transferencia, no con salida. Va a un
+     * almacén de esa obra, que es de donde el pedido saca la obra.
+     */
     public function paraObra(?Obra $obra = null): static
     {
-        return $this->state(fn (): array => [
-            'obra_id' => $obra?->id ?? Obra::factory(),
-        ]);
+        return $this->state(function () use ($obra): array {
+            $destino = Almacen::factory()->deObra($obra)->create();
+
+            return ['obra_id' => $destino->obra_id, 'almacen_destino_id' => $destino->id];
+        });
     }
 
     public function surtido(): static

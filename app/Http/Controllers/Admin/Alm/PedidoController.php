@@ -64,18 +64,33 @@ class PedidoController extends Controller
         return Inertia::render('admin/almacen/pedidos/create', [
             ...$this->opciones($request),
             'productos' => $this->productos(),
+            // A dónde puede ir: sólo almacenes de obra. No se filtra por
+            // visibilidad: quien pide casi nunca administra el de la obra.
+            'destinos' => Almacen::query()
+                ->activos()
+                ->whereNotNull('obra_id')
+                ->with('obra:id,no,descripcion')
+                ->orderBy('obra_id')
+                ->orderBy('clave')
+                ->get(['id', 'clave', 'nombre', 'obra_id', 'tipo']),
         ]);
     }
 
     public function store(PedidoStoreRequest $request): RedirectResponse
     {
         $almacen = Almacen::findOrFail($request->integer('almacen_id'));
+        $destino = $request->filled('almacen_destino_id')
+            ? Almacen::findOrFail($request->integer('almacen_destino_id'))
+            : null;
 
-        $pedido = DB::transaction(function () use ($request, $almacen): Pedido {
+        $pedido = DB::transaction(function () use ($request, $almacen, $destino): Pedido {
             $pedido = Pedido::create([
                 'almacen_id' => $almacen->id,
                 'departamento_id' => $request->integer('departamento_id'),
-                'obra_id' => $request->integer('obra_id') ?: null,
+                'almacen_destino_id' => $destino?->id,
+                // La obra sale del destino: es la que filtra los listados y la
+                // que decide si se surte con transferencia o con salida.
+                'obra_id' => $destino?->obra_id,
                 'solicitante_id' => $request->user()->getAuthIdentifier(),
                 'recibe_nombre' => $request->input('recibe_nombre'),
                 'grupo_trabajo_id' => $request->integer('grupo_trabajo_id') ?: null,
