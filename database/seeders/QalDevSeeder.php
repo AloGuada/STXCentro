@@ -6,6 +6,7 @@ use App\Enums\Qal\AreaIncidencia;
 use App\Enums\Qal\DepartamentoIncidencia;
 use App\Enums\Qal\MetodoPnd;
 use App\Enums\Qal\ResultadoPnd;
+use App\Models\Obra as ObraDelPortal;
 use App\Models\Qal\Laboratorio;
 use App\Models\Qal\Obra;
 use App\Models\Qal\ObraIncidencia;
@@ -107,12 +108,16 @@ class QalDevSeeder extends Seeder
         $desde = max(1, $semanaActual - self::SEMANAS + 1);
 
         foreach (self::OBRAS as $indice => $datos) {
-            $obra = Obra::create([
-                'no' => $datos['no'],
-                'descripcion' => $datos['descripcion'],
+            // La obra es la del portal; si ya existe con ese número se reusa.
+            $obraDelPortal = ObraDelPortal::query()->firstOrCreate(
+                ['no' => $datos['no']],
+                ['descripcion' => $datos['descripcion'], 'activa' => true],
+            );
+
+            $obra = Obra::paraObra($obraDelPortal);
+            $obra->update([
                 'responsable_calidad' => $datos['responsable'],
                 'pz_total' => $datos['pz_total'],
-                'activa' => true,
             ]);
 
             $this->planDePnd($obra, $indice);
@@ -124,12 +129,16 @@ class QalDevSeeder extends Seeder
     }
 
     /**
-     * Se borran las obras del seeder y con ellas, en cascada, sus etapas,
-     * piezas, informes de PND, montaje e incidencias.
+     * Se borran las fichas de Calidad de las obras del seeder y con ellas, en
+     * cascada, sus informes de PND, montaje e incidencias. La obra del portal
+     * se queda: no es de Calidad.
      */
     private function limpiar(): void
     {
-        Obra::whereIn('no', array_column(self::OBRAS, 'no'))->get()->each->delete();
+        Obra::query()
+            ->whereHas('obra', fn ($obra) => $obra->whereIn('no', array_column(self::OBRAS, 'no')))
+            ->get()
+            ->each->delete();
     }
 
     /**

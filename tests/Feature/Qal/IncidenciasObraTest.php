@@ -234,7 +234,7 @@ test('la semana sin piezas montadas no da porcentaje, dice que falta la base', f
 });
 
 test('el reporte semanal parte taller de montaje por area y pintura por departamento', function () {
-    $obra = Obra::factory()->create(['no' => 'T4 CANCUN', 'pz_total' => 500]);
+    $obra = Obra::factory()->conNumero('T4 CANCUN')->create(['pz_total' => 500]);
 
     ObraMontaje::factory()->enLaSemana(2026, 32)->create(['qal_obra_id' => $obra->id, 'pz_montadas' => 100]);
     ObraMontaje::factory()->enLaSemana(2026, 33)->create(['qal_obra_id' => $obra->id, 'pz_montadas' => 60]);

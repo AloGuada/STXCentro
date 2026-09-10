@@ -94,10 +94,11 @@ class ReporteSemanalController extends Controller
         $piezas = $this->piezasPorObra();
 
         return Obra::query()
-            ->whereIn('id', $porObra->keys())
+            ->conDatosDeLaObra()
+            ->whereIn('qal_obras.id', $porObra->keys())
             ->with('pndPlan:id,qal_obra_id,metodo,comprometidas')
-            ->orderBy('no')
-            ->get(['id', 'no', 'descripcion', 'pz_total'])
+            ->orderBy('obras.no')
+            ->get()
             ->map(function (Obra $obra) use ($porObra, $piezas): array {
                 $informes = $porObra->get($obra->id, collect());
                 $spots = (int) $informes->sum('spots');

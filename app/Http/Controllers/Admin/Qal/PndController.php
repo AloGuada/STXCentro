@@ -42,9 +42,10 @@ class PndController extends Controller
     public function index(Request $request): Response
     {
         $obras = Obra::query()
-            ->orderByDesc('activa')
-            ->orderBy('no')
-            ->get(['id', 'no', 'descripcion', 'activa']);
+            ->conDatosDeLaObra()
+            ->orderByDesc('obras.activa')
+            ->orderBy('obras.no')
+            ->get();
 
         $obra = $this->obraDelFiltro($request, $obras->pluck('id')->all());
 
@@ -260,7 +261,7 @@ class PndController extends Controller
 
         // Sin filtro se entra a la primera obra activa: la pantalla vacía no
         // dice nada y obligar a elegir cada vez es un clic por visita.
-        return Obra::query()->where('activa', true)->orderBy('no')->first();
+        return Obra::query()->conDatosDeLaObra()->activas()->orderBy('obras.no')->first();
     }
 
     /**
@@ -269,7 +270,7 @@ class PndController extends Controller
     private function catalogos(): array
     {
         return [
-            'obras' => Obra::query()->where('activa', true)->orderBy('no')->get(['id', 'no', 'descripcion']),
+            'obras' => Obra::query()->conDatosDeLaObra()->activas()->orderBy('obras.no')->get(),
             'laboratorios' => Laboratorio::query()->where('activo', true)->orderBy('nombre')->get(['id', 'nombre', 'siglas']),
             'soldadores' => Soldador::query()->where('activo', true)->orderBy('nombre')->get(['id', 'nombre', 'clave']),
             'metodos' => $this->metodos(),

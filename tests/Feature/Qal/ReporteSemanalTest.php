@@ -49,7 +49,7 @@ test('el permiso del tablero no abre el reporte', function () {
 });
 
 test('la hoja de PND cuenta spots por metodo y mide el avance contra lo comprometido', function () {
-    $obra = Obra::factory()->create(['no' => 'T4 CANCUN', 'pz_total' => 1200]);
+    $obra = Obra::factory()->conNumero('T4 CANCUN')->create(['pz_total' => 1200]);
 
     ObraPndPlan::factory()->create([
         'qal_obra_id' => $obra->id,
@@ -89,7 +89,7 @@ test('la hoja de PND cuenta spots por metodo y mide el avance contra lo comprome
 });
 
 test('una obra sin plan no inventa denominador', function () {
-    $obra = Obra::factory()->create(['no' => 'SIN PLAN']);
+    $obra = Obra::factory()->conNumero('SIN PLAN')->create();
     $reporte = PndReporte::factory()->create(['qal_obra_id' => $obra->id]);
     PndJunta::factory()->count(3)->create(['qal_pnd_reporte_id' => $reporte->id]);
 

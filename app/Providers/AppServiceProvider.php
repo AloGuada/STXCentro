@@ -5,6 +5,8 @@ namespace App\Providers;
 use App\Events\Costos\PresupuestoExcedido;
 use App\Listeners\Costos\NotificarAprobadoresPresupuesto;
 use App\Models\Costos\AprobacionDepartamento;
+use App\Models\Prod\Catalogo;
+use App\Models\Qal\Obra as ObraDeCalidad;
 use App\Models\Usuario;
 use App\Services\Rh\Cv\OllamaClient;
 use Carbon\CarbonImmutable;
@@ -38,6 +40,10 @@ class AppServiceProvider extends ServiceProvider
     protected function registerEvents(): void
     {
         Event::listen(PresupuestoExcedido::class, NotificarAprobadoresPresupuesto::class);
+
+        // Calidad inspecciona lo que Producción fabrica: la obra entra a
+        // Calidad en cuanto Producción abre su catálogo.
+        Catalogo::created(fn (Catalogo $catalogo) => ObraDeCalidad::paraObra($catalogo->obra_id));
     }
 
     protected function configureDefaults(): void

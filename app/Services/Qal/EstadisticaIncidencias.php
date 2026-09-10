@@ -65,9 +65,10 @@ class EstadisticaIncidencias
         ]);
 
         $obras = Obra::query()
-            ->whereIn('id', $montadas->keys())
-            ->orderBy('no')
-            ->get(['id', 'no', 'pz_total']);
+            ->conDatosDeLaObra()
+            ->whereIn('qal_obras.id', $montadas->keys())
+            ->orderBy('obras.no')
+            ->get();
 
         return [
             'montaje' => $this->filas($obras, $montadas, $porArea),

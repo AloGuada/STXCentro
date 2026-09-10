@@ -56,9 +56,10 @@ class IncidenciasController extends Controller
         $incidencias = $this->incidenciasPorObra($anio, $semanaActual);
 
         $obras = Obra::query()
-            ->whereIn('id', $montaje->keys()->merge($incidencias->keys())->unique())
-            ->orderBy('no')
-            ->get(['id', 'no', 'descripcion', 'pz_total'])
+            ->conDatosDeLaObra()
+            ->whereIn('qal_obras.id', $montaje->keys()->merge($incidencias->keys())->unique())
+            ->orderBy('obras.no')
+            ->get()
             ->map(function (Obra $obra) use ($montaje, $incidencias): array {
                 $m = $montaje->get($obra->id, ['pz_montadas' => 0, 'pz_montadas_semana' => 0, 'semanas' => 0]);
                 $i = $incidencias->get($obra->id, ['incidencias' => 0, 'pz_defecto' => 0, 'abiertas' => 0, 'incidencias_semana' => 0]);
@@ -326,10 +327,11 @@ class IncidenciasController extends Controller
     private function obrasSinCapturar(array $conDatos): array
     {
         return Obra::query()
-            ->where('activa', true)
-            ->whereNotIn('id', array_column($conDatos, 'id'))
-            ->orderBy('no')
-            ->get(['id', 'no'])
+            ->conDatosDeLaObra()
+            ->activas()
+            ->whereNotIn('qal_obras.id', array_column($conDatos, 'id'))
+            ->orderBy('obras.no')
+            ->get()
             ->map(fn (Obra $obra): array => ['id' => $obra->id, 'no' => $obra->no])
             ->all();
     }
