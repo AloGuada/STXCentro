@@ -264,6 +264,14 @@ const navGroups: NavGroup[] = [
                         permission: 'qal.registros.ver',
                     },
                     {
+                        // El IFC de cada obra con sus cordones detectados. Se
+                        // sube desde el catalogo de Produccion de la obra.
+                        title: 'Modelos 3D',
+                        href: '/admin/calidad/modelos',
+                        icon: Layers,
+                        permission: 'qal.modelos.ver',
+                    },
+                    {
                         title: 'Catálogos',
                         href: '/admin/calidad/catalogos',
                         icon: Folder,

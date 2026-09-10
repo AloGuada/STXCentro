@@ -116,6 +116,7 @@ use App\Http\Controllers\Admin\Qal\EquipoController as QalEquipoController;
 use App\Http\Controllers\Admin\Qal\IncidenciasController as QalIncidenciasController;
 use App\Http\Controllers\Admin\Qal\InspeccionController as QalInspeccionController;
 use App\Http\Controllers\Admin\Qal\LaboratorioController as QalLaboratorioController;
+use App\Http\Controllers\Admin\Qal\ModeloController as QalModeloController;
 use App\Http\Controllers\Admin\Qal\OperadorController as QalOperadorController;
 use App\Http\Controllers\Admin\Qal\PiezaController as QalPiezaController;
 use App\Http\Controllers\Admin\Qal\PndController as QalPndController;
@@ -852,6 +853,38 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
             Route::delete('sublotes/{sublote}', [QalAccesorioController::class, 'destroy'])
                 ->middleware('permission:qal.accesorios.eliminar')
                 ->name('sublotes.destroy');
+        });
+
+        // Modelos 3D: el IFC de la obra convertido en marcas con sus cordones.
+        // La marca la pide también la captura de soldado para montar el visor,
+        // así que capturar alcanza para leerla.
+        Route::prefix('modelos')->name('modelos.')->group(function () {
+            Route::get('/', [QalModeloController::class, 'index'])
+                ->middleware('permission:qal.modelos.ver')
+                ->name('index');
+            Route::post('/', [QalModeloController::class, 'store'])
+                ->middleware('permission:qal.modelos.crear')
+                ->name('store');
+            Route::get('marcas/{modeloMarca}', [QalModeloController::class, 'marca'])
+                ->middleware('permission:qal.modelos.ver|qal.inspecciones.crear')
+                ->name('marca');
+            Route::middleware('permission:qal.modelos.ver')->group(function () {
+                Route::get('{modelo}', [QalModeloController::class, 'show'])
+                    ->whereNumber('modelo')
+                    ->name('show');
+                Route::get('{modelo}/estado', [QalModeloController::class, 'estado'])
+                    ->whereNumber('modelo')
+                    ->name('estado');
+            });
+            Route::middleware('permission:qal.modelos.crear')->group(function () {
+                Route::post('{modelo}/reprocesar', [QalModeloController::class, 'reprocesar'])
+                    ->name('reprocesar');
+                Route::post('{modelo}/resolver-marcas', [QalModeloController::class, 'resolverMarcas'])
+                    ->name('resolver-marcas');
+            });
+            Route::delete('{modelo}', [QalModeloController::class, 'destroy'])
+                ->middleware('permission:qal.modelos.eliminar')
+                ->name('destroy');
         });
 
         // La base en crudo de lo capturado, para auditar: quien la abre ve lo

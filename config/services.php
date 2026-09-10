@@ -47,4 +47,13 @@ return [
         'temperature' => env('OLLAMA_TEMPERATURE', 0.3),
     ],
 
+    // Servicio aparte que convierte el IFC de Tekla en marcas con sus cordones
+    // de soldadura (ifc-service/). La conversión es asíncrona: el job pregunta
+    // por el estado cada `poll_segundos`.
+    'ifc' => [
+        'url' => env('IFC_SERVICE_URL', 'http://127.0.0.1:8011'),
+        'timeout' => env('IFC_SERVICE_TIMEOUT', 120),
+        'poll_segundos' => env('IFC_SERVICE_POLL', 20),
+    ],
+
 ];

@@ -1,11 +1,3 @@
-import { FormField } from '@/components/form';
-import { ProcesosDeObra } from '@/components/prod/procesos-de-obra';
-import { Button, ButtonLink } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import AppLayout from '@/layouts/app-layout';
-import { etiquetaDePieza } from '@/lib/prod/piezas';
-import type { BreadcrumbItem } from '@/types';
-import type { Concepto, ProdCatalogo, ProdPieza, ProdProceso } from '@/types/models';
 import { Head, Link, router, useForm } from '@inertiajs/react';
 import {
     ChevronDownIcon,
@@ -17,6 +9,15 @@ import {
     UploadIcon,
 } from 'lucide-react';
 import { type FormEvent, useMemo, useState } from 'react';
+import { FormField } from '@/components/form';
+import { ProcesosDeObra } from '@/components/prod/procesos-de-obra';
+import { Button, ButtonLink } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { useCan } from '@/hooks/use-can';
+import AppLayout from '@/layouts/app-layout';
+import { etiquetaDePieza } from '@/lib/prod/piezas';
+import type { BreadcrumbItem } from '@/types';
+import type { Concepto, ProdCatalogo, ProdPieza, ProdProceso } from '@/types/models';
 
 const fmt = (n: number) => Number(n).toLocaleString('es-MX', { minimumFractionDigits: 3, maximumFractionDigits: 3 });
 
@@ -31,6 +32,26 @@ type Props = {
     procesosDisponibles: ProdProceso[];
     versiones: VersionRow[];
     filters: { search?: string };
+    /** El modelo 3D de la obra, que se sube aquí y convierte Calidad. */
+    calidad: {
+        obra_id: number;
+        modelo: {
+            id: number;
+            version: number;
+            estatus: 'pendiente' | 'procesando' | 'listo' | 'error';
+            nombre_original: string;
+            error: string | null;
+            procesado_at: string | null;
+            resumen: { marcas?: number; cordones?: number } | null;
+        } | null;
+    };
+};
+
+const ESTATUS_MODELO: Record<string, string> = {
+    pendiente: 'En cola',
+    procesando: 'Procesando',
+    listo: 'Listo',
+    error: 'Error',
 };
 
 export default function CatalogoShow({
@@ -40,7 +61,21 @@ export default function CatalogoShow({
     procesosDisponibles,
     versiones,
     filters,
+    calidad,
 }: Props) {
+    const { can } = useCan();
+    const ifcForm = useForm<{ obra_id: number; archivo: File | null }>({ obra_id: calidad.obra_id, archivo: null });
+
+    const subirIfc = (e: FormEvent) => {
+        e.preventDefault();
+        if (!ifcForm.data.archivo) return;
+
+        ifcForm.post('/admin/calidad/modelos', {
+            forceFormData: true,
+            preserveScroll: true,
+            onSuccess: () => ifcForm.reset('archivo'),
+        });
+    };
     const breadcrumbs: BreadcrumbItem[] = [
         { title: 'Dashboard', href: '/dashboard' },
         { title: 'Produccion', href: '/admin/prod/destajos' },
@@ -424,6 +459,63 @@ export default function CatalogoShow({
                             >
                                 {!csvForm.processing && <UploadIcon className="size-4" />}
                                 Importar CSV
+                            </Button>
+                        </form>
+                    </div>
+                )}
+
+                {can('qal.modelos.crear') && (
+                    <div className="mt-8 space-y-3">
+                        <h2 className="text-lg font-semibold">Modelo 3D (IFC)</h2>
+                        <p className="text-base-content/60 text-sm">
+                            El IFC de la obra exportado de Tekla. Calidad lo convierte en una marca por archivo con sus
+                            cordones de soldadura, y con eso el inspector reporta cada junta sobre el modelo. Cada IFC
+                            que se sube es una <strong>versión nueva</strong>: la anterior se conserva con lo que se
+                            capturó sobre ella.
+                        </p>
+
+                        {calidad.modelo && (
+                            <div className="border-base-300 bg-base-100 flex flex-wrap items-center gap-3 rounded-xl border px-4 py-3 text-sm">
+                                <span className="font-semibold">v{calidad.modelo.version}</span>
+                                <span className="text-base-content/70">{calidad.modelo.nombre_original}</span>
+                                <span
+                                    className={`badge badge-sm ${
+                                        calidad.modelo.estatus === 'listo'
+                                            ? 'badge-success'
+                                            : calidad.modelo.estatus === 'error'
+                                              ? 'badge-error'
+                                              : 'badge-warning'
+                                    }`}
+                                >
+                                    {ESTATUS_MODELO[calidad.modelo.estatus]}
+                                </span>
+                                {calidad.modelo.resumen?.marcas !== undefined && (
+                                    <span className="text-base-content/70">
+                                        {calidad.modelo.resumen.marcas} marcas · {calidad.modelo.resumen.cordones ?? 0} cordones
+                                    </span>
+                                )}
+                                {calidad.modelo.error && <span className="text-error">{calidad.modelo.error}</span>}
+                                {can('qal.modelos.ver') && (
+                                    <Link href={`/admin/calidad/modelos/${calidad.modelo.id}`} className="link ml-auto">
+                                        Ver en Calidad
+                                    </Link>
+                                )}
+                            </div>
+                        )}
+
+                        <form onSubmit={subirIfc} className="flex items-end gap-4">
+                            <FormField label="Archivo IFC" htmlFor="ifc_file" error={ifcForm.errors.archivo} className="max-w-md">
+                                <input
+                                    id="ifc_file"
+                                    type="file"
+                                    accept=".ifc"
+                                    className="file-input file-input-bordered w-full"
+                                    onChange={(e) => ifcForm.setData('archivo', e.target.files?.[0] ?? null)}
+                                />
+                            </FormField>
+                            <Button type="submit" disabled={ifcForm.processing || !ifcForm.data.archivo} loading={ifcForm.processing}>
+                                {!ifcForm.processing && <UploadIcon className="size-4" />}
+                                Añadir IFC
                             </Button>
                         </form>
                     </div>

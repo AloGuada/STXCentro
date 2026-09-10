@@ -10,6 +10,7 @@ use App\Models\Obra;
 use App\Models\Prod\Catalogo;
 use App\Models\Prod\Proceso;
 use App\Models\Proyecto;
+use App\Models\Qal\Modelo;
 use App\Services\Prod\AvanceDePiezas;
 use App\Services\Prod\VersionadorCatalogo;
 use Illuminate\Http\RedirectResponse;
@@ -113,6 +114,15 @@ class CatalogoController extends Controller
                 ->orderByDesc('version')
                 ->get(),
             'filters' => $request->only(['search']),
+            // El IFC de la obra se sube aquí, donde está quien lo tiene; lo
+            // convierte y lo usa Calidad (Modelos 3D).
+            'calidad' => [
+                'obra_id' => $catalogo->obra_id,
+                'modelo' => Modelo::query()
+                    ->where('obra_id', $catalogo->obra_id)
+                    ->orderByDesc('version')
+                    ->first(['id', 'version', 'estatus', 'nombre_original', 'error', 'procesado_at', 'resumen']),
+            ],
         ]);
     }
 
