@@ -1,9 +1,9 @@
-import { FormField } from '@/components/form';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { router, useForm } from '@inertiajs/react';
 import { CheckCircle2Icon, PencilIcon, TriangleAlertIcon, XCircleIcon } from 'lucide-react';
 import { type ReactNode, useEffect, useState } from 'react';
+import { FormField } from '@/components/form';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 
 /** Un campo del catálogo. Casi todos son un texto; la vigencia es una fecha. */
 export type CampoCatalogo = {
@@ -25,8 +25,12 @@ export type FilaCatalogo = {
 } & Record<string, unknown>;
 
 type Props = {
-    /** Segmento de la ruta: `soldadores`, `defectos-pintura`… */
+    /** Identifica el panel; por omisión es también el segmento de la ruta. */
     clave: string;
+    /** Segmento de la ruta cuando no coincide con la clave (`defectos`). */
+    ruta?: string;
+    /** Valores que viajan en cada alta sin mostrarse, p. ej. el ámbito del defecto. */
+    fijos?: Record<string, string>;
     descripcion: string;
     campos: CampoCatalogo[];
     filas: FilaCatalogo[];
@@ -54,6 +58,8 @@ const vacio = (campos: CampoCatalogo[]): Record<string, string> =>
  */
 export function CatalogoPanel({
     clave,
+    ruta,
+    fijos,
     descripcion,
     campos,
     filas,
@@ -63,9 +69,10 @@ export function CatalogoPanel({
     aviso,
 }: Props) {
     const [editando, setEditando] = useState<number | null>(null);
-    const { data, setData, post, put, processing, errors, reset, clearErrors } = useForm<Record<string, string>>(
-        vacio(campos),
-    );
+    const { data, setData, post, put, processing, errors, reset, clearErrors } = useForm<Record<string, string>>({
+        ...vacio(campos),
+        ...fijos,
+    });
 
     // Cambiar de pestaña no debe dejar a medias la edición de la anterior.
     useEffect(() => {
@@ -75,7 +82,7 @@ export function CatalogoPanel({
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [clave]);
 
-    const base = `/admin/calidad/catalogos/${clave}`;
+    const base = `/admin/calidad/catalogos/${ruta ?? clave}`;
 
     const enviar = (e: React.FormEvent) => {
         e.preventDefault();

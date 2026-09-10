@@ -2,9 +2,9 @@
 
 namespace App\Http\Controllers\Admin\Qal;
 
+use App\Enums\Qal\AmbitoDefecto;
 use App\Http\Controllers\Controller;
-use App\Models\Qal\DefectoPintura;
-use App\Models\Qal\DefectoSoldadura;
+use App\Models\Qal\Defecto;
 use App\Models\Qal\Equipo;
 use App\Models\Qal\Laboratorio;
 use App\Models\Qal\Operador;
@@ -37,8 +37,8 @@ class CatalogoController extends Controller
             'operadores' => Operador::ordenNatural(Operador::all()),
             'responsables' => Responsable::ordenNatural(Responsable::all()),
             'supervisoresPintura' => SupervisorPintura::ordenNatural(SupervisorPintura::all()),
-            'defectosSoldadura' => DefectoSoldadura::ordenNatural(DefectoSoldadura::all()),
-            'defectosPintura' => DefectoPintura::ordenNatural(DefectoPintura::all()),
+            'defectos' => Defecto::ordenNatural(Defecto::all()),
+            'ambitosDefecto' => AmbitoDefecto::opciones(),
         ]);
     }
 }

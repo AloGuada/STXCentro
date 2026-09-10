@@ -3584,6 +3584,25 @@ export type QalCatalogoSimple = {
     updated_at: string;
 };
 
+/** A qué lista del catálogo de defectos pertenece uno; cada lista es de una etapa. */
+export type QalAmbitoDefecto =
+    | 'soldadura'
+    | 'pintura'
+    | 'accesorio_dimensional'
+    | 'accesorio_barrenos'
+    | 'accesorio_limpieza';
+
+export type QalDefecto = QalCatalogoSimple & {
+    ambito: QalAmbitoDefecto;
+    clave: string | null;
+};
+
+export type QalOpcionAmbitoDefecto = {
+    valor: QalAmbitoDefecto;
+    etiqueta: string;
+    fase: QalFaseTransformacion;
+};
+
 /** Laboratorio que firma los informes de ensayos no destructivos. */
 export type QalLaboratorio = QalCatalogoSimple & {
     /** Como se le nombra dentro del informe. */

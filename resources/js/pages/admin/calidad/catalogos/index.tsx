@@ -1,10 +1,18 @@
+import { Head } from '@inertiajs/react';
+import { type ReactNode, useState } from 'react';
+import { CatalogoDefectos } from '@/components/qal/catalogo-defectos';
 import { CatalogoPanel, type CampoCatalogo, type FilaCatalogo } from '@/components/qal/catalogo-panel';
 import { useCan } from '@/hooks/use-can';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
-import type { QalLaboratorio, QalSoldador, QalTipoPieza, QalCatalogoSimple } from '@/types/models';
-import { Head } from '@inertiajs/react';
-import { type ReactNode, useState } from 'react';
+import type {
+    QalCatalogoSimple,
+    QalDefecto,
+    QalLaboratorio,
+    QalOpcionAmbitoDefecto,
+    QalSoldador,
+    QalTipoPieza,
+} from '@/types/models';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
@@ -20,8 +28,8 @@ type Props = {
     operadores: QalCatalogoSimple[];
     responsables: QalCatalogoSimple[];
     supervisoresPintura: QalCatalogoSimple[];
-    defectosSoldadura: QalCatalogoSimple[];
-    defectosPintura: QalCatalogoSimple[];
+    defectos: QalDefecto[];
+    ambitosDefecto: QalOpcionAmbitoDefecto[];
 };
 
 /** El campo que casi todos los catálogos comparten. */
@@ -142,29 +150,14 @@ export default function CatalogosCalidad(props: Props) {
             filas: props.supervisoresPintura as unknown as FilaCatalogo[],
         },
         {
-            clave: 'defectos-soldadura',
-            permiso: 'defectos-soldadura',
-            titulo: 'Defectos de soldadura',
-            descripcion: 'Los que puede marcar el inspector, con su contador.',
-            campos: [{ k: 'nombre', label: 'Defecto', ph: 'Socavación', req: true, ancho: 'ancho' }],
-            filas: props.defectosSoldadura as unknown as FilaCatalogo[],
-            ayuda: (
-                <>
-                    Cuidado al renombrar uno: los registros ya guardados conservan el texto viejo, así que en los
-                    reportes saldrán como dos defectos distintos.
-                </>
-            ),
-        },
-        {
-            clave: 'defectos-pintura',
-            permiso: 'defectos-pintura',
-            titulo: 'Defectos de pintura',
-            descripcion: 'Los que puede marcar el inspector de 3ª.',
-            campos: [{ k: 'nombre', label: 'Defecto', ph: 'Falta pintura (FP)', req: true, ancho: 'ancho' }],
-            filas: props.defectosPintura as unknown as FilaCatalogo[],
-            ayuda: (
-                <>Misma advertencia que en soldadura: renombrar uno no reescribe los registros ya guardados.</>
-            ),
+            // Una sola tabla con una lista por ámbito; el panel propio elige
+            // la lista y fija el ámbito en cada alta.
+            clave: 'defectos',
+            permiso: 'defectos',
+            titulo: 'Defectos',
+            descripcion: 'Los que puede marcar el inspector, una lista por etapa.',
+            campos: [],
+            filas: props.defectos as unknown as FilaCatalogo[],
         },
     ];
 
@@ -209,17 +202,26 @@ export default function CatalogosCalidad(props: Props) {
                             ))}
                         </div>
 
-                        <CatalogoPanel
-                            key={activa.clave}
-                            clave={activa.clave}
-                            descripcion={activa.descripcion}
-                            campos={activa.campos}
-                            filas={activa.filas}
-                            puedeCrear={can(`qal.${activa.permiso}.crear`)}
-                            puedeEditar={can(`qal.${activa.permiso}.editar`)}
-                            ayuda={activa.ayuda}
-                            aviso={activa.aviso}
-                        />
+                        {activa.clave === 'defectos' ? (
+                            <CatalogoDefectos
+                                defectos={props.defectos}
+                                ambitos={props.ambitosDefecto}
+                                puedeCrear={can('qal.defectos.crear')}
+                                puedeEditar={can('qal.defectos.editar')}
+                            />
+                        ) : (
+                            <CatalogoPanel
+                                key={activa.clave}
+                                clave={activa.clave}
+                                descripcion={activa.descripcion}
+                                campos={activa.campos}
+                                filas={activa.filas}
+                                puedeCrear={can(`qal.${activa.permiso}.crear`)}
+                                puedeEditar={can(`qal.${activa.permiso}.editar`)}
+                                ayuda={activa.ayuda}
+                                aviso={activa.aviso}
+                            />
+                        )}
                     </>
                 )}
 

@@ -2,8 +2,8 @@
 
 namespace Database\Seeders;
 
-use App\Models\Qal\DefectoPintura;
-use App\Models\Qal\DefectoSoldadura;
+use App\Enums\Qal\AmbitoDefecto;
+use App\Models\Qal\Defecto;
 use App\Models\Qal\TipoPieza;
 use Illuminate\Database\Seeder;
 
@@ -30,13 +30,45 @@ class QalCatalogosSeeder extends Seeder
             );
         }
 
-        foreach ($this->defectosSoldadura() as $nombre) {
-            DefectoSoldadura::firstOrCreate(['nombre' => $nombre], ['activo' => true]);
+        foreach ($this->defectos() as $ambito => $nombres) {
+            foreach ($nombres as $nombre) {
+                Defecto::firstOrCreate(['ambito' => $ambito, 'nombre' => $nombre], ['activo' => true]);
+            }
         }
+    }
 
-        foreach ($this->defectosPintura() as $nombre) {
-            DefectoPintura::firstOrCreate(['nombre' => $nombre], ['activo' => true]);
-        }
+    /**
+     * Los defectos por ámbito. Los accesorios que fallan por soldadura usan la
+     * lista de soldadura, así que no tienen una propia.
+     *
+     * @return array<string, list<string>>
+     */
+    private function defectos(): array
+    {
+        return [
+            AmbitoDefecto::Soldadura->value => $this->defectosSoldadura(),
+            AmbitoDefecto::Pintura->value => $this->defectosPintura(),
+            AmbitoDefecto::AccesorioDimensional->value => [
+                'Deflexión',
+                'Torsión',
+                'Flecha',
+                'Contraflecha',
+                'Hi-Low',
+                'Alabeo en patín',
+                'Pandeo de alma',
+                'Longitud fuera de tolerancia',
+                'Escuadre',
+                'Otro',
+            ],
+            AmbitoDefecto::AccesorioBarrenos->value => [
+                'Diámetro incorrecto',
+                'Posición incorrecta',
+                'Barreno faltante',
+                'Barreno sin habilitar',
+                'Otro',
+            ],
+            AmbitoDefecto::AccesorioLimpieza->value => ['Falta de limpieza'],
+        ];
     }
 
     /**

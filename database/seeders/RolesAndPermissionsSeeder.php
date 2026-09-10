@@ -444,12 +444,10 @@ class RolesAndPermissionsSeeder extends Seeder
             'qal.supervisores-pintura.ver',
             'qal.supervisores-pintura.crear',
             'qal.supervisores-pintura.editar',
-            'qal.defectos-soldadura.ver',
-            'qal.defectos-soldadura.crear',
-            'qal.defectos-soldadura.editar',
-            'qal.defectos-pintura.ver',
-            'qal.defectos-pintura.crear',
-            'qal.defectos-pintura.editar',
+            // Un solo catálogo de defectos, tipado por etapa.
+            'qal.defectos.ver',
+            'qal.defectos.crear',
+            'qal.defectos.editar',
             // PND es recurso aparte de reportes: son juntas soldadas evaluadas
             // por un laboratorio externo, no piezas revisadas a la vista, y las
             // captura otra persona.

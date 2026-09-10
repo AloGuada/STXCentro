@@ -1,12 +1,15 @@
 <?php
 
-use App\Models\Qal\DefectoSoldadura;
+use App\Enums\Qal\AmbitoDefecto;
+use App\Models\Qal\Defecto;
 use App\Models\Qal\Equipo;
 use App\Models\Qal\Laboratorio;
 use App\Models\Qal\Soldador;
 use App\Models\Qal\TipoPieza;
 use App\Models\User;
+use Illuminate\Support\Facades\DB;
 use Spatie\Permission\Models\Permission;
+use Spatie\Permission\Models\Role;
 
 /**
  * Deja al usuario con exactamente los permisos que se le pidan, para poder
@@ -74,15 +77,81 @@ test('crear exige su propio permiso, verlo no alcanza', function () {
 });
 
 test('editar cambia el nombre sin tocar el estado', function () {
-    $defecto = DefectoSoldadura::factory()->create(['nombre' => 'Socabación']);
-    $usuario = usuarioCon(['qal.defectos-soldadura.editar']);
+    $defecto = Defecto::factory()->create(['nombre' => 'Socabación']);
+    $usuario = usuarioCon(['qal.defectos.editar']);
 
     $this->actingAs($usuario)
-        ->put(route('admin.qal.catalogos.defectos-soldadura.update', $defecto), ['nombre' => 'Socavación'])
+        ->put(route('admin.qal.catalogos.defectos.update', $defecto), ['nombre' => 'Socavación'])
         ->assertRedirect();
 
     expect($defecto->refresh()->nombre)->toBe('Socavación')
         ->and($defecto->activo)->toBeTrue();
+});
+
+/**
+ * «Otro» existe en soldadura y en pintura, y son defectos distintos: el
+ * nombre es único dentro de su lista, no en todo el catálogo.
+ */
+test('un defecto nace en su lista y el mismo nombre puede repetirse en otra', function () {
+    Defecto::factory()->create(['nombre' => 'Otro', 'ambito' => AmbitoDefecto::Soldadura]);
+    $usuario = usuarioCon(['qal.defectos.crear']);
+
+    $this->actingAs($usuario)
+        ->post(route('admin.qal.catalogos.defectos.store'), ['nombre' => 'Otro', 'ambito' => 'pintura'])
+        ->assertRedirect()
+        ->assertSessionHasNoErrors();
+
+    $this->actingAs($usuario)
+        ->post(route('admin.qal.catalogos.defectos.store'), ['nombre' => 'Otro', 'ambito' => 'soldadura'])
+        ->assertSessionHasErrors('nombre');
+
+    $this->actingAs($usuario)
+        ->post(route('admin.qal.catalogos.defectos.store'), ['nombre' => 'Rayón'])
+        ->assertSessionHasErrors('ambito');
+
+    expect(Defecto::query()->where('nombre', 'Otro')->pluck('ambito')->map->value->sort()->values()->all())
+        ->toBe(['pintura', 'soldadura']);
+});
+
+/**
+ * Mover un defecto de lista cambiaría el significado de todo lo que ya se
+ * capturó con él, así que el ámbito se ignora al editar.
+ */
+test('el ambito del defecto no cambia al editar', function () {
+    $defecto = Defecto::factory()->deAmbito(AmbitoDefecto::Soldadura)->create(['nombre' => 'Poros']);
+
+    $this->actingAs(usuarioCon(['qal.defectos.editar']))
+        ->put(route('admin.qal.catalogos.defectos.update', $defecto), ['nombre' => 'Porosidad', 'ambito' => 'pintura'])
+        ->assertRedirect();
+
+    expect($defecto->refresh()->ambito)->toBe(AmbitoDefecto::Soldadura)
+        ->and($defecto->nombre)->toBe('Porosidad');
+});
+
+test('la migracion junta los defectos de soldadura y pintura en una tabla', function () {
+    $migracion = require database_path('migrations/2026_09_10_110000_create_qal_defectos_table.php');
+    $migracion->down();
+
+    DB::table('qal_defectos_soldadura')->insert(['nombre' => 'Grieta', 'activo' => true]);
+    DB::table('qal_defectos_pintura')->insert(['nombre' => 'Espesor bajo (EB)', 'activo' => false]);
+
+    $migracion->up();
+
+    expect(Defecto::query()->deAmbito(AmbitoDefecto::Soldadura)->pluck('nombre')->all())->toBe(['Grieta'])
+        ->and(Defecto::query()->firstWhere('nombre', 'Espesor bajo (EB)')->activo)->toBeFalse();
+});
+
+test('quien podia ver defectos de soldadura puede ver el catalogo unificado', function () {
+    $migracion = require database_path('migrations/2026_09_10_110200_unifica_permisos_de_defectos_qal.php');
+    $migracion->down();
+
+    $rol = Role::create(['name' => 'revisor-cal', 'guard_name' => 'web']);
+    $rol->givePermissionTo('qal.defectos-soldadura.ver');
+
+    $migracion->up();
+
+    expect($rol->fresh()->hasPermissionTo('qal.defectos.ver'))->toBeTrue()
+        ->and(Permission::query()->where('name', 'like', 'qal.defectos-%')->exists())->toBeFalse();
 });
 
 /**

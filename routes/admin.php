@@ -110,8 +110,7 @@ use App\Http\Controllers\Admin\Prod\TipoPagoExtraController as ProdTipoPagoExtra
 use App\Http\Controllers\Admin\Prod\UbicacionController as ProdUbicacionController;
 use App\Http\Controllers\Admin\ProveedorController;
 use App\Http\Controllers\Admin\Qal\CatalogoController as QalCatalogoController;
-use App\Http\Controllers\Admin\Qal\DefectoPinturaController as QalDefectoPinturaController;
-use App\Http\Controllers\Admin\Qal\DefectoSoldaduraController as QalDefectoSoldaduraController;
+use App\Http\Controllers\Admin\Qal\DefectoController as QalDefectoController;
 use App\Http\Controllers\Admin\Qal\EquipoController as QalEquipoController;
 use App\Http\Controllers\Admin\Qal\IncidenciasController as QalIncidenciasController;
 use App\Http\Controllers\Admin\Qal\LaboratorioController as QalLaboratorioController;
@@ -894,7 +893,7 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         // cualquiera de los permisos de ver, y el front esconde las pestanas
         // que el usuario no puede consultar.
         Route::get('catalogos', [QalCatalogoController::class, 'index'])
-            ->middleware('permission:qal.soldadores.ver|qal.laboratorios.ver|qal.tipos-pieza.ver|qal.equipos.ver|qal.operadores.ver|qal.responsables.ver|qal.supervisores-pintura.ver|qal.defectos-soldadura.ver|qal.defectos-pintura.ver')
+            ->middleware('permission:qal.soldadores.ver|qal.laboratorios.ver|qal.tipos-pieza.ver|qal.equipos.ver|qal.operadores.ver|qal.responsables.ver|qal.supervisores-pintura.ver|qal.defectos.ver')
             ->name('catalogos.index');
 
         // Escritura, un permiso por catalogo. Ninguno tiene destroy: aqui nada
@@ -907,8 +906,7 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
             'operadores' => [QalOperadorController::class, 'operadores'],
             'responsables' => [QalResponsableController::class, 'responsables'],
             'supervisores-pintura' => [QalSupervisorPinturaController::class, 'supervisores-pintura'],
-            'defectos-soldadura' => [QalDefectoSoldaduraController::class, 'defectos-soldadura'],
-            'defectos-pintura' => [QalDefectoPinturaController::class, 'defectos-pintura'],
+            'defectos' => [QalDefectoController::class, 'defectos'],
         ];
 
         foreach ($catalogos as $ruta => [$controlador, $permiso]) {
