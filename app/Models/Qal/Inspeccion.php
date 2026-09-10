@@ -12,6 +12,7 @@ use App\Models\Obra as ObraDelPortal;
 use App\Models\Prod\Catalogo;
 use App\Models\Prod\Pieza;
 use App\Models\Usuario;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -249,5 +250,60 @@ class Inspeccion extends Model
     public function juntas(): HasMany
     {
         return $this->hasMany(Junta::class, 'inspeccion_id');
+    }
+
+    /**
+     * Los filtros de Registros. La búsqueda es por marca, folio, QR o folio de
+     * Strumis: cualquiera de los cuatro es como alguien nombra una pieza.
+     *
+     * @param  Builder<self>  $query
+     * @param  array<string, mixed>  $filtros
+     */
+    public function scopeFiltrada(Builder $query, array $filtros): void
+    {
+        $query
+            ->when($filtros['obra'] ?? null, fn (Builder $consulta, int $obra) => $consulta->where('obra_id', $obra))
+            ->when($filtros['fase'] ?? null, fn (Builder $consulta, string $fase) => $consulta->where('fase', $fase))
+            ->when($filtros['inspector'] ?? null, fn (Builder $consulta, int $inspector) => $consulta->where('inspector_id', $inspector))
+            ->when($filtros['estatus'] ?? null, fn (Builder $consulta, string $estatus) => $consulta->where('estatus', $estatus))
+            ->when($filtros['fecha'] ?? null, fn (Builder $consulta, string $fecha) => $consulta->whereDate('fecha', $fecha))
+            ->when($filtros['buscar'] ?? null, fn (Builder $consulta, string $texto) => $consulta->where(
+                fn (Builder $busqueda) => $busqueda
+                    ->where('marca', 'like', "%{$texto}%")
+                    ->orWhere('folio', 'like', "%{$texto}%")
+                    ->orWhere('qr', 'like', "%{$texto}%")
+                    ->orWhere('folio_strumis', 'like', "%{$texto}%"),
+            ));
+    }
+
+    /**
+     * Las inspecciones de la misma pieza en la misma etapa: las que cuentan
+     * para el número de inspección.
+     *
+     * @return Builder<self>
+     */
+    public function mismaPiezaYEtapa(): Builder
+    {
+        $consulta = static::query()->where('obra_id', $this->obra_id)->where('fase', $this->fase->value);
+
+        return $this->fase === FaseTransformacion::Primera
+            ? $consulta->where('marca', $this->marca)->where('lote', $this->lote)->where('consecutivo', $this->consecutivo)
+            : $consulta->where('qr', $this->qr)->where('subetapa', $this->subetapa?->value);
+    }
+
+    /**
+     * La historia de la pieza: en 1ª, las de su marca y consecutivo; de 2ª en
+     * adelante, todas las de su QR, porque ahí es la misma pieza física la que
+     * pasa por armado, soldado y pintura.
+     *
+     * @return Builder<self>
+     */
+    public function historialDeLaPieza(): Builder
+    {
+        $consulta = static::query()->where('obra_id', $this->obra_id);
+
+        return $this->fase === FaseTransformacion::Primera
+            ? $consulta->where('fase', $this->fase->value)->where('marca', $this->marca)->where('lote', $this->lote)->where('consecutivo', $this->consecutivo)
+            : $consulta->where('qr', $this->qr);
     }
 }

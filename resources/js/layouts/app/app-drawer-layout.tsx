@@ -257,12 +257,11 @@ const navGroups: NavGroup[] = [
                     },
                     {
                         // La base en crudo de lo que se captura en Formularios:
-                        // aqui se consulta y se audita, alla se llena. Pasa a
-                        // qal.registros.ver cuando lea de la base.
+                        // aqui se consulta y se audita, alla se llena.
                         title: 'Registros',
                         href: '/admin/calidad/registros',
                         icon: Table2,
-                        permission: 'qal.reportes.ver',
+                        permission: 'qal.registros.ver',
                     },
                     {
                         title: 'Catálogos',

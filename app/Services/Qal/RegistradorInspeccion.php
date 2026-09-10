@@ -14,6 +14,7 @@ use App\Enums\Qal\TipoDatoPunto;
 use App\Enums\Qal\TipoJunta;
 use App\Enums\Qal\VeredictoLote;
 use App\Models\Concepto;
+use App\Models\Media;
 use App\Models\Prod\Pieza;
 use App\Models\Qal\Inspeccion;
 use App\Models\Qal\Inspector;
@@ -25,6 +26,7 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 
 /**
  * Guarda una inspección entera: cabecera, puntos, defectos y lo propio de su
@@ -56,78 +58,135 @@ class RegistradorInspeccion
         return DB::transaction(function () use ($datos, $capturista, $fotos): Inspeccion {
             $fase = FaseTransformacion::from($datos['fase']);
             $subetapa = $fase === FaseTransformacion::Segunda ? Subetapa::from($datos['subetapa']) : null;
-            $subtipo = $fase === FaseTransformacion::Primera ? SubtipoPrimera::from($datos['subtipo']) : null;
-            $fecha = Carbon::parse($datos['fecha']);
-
-            $puntos = PuntoInspeccion::query()->paraFormulario($fase, $subetapa, $subtipo)->get()->keyBy('clave');
-            $respuestas = $this->respuestas($datos['puntos'] ?? [], $puntos);
             $pieza = $this->pieza($fase, $datos);
 
-            $inspeccion = Inspeccion::query()->create([
+            $inspeccion = new Inspeccion([
                 ...$pieza,
                 'obra_id' => $datos['obra_id'],
-                'tipo_pieza_id' => $datos['tipo_pieza_id'] ?? TipoPieza::paraMarca($pieza['marca'])?->id,
                 'fase' => $fase,
                 'subetapa' => $subetapa,
-                'subtipo' => $subtipo,
-                'fecha' => $fecha,
-                'anio' => $fecha->isoWeekYear(),
-                'semana' => $fecha->isoWeek(),
                 'inspector_id' => Inspector::query()->firstOrCreate(
                     ['usuario_id' => $capturista->getKey()],
                     ['fase' => $fase],
                 )->id,
                 'numero_inspeccion' => $this->siguienteNumero((int) $datos['obra_id'], $fase, $subetapa, $pieza),
-                'cantidad_lote' => $fase === FaseTransformacion::Primera
-                    ? ($datos['muestreo']['tamano_lote'] ?? $datos['cantidad_lote'] ?? null)
-                    : null,
-                'kg' => $datos['kg'],
-                'folio_strumis' => $datos['folio_strumis'] ?? null,
-                'linea' => $fase === FaseTransformacion::Primera ? null : ($datos['linea'] ?? null),
-                'modulo' => $fase === FaseTransformacion::Primera ? null : ($datos['modulo'] ?? null),
-                'equipo_id' => $fase === FaseTransformacion::Primera ? ($datos['equipo_id'] ?? null) : null,
-                'operador_id' => $fase === FaseTransformacion::Primera ? ($datos['operador_id'] ?? null) : null,
-                'responsable_id' => $fase === FaseTransformacion::Segunda ? ($datos['responsable_id'] ?? null) : null,
-                'supervisor_pintura_id' => $fase === FaseTransformacion::Tercera ? ($datos['supervisor_pintura_id'] ?? null) : null,
-                'soldador_id' => $fase === FaseTransformacion::Segunda ? ($datos['soldador_id'] ?? null) : null,
-                'estatus' => $this->reglas->estatusFinal(EstatusInspeccion::from($datos['estatus']), $respuestas),
-                'avance_iv' => $fase === FaseTransformacion::Segunda ? ($datos['avance_iv'] ?? null) : null,
-                'avance_is' => $fase === FaseTransformacion::Segunda ? ($datos['avance_is'] ?? null) : null,
-                'observaciones' => $datos['observaciones'] ?? null,
                 'capturado_en' => now(),
                 'capturista_id' => $capturista->getKey(),
             ]);
 
-            $inspeccion->puntos()->createMany(
-                collect($respuestas)->map(fn (string $valor, string $clave): array => [
-                    'punto_id' => $puntos[$clave]->id,
-                    ...$this->filaDePunto($puntos[$clave], $valor),
-                ])->values()->all(),
-            );
-
-            $inspeccion->defectos()->createMany(array_map(
-                fn (array $defecto): array => ['defecto_id' => $defecto['defecto_id'], 'cantidad' => $defecto['cantidad']],
-                $datos['defectos'] ?? [],
-            ));
-
-            if (! empty($datos['muestreo'])) {
-                $this->guardarMuestreo($inspeccion, $datos['muestreo']);
-            }
-
-            if (! empty($datos['juntas'])) {
-                $this->guardarJuntas($inspeccion, $datos['juntas']);
-            }
-
-            if (! empty($datos['pintura'])) {
-                $this->guardarPintura($inspeccion, $datos['pintura']);
-            }
-
-            if (! empty($datos['adherencia'])) {
-                $this->guardarAdherencia($inspeccion, $datos['adherencia'], $fotos);
-            }
+            $this->guardar($inspeccion, $datos, $fotos);
 
             return $inspeccion;
         });
+    }
+
+    /**
+     * Corrige una inspección ya guardada.
+     *
+     * Lo que la identifica —obra, fase, sub-etapa, pieza— no cambia (lo cuida
+     * InspeccionRequest), así que folio, número de inspección, inspector y
+     * hora de captura se quedan. Lo capturado se reemplaza en bloque: la
+     * corrección es «esto no era lo que vi», no un ajuste renglón por renglón.
+     *
+     * @param  array<string, mixed>  $datos
+     * @param  list<UploadedFile>  $fotos  evidencia nueva
+     * @param  list<int>  $fotosQuitar  evidencia guardada que se retira
+     */
+    public function actualizar(Inspeccion $inspeccion, array $datos, array $fotos = [], array $fotosQuitar = []): Inspeccion
+    {
+        return DB::transaction(function () use ($inspeccion, $datos, $fotos, $fotosQuitar): Inspeccion {
+            $inspeccion->puntos()->delete();
+            $inspeccion->defectos()->delete();
+            $inspeccion->muestreo()->delete();
+            $inspeccion->juntas()->delete();
+            $inspeccion->pintura()->delete();
+
+            $this->guardar($inspeccion, $datos, $fotos, $fotosQuitar);
+
+            return $inspeccion;
+        });
+    }
+
+    /**
+     * Puntos, juntas, espesores y demás se van en cascada. La evidencia no:
+     * cuelga de `media` por relación polimórfica y sus archivos están en disco.
+     */
+    public function borrar(Inspeccion $inspeccion): void
+    {
+        DB::transaction(function () use ($inspeccion): void {
+            if ($adherencia = $inspeccion->adherencia) {
+                $this->quitarFotos($adherencia->fotos);
+            }
+
+            $inspeccion->delete();
+        });
+    }
+
+    /**
+     * La cabecera y todo lo capturado, igual al crear que al corregir.
+     *
+     * @param  array<string, mixed>  $datos
+     * @param  list<UploadedFile>  $fotos
+     * @param  list<int>  $fotosQuitar
+     */
+    private function guardar(Inspeccion $inspeccion, array $datos, array $fotos, array $fotosQuitar = []): void
+    {
+        $fase = $inspeccion->fase;
+        $subtipo = $fase === FaseTransformacion::Primera ? SubtipoPrimera::from($datos['subtipo']) : null;
+        $fecha = Carbon::parse($datos['fecha']);
+
+        $puntos = PuntoInspeccion::query()->paraFormulario($fase, $inspeccion->subetapa, $subtipo)->get()->keyBy('clave');
+        $respuestas = $this->respuestas($datos['puntos'] ?? [], $puntos);
+
+        $inspeccion->fill([
+            'tipo_pieza_id' => $datos['tipo_pieza_id'] ?? TipoPieza::paraMarca($inspeccion->marca)?->id,
+            'subtipo' => $subtipo,
+            'fecha' => $fecha,
+            'anio' => $fecha->isoWeekYear(),
+            'semana' => $fecha->isoWeek(),
+            'cantidad_lote' => $fase === FaseTransformacion::Primera
+                ? ($datos['muestreo']['tamano_lote'] ?? $datos['cantidad_lote'] ?? null)
+                : null,
+            'kg' => $datos['kg'],
+            'folio_strumis' => $datos['folio_strumis'] ?? null,
+            'linea' => $fase === FaseTransformacion::Primera ? null : ($datos['linea'] ?? null),
+            'modulo' => $fase === FaseTransformacion::Primera ? null : ($datos['modulo'] ?? null),
+            'equipo_id' => $fase === FaseTransformacion::Primera ? ($datos['equipo_id'] ?? null) : null,
+            'operador_id' => $fase === FaseTransformacion::Primera ? ($datos['operador_id'] ?? null) : null,
+            'responsable_id' => $fase === FaseTransformacion::Segunda ? ($datos['responsable_id'] ?? null) : null,
+            'supervisor_pintura_id' => $fase === FaseTransformacion::Tercera ? ($datos['supervisor_pintura_id'] ?? null) : null,
+            'soldador_id' => $fase === FaseTransformacion::Segunda ? ($datos['soldador_id'] ?? null) : null,
+            'estatus' => $this->reglas->estatusFinal(EstatusInspeccion::from($datos['estatus']), $respuestas),
+            'avance_iv' => $fase === FaseTransformacion::Segunda ? ($datos['avance_iv'] ?? null) : null,
+            'avance_is' => $fase === FaseTransformacion::Segunda ? ($datos['avance_is'] ?? null) : null,
+            'observaciones' => $datos['observaciones'] ?? null,
+        ])->save();
+
+        $inspeccion->puntos()->createMany(
+            collect($respuestas)->map(fn (string $valor, string $clave): array => [
+                'punto_id' => $puntos[$clave]->id,
+                ...$this->filaDePunto($puntos[$clave], $valor),
+            ])->values()->all(),
+        );
+
+        $inspeccion->defectos()->createMany(array_map(
+            fn (array $defecto): array => ['defecto_id' => $defecto['defecto_id'], 'cantidad' => $defecto['cantidad']],
+            $datos['defectos'] ?? [],
+        ));
+
+        if (! empty($datos['muestreo'])) {
+            $this->guardarMuestreo($inspeccion, $datos['muestreo']);
+        }
+
+        if (! empty($datos['juntas'])) {
+            $this->guardarJuntas($inspeccion, $datos['juntas']);
+        }
+
+        if (! empty($datos['pintura'])) {
+            $this->guardarPintura($inspeccion, $datos['pintura']);
+        }
+
+        $this->guardarAdherencia($inspeccion, $datos['adherencia'] ?? null, $fotos, $fotosQuitar);
     }
 
     /**
@@ -405,12 +464,26 @@ class RegistradorInspeccion
     }
 
     /**
-     * @param  array<string, mixed>  $adherencia
+     * La prueba de adherencia es opcional. Si al corregir se quita, su
+     * evidencia se va con ella; si se conserva, las fotos guardadas se quedan
+     * salvo las que se marcaron para quitar.
+     *
+     * @param  array<string, mixed>|null  $adherencia
      * @param  list<UploadedFile>  $fotos
+     * @param  list<int>  $fotosQuitar
      */
-    private function guardarAdherencia(Inspeccion $inspeccion, array $adherencia, array $fotos): void
+    private function guardarAdherencia(Inspeccion $inspeccion, ?array $adherencia, array $fotos, array $fotosQuitar): void
     {
-        $prueba = $inspeccion->adherencia()->create([
+        if (empty($adherencia)) {
+            if ($existente = $inspeccion->adherencia()->first()) {
+                $this->quitarFotos($existente->fotos);
+                $existente->delete();
+            }
+
+            return;
+        }
+
+        $prueba = $inspeccion->adherencia()->updateOrCreate([], [
             'metodo' => $adherencia['metodo'],
             'resultado' => $adherencia['resultado'] ?? null,
         ]);
@@ -423,7 +496,10 @@ class RegistradorInspeccion
             }
         }
 
+        $prueba->tiras()->delete();
         $prueba->tiras()->createMany($tiras);
+
+        $this->quitarFotos($prueba->fotos()->whereKey($fotosQuitar)->get());
 
         foreach ($fotos as $foto) {
             $prueba->fotos()->create([
@@ -433,6 +509,24 @@ class RegistradorInspeccion
                 'size' => $foto->getSize(),
             ]);
         }
+    }
+
+    /**
+     * Los archivos se borran cuando la transacción confirma: si algo falla
+     * después, la fila vuelve y su archivo tiene que seguir ahí.
+     *
+     * @param  Collection<int, Media>  $fotos
+     */
+    private function quitarFotos(Collection $fotos): void
+    {
+        if ($fotos->isEmpty()) {
+            return;
+        }
+
+        $rutas = $fotos->pluck('path')->all();
+        Media::query()->whereKey($fotos->pluck('id')->all())->delete();
+
+        DB::afterCommit(fn () => Storage::disk('public')->delete($rutas));
     }
 
     private function numero(mixed $valor): ?float

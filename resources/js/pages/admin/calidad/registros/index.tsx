@@ -1,67 +1,50 @@
 /**
  * Registros — la base de datos de lo capturado, en crudo.
  *
- * Es el `Registros_Steelex.html` de la aplicación anterior, portado al mono. No
- * es un reporte: es la tabla de auditoría. Cuando alguien pregunta «¿esta pieza
- * se inspeccionó?, ¿quién la liberó?, ¿por qué se rechazó en julio?», se
- * responde aquí, y por eso la pantalla no resume nada —los resúmenes están en
- * el tablero y en el reporte semanal—.
+ * Es el `Registros_Steelex.html` de la aplicación anterior, ahora contra la
+ * base. No es un reporte: es la tabla de auditoría. Cuando alguien pregunta
+ * «¿esta pieza se inspeccionó?, ¿quién la liberó?, ¿por qué se rechazó en
+ * julio?», se responde aquí, y por eso la pantalla no resume nada —los
+ * resúmenes están en el tablero y en el reporte semanal—.
  *
  * Dos conjuntos distintos comparten la pantalla: **piezas** (una unidad
- * concreta, revisada al 100%) y **lotes de accesorios** (cientos de piezas
+ * concreta, revisada al 100%) y **sublotes de accesorios** (cientos de piezas
  * iguales, aceptadas o rechazadas por muestreo). No se mezclan en una sola
- * tabla porque no comparten ni columnas ni unidad de conteo; se cambia de
- * conjunto con el primer control de la barra.
+ * tabla porque no comparten ni columnas ni unidad de conteo.
  *
  * Lo que se conserva del original porque es criterio, no adorno:
  *
  *  - **Registro ≠ pieza.** Una pieza reinspeccionada tres veces son tres
- *    registros y una sola pieza. El contador dice las dos cosas: llamarlos
- *    «piezas» hacía creer que se había inspeccionado el triple de lo real.
- *  - **La última inspección del sublote manda.** Un grupo con dos inspecciones
- *    cuenta una vez, con el veredicto de la más reciente.
- *  - **Un lote rechazado sin disposición se señala en rojo.** Es material
- *    detenido que nadie decidió qué hacer, y en una tabla en blanco no se ve.
+ *    registros y una sola pieza. El contador dice las dos cosas.
+ *  - **La última inspección del sublote manda.** Un sublote con dos
+ *    inspecciones se lista una vez, con la más reciente.
+ *  - **Un sublote rechazado sin disposición se señala en rojo.** Es material
+ *    detenido que nadie decidió qué hacer.
  *
- * Lo que se corrige del original:
- *
- *  - El filtro de fecha se ocultaba al pasar a accesorios pero **seguía
- *    aplicándose**: si venías de filtrar un día en piezas, el listado de lotes
- *    salía recortado sin decir por qué. Aquí sólo se esconden Transformación y
- *    Estatus, que de verdad no existen en un sublote, y la fecha se queda
- *    visible porque sí filtra.
- *  - La ficha abría un registro suelto. Ahora trae el historial de la pieza
- *    (RF-18.4), que es lo que explica un rechazo.
- *
- * Todavía no lee de la base: `qal_inspecciones` y las tablas de accesorios no
- * existen. Las filas salen de `components/qal/registros/datos.ts` y la pantalla
- * lo dice en su encabezado — una pantalla de auditoría que no distinga lo real
- * de lo de ejemplo es peor que no tenerla.
+ * Filtros, orden y página van en la URL y los resuelve el servidor: filtrar u
+ * ordenar sólo la página que se ve engañaría.
  */
 
-import { Head } from '@inertiajs/react';
+import { Head, router, usePage } from '@inertiajs/react';
 import { DownloadIcon, EyeIcon } from 'lucide-react';
-import { useMemo, useState } from 'react';
-import { OBRAS } from '@/components/qal/captura/datos';
+import { useState } from 'react';
+import { FichaPieza, FichaSublote, type FichaDeSublote, type FichaInspeccion } from '@/components/qal/registros/ficha';
 import {
-    ESTATUS,
-    FASES,
-    INSPECTORES,
-    clavePieza,
-    registrosDeEjemplo,
-    sinDisposicion,
-    subloteLiberado,
-    sublotesDeEjemplo,
-    type Estatus,
-    type RegistroPieza,
-    type RegistroSublote,
-} from '@/components/qal/registros/datos';
-import { FichaPieza, FichaSublote } from '@/components/qal/registros/ficha';
-import { Filtro, FiltroSelect, PastillaEstatus, Tabla, Th, type Orden } from '@/components/qal/registros/ui';
+    Filtro,
+    FiltroSelect,
+    Paginacion,
+    PastillaEstatus,
+    PastillaVeredicto,
+    Tabla,
+    Th,
+    type Orden,
+} from '@/components/qal/registros/ui';
 import { Input } from '@/components/ui/input';
 import { Select, SelectItem } from '@/components/ui/select';
+import { useCan } from '@/hooks/use-can';
 import AppLayout from '@/layouts/app-layout';
-import type { BreadcrumbItem } from '@/types';
+import type { BreadcrumbItem, SharedData } from '@/types';
+import type { PaginatedData } from '@/types/models';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
@@ -69,150 +52,115 @@ const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Registros', href: '/admin/calidad/registros' },
 ];
 
-type Que = 'pza' | 'acc';
+const RUTA = '/admin/calidad/registros';
+const FASES = ['1ª', '2ª', '3ª'];
+const ESTATUS: [string, string][] = [
+    ['liberado', 'Liberado'],
+    ['rechazado', 'Rechazado'],
+    ['pendiente', 'Pendiente'],
+];
 
 type Filtros = {
-    fase: string;
-    obra: string;
-    inspector: string;
-    estatus: string;
-    fecha: string;
-    buscar: string;
+    que: 'pza' | 'acc';
+    obra: number | null;
+    fase: string | null;
+    inspector: number | null;
+    estatus: string | null;
+    fecha: string | null;
+    buscar: string | null;
+    sort_by: string;
+    sort_dir: 'asc' | 'desc';
 };
 
-const FILTROS_VACIOS: Filtros = { fase: '', obra: '', inspector: '', estatus: '', fecha: '', buscar: '' };
+type FilaPieza = {
+    id: number;
+    folio: string;
+    fecha: string;
+    fase: string;
+    etapa: string | null;
+    obra: string | null;
+    marca: string;
+    lote: string | null;
+    qr: string | null;
+    consecutivo: number | null;
+    numero_inspeccion: number;
+    modulo: string | null;
+    inspector: string | null;
+    estatus: string;
+};
 
-/** Compara dos valores para el orden del cliente, con los vacíos al final. */
-function comparar(a: unknown, b: unknown): number {
-    const x = a ?? '';
-    const y = b ?? '';
-    if (typeof x === 'number' && typeof y === 'number') {
-        return x - y;
-    }
-    return String(x).localeCompare(String(y), 'es', { numeric: true });
+type FilaSublote = {
+    id: number;
+    fecha: string;
+    obra: string | null;
+    marca: string;
+    total_lote: number;
+    unidades: number;
+    nivel: string;
+    muestra: number;
+    rechazadas: number;
+    numero_inspeccion: number;
+    veredicto: string | null;
+    disposicion: string | null;
+    liberado: boolean;
+    sin_disposicion: boolean;
+    inspector: string | null;
+};
+
+type Props = {
+    filtros: Filtros;
+    obras: { id: number; no: string | null; descripcion: string | null }[];
+    inspectores: { id: number; nombre: string }[];
+    registros: PaginatedData<FilaPieza> | null;
+    sublotes: PaginatedData<FilaSublote> | null;
+    conteo: { registros: number; piezas: number | null; total: number };
+    ficha: FichaInspeccion | null;
+    fichaSublote: FichaDeSublote | null;
+};
+
+/** Los filtros como parámetros de la URL, sin los vacíos: la dirección se comparte limpia. */
+function parametros(filtros: Filtros, cambios: Record<string, string | number | null> = {}): Record<string, string> {
+    return Object.fromEntries(
+        Object.entries({ ...filtros, ...cambios })
+            .filter(([, valor]) => valor !== null && valor !== undefined && valor !== '')
+            .map(([clave, valor]) => [clave, String(valor)]),
+    );
 }
 
-function ordenar<T extends Record<string, unknown>>(filas: T[], orden: Orden): T[] {
-    return [...filas].sort((a, b) => comparar(a[orden.campo], b[orden.campo]) * orden.dir);
+/** Los parámetros que trae la URL ahora, incluida la página. */
+function actuales(): Record<string, string> {
+    return Object.fromEntries(new URLSearchParams(window.location.search));
 }
 
-/**
- * La marca de orden de bytes que abre el CSV.
- *
- * Va a proposito y se escribe por su codigo, no como caracter: un BOM literal en
- * el fuente es invisible y el linter lo rechaza con razon. Sin el, Excel abre el
- * archivo en ANSI y parte todos los acentos, y la base se exporta para revisarla
- * en Excel, no en un editor de texto.
- */
-const BOM = String.fromCharCode(0xfeff);
+export default function RegistrosCalidad({ filtros, obras, inspectores, registros, sublotes, conteo, ficha, fichaSublote }: Props) {
+    const { can } = useCan();
+    const { props } = usePage<SharedData & { flash?: { success?: string | null } }>();
+    const [buscar, setBuscar] = useState(filtros.buscar ?? '');
 
-/** Escapa un valor para CSV: comillas dobles y separador dentro del campo. */
-function celdaCsv(valor: unknown): string {
-    const texto = valor === null || valor === undefined ? '' : String(valor);
-    return /[",\n]/.test(texto) ? `"${texto.replace(/"/g, '""')}"` : texto;
-}
+    const esPiezas = filtros.que === 'pza';
+    const orden: Orden = { campo: filtros.sort_by, dir: filtros.sort_dir };
 
-function descargarCsv(nombre: string, encabezados: string[], filas: unknown[][]): void {
-    const cuerpo = [encabezados, ...filas].map((fila) => fila.map(celdaCsv).join(',')).join('\n');
-    // El BOM va a propósito: sin él, Excel abre el CSV en ANSI y parte todos los
-    // acentos. La base se exporta para revisarla en Excel, no en un editor.
-    const blob = new Blob([BOM + cuerpo], { type: 'text/csv;charset=utf-8;' });
-    const enlace = document.createElement('a');
-    enlace.href = URL.createObjectURL(blob);
-    enlace.download = nombre;
-    enlace.click();
-    URL.revokeObjectURL(enlace.href);
-}
-
-export default function RegistrosCalidad() {
-    const registros = useMemo(() => registrosDeEjemplo(), []);
-    const sublotes = useMemo(() => sublotesDeEjemplo(), []);
-
-    const [que, setQue] = useState<Que>('pza');
-    const [filtros, setFiltros] = useState<Filtros>(FILTROS_VACIOS);
-    const [orden, setOrden] = useState<Orden>({ campo: 'ts', dir: -1 });
-    const [fichaPieza, setFichaPieza] = useState<RegistroPieza | null>(null);
-    const [fichaSublote, setFichaSublote] = useState<RegistroSublote | null>(null);
-
-    const esPiezas = que === 'pza';
-
-    const cambiar = (campo: keyof Filtros, valor: string) => setFiltros((previos) => ({ ...previos, [campo]: valor }));
+    const filtrar = (cambios: Record<string, string | number | null>) =>
+        router.get(RUTA, parametros(filtros, cambios), { preserveState: true, preserveScroll: true, replace: true });
 
     const ordenarPor = (campo: string) =>
-        setOrden((previo) => ({ campo, dir: previo.campo === campo ? ((previo.dir * -1) as 1 | -1) : 1 }));
+        filtrar({ sort_by: campo, sort_dir: filtros.sort_by === campo && filtros.sort_dir === 'asc' ? 'desc' : 'asc' });
 
-    const buscado = filtros.buscar.trim().toUpperCase();
-
-    const piezasFiltradas = useMemo(() => {
-        const filas = registros.filter(
-            (r) =>
-                (!filtros.fase || r.fase === filtros.fase) &&
-                (!filtros.obra || r.obra === filtros.obra) &&
-                (!filtros.inspector || r.inspector === filtros.inspector) &&
-                (!filtros.estatus || r.estatus === filtros.estatus) &&
-                (!filtros.fecha || r.fecha === filtros.fecha) &&
-                (!buscado || `${r.marca} ${r.folio}`.toUpperCase().includes(buscado)),
-        );
-        return ordenar(filas, orden);
-    }, [registros, filtros, buscado, orden]);
-
-    /**
-     * Un grupo puede tener varias inspecciones: manda la última.
-     *
-     * Sin esto, un sublote reinspeccionado aparecería dos veces y el conteo de
-     * lotes aceptados saldría inflado.
-     */
-    const sublotesFiltrados = useMemo(() => {
-        const ultimos = new Map<string, RegistroSublote>();
-        sublotes.forEach((x) => {
-            const previo = ultimos.get(x.grupo);
-            if (!previo || x.ninsp >= previo.ninsp) {
-                ultimos.set(x.grupo, x);
-            }
+    /** La ficha va en la URL: se puede compartir, y tras corregir se vuelve a ella. */
+    const abrir = (clave: 'ficha' | 'sublote', id: number | null) => {
+        const resto = actuales();
+        delete resto.ficha;
+        delete resto.sublote;
+        router.get(RUTA, id === null ? resto : { ...resto, [clave]: String(id) }, {
+            preserveState: true,
+            preserveScroll: true,
+            only: ['ficha', 'fichaSublote'],
         });
-
-        const filas = [...ultimos.values()].filter(
-            (x) =>
-                (!filtros.obra || x.obra === filtros.obra) &&
-                (!filtros.inspector || x.inspector === filtros.inspector) &&
-                (!filtros.fecha || x.fecha === filtros.fecha) &&
-                (!buscado || `${x.marca} ${x.grupo}`.toUpperCase().includes(buscado)),
-        );
-        return ordenar(filas, orden);
-    }, [sublotes, filtros, buscado, orden]);
-
-    /** Registros ≠ piezas: el contador dice las dos cosas para no engañar. */
-    const piezasDistintas = useMemo(
-        () => new Set(piezasFiltradas.map(clavePieza)).size,
-        [piezasFiltradas],
-    );
-
-    const conteo = esPiezas
-        ? `${piezasFiltradas.length} de ${registros.length} registros · ${piezasDistintas} ${piezasDistintas === 1 ? 'pieza' : 'piezas'}`
-        : `${sublotesFiltrados.length} inspecciones de sublote`;
-
-    const exportar = () => {
-        if (esPiezas) {
-            descargarCsv(
-                'calidad-registros-piezas.csv',
-                ['Fecha', 'Semana', 'Fase', 'Sub-etapa', 'Obra', 'Marca', 'Folio', 'Tipo', 'Consec', 'Insp', 'Modulo', 'Linea', 'Inspector', 'Estatus', 'Kg'],
-                piezasFiltradas.map((r) => [
-                    r.fecha, r.semana, r.fase, r.p2_subetapa ?? r.p1_subtipo ?? '', r.obra, r.marca, r.folio,
-                    r.tipo, r.consec, r.ninsp, r.modulo, r.linea, r.inspector, r.estatus, r.kg,
-                ]),
-            );
-            return;
-        }
-
-        descargarCsv(
-            'calidad-registros-accesorios.csv',
-            ['Fecha', 'Obra', 'Marca del lote', 'Sublote', 'Unidades del plano', 'Unidades', 'Nivel', 'Muestra', 'Rechazadas', 'Insp', 'Veredicto', 'Disposicion', 'Inspector'],
-            sublotesFiltrados.map((x) => [
-                x.fecha, x.obra, x.marca, x.grupo, x.totalLote, x.unidades, x.nivel, x.muestra,
-                x.rechazadas, x.ninsp, x.veredicto, x.disposicion, x.inspector,
-            ]),
-        );
     };
+
+    const conteoTexto = esPiezas
+        ? `${conteo.registros} de ${conteo.total} registros · ${conteo.piezas} ${conteo.piezas === 1 ? 'pieza' : 'piezas'}`
+        : `${conteo.registros} de ${conteo.total} sublotes`;
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -228,43 +176,37 @@ export default function RegistrosCalidad() {
                         </p>
                     </div>
 
-                    <div className="flex items-center gap-2">
-                        <span className="badge badge-warning badge-sm font-semibold">Maqueta · datos de ejemplo</span>
-                        {/* En la maqueta lo ve cualquiera. RF-18.3 lo reserva al
-                            administrador: cuando esto lea de la base, el boton
-                            va detras de `qal.registros.exportar` y la descarga
-                            se arma en el servidor, no aqui. */}
-                        <button type="button" onClick={exportar} className="btn btn-sm btn-outline">
+                    {can('qal.registros.exportar') && (
+                        <a href={`${RUTA}/exportar?${new URLSearchParams(parametros(filtros))}`} className="btn btn-sm btn-outline">
                             <DownloadIcon className="size-4" />
-                            Exportar CSV
-                        </button>
-                    </div>
+                            Exportar a Excel
+                        </a>
+                    )}
                 </div>
+
+                {props.flash?.success && <div className="alert alert-success text-sm">{props.flash.success}</div>}
 
                 <div className="border-base-300 bg-base-100 flex flex-wrap items-end gap-3 rounded-xl border p-4">
                     <Filtro label="Qué se lista" className="w-44">
                         <Select
-                            value={que}
-                            onValueChange={(valor) => {
-                                setQue(valor as Que);
+                            value={filtros.que}
+                            onValueChange={(valor) =>
                                 // La fase y el estatus no existen en un sublote: se
-                                // limpian al cambiar para que no queden filtrando a
-                                // escondidas al volver a piezas.
-                                setFiltros((previos) => ({ ...previos, fase: '', estatus: '' }));
-                                setOrden({ campo: 'ts', dir: -1 });
-                            }}
+                                // limpian al cambiar para que no filtren a escondidas.
+                                filtrar({ que: valor, fase: null, estatus: null, sort_by: 'fecha', sort_dir: 'desc' })
+                            }
                             className="select-sm"
                         >
                             <SelectItem value="pza">Piezas</SelectItem>
-                            <SelectItem value="acc">Lotes de accesorios</SelectItem>
+                            <SelectItem value="acc">Sublotes de accesorios</SelectItem>
                         </Select>
                     </Filtro>
 
                     {esPiezas && (
                         <FiltroSelect
                             label="Transformación"
-                            value={filtros.fase}
-                            onChange={(valor) => cambiar('fase', valor)}
+                            value={filtros.fase ?? ''}
+                            onChange={(valor) => filtrar({ fase: valor })}
                             opciones={FASES}
                             todas="Todas"
                             className="w-36"
@@ -273,18 +215,18 @@ export default function RegistrosCalidad() {
 
                     <FiltroSelect
                         label="Obra"
-                        value={filtros.obra}
-                        onChange={(valor) => cambiar('obra', valor)}
-                        opciones={OBRAS}
+                        value={filtros.obra ? String(filtros.obra) : ''}
+                        onChange={(valor) => filtrar({ obra: valor })}
+                        opciones={obras.map((obra) => [String(obra.id), [obra.no, obra.descripcion].filter(Boolean).join(' — ')] as const)}
                         todas="Todas"
                         className="w-56"
                     />
 
                     <FiltroSelect
                         label="Inspector"
-                        value={filtros.inspector}
-                        onChange={(valor) => cambiar('inspector', valor)}
-                        opciones={INSPECTORES}
+                        value={filtros.inspector ? String(filtros.inspector) : ''}
+                        onChange={(valor) => filtrar({ inspector: valor })}
+                        opciones={inspectores.map((inspector) => [String(inspector.id), inspector.nombre] as const)}
                         todas="Todos"
                         className="w-44"
                     />
@@ -292,8 +234,8 @@ export default function RegistrosCalidad() {
                     {esPiezas && (
                         <FiltroSelect
                             label="Estatus"
-                            value={filtros.estatus}
-                            onChange={(valor) => cambiar('estatus', valor)}
+                            value={filtros.estatus ?? ''}
+                            onChange={(valor) => filtrar({ estatus: valor })}
                             opciones={ESTATUS}
                             todas="Todos"
                             className="w-40"
@@ -303,28 +245,31 @@ export default function RegistrosCalidad() {
                     <Filtro label="Fecha" className="w-40">
                         <Input
                             type="date"
-                            value={filtros.fecha}
-                            onChange={(e) => cambiar('fecha', e.target.value)}
+                            value={filtros.fecha ?? ''}
+                            onChange={(e) => filtrar({ fecha: e.target.value })}
                             className="input-sm"
                         />
                     </Filtro>
 
-                    <Filtro label={esPiezas ? 'Buscar marca / folio' : 'Buscar marca / sublote'} className="w-56">
+                    <Filtro label={esPiezas ? 'Buscar marca / folio / QR' : 'Buscar marca'} className="w-56">
                         <Input
-                            value={filtros.buscar}
-                            onChange={(e) => cambiar('buscar', e.target.value)}
+                            value={buscar}
+                            onChange={(e) => setBuscar(e.target.value)}
+                            onKeyDown={(e) => e.key === 'Enter' && filtrar({ buscar })}
+                            onBlur={() => buscar !== (filtros.buscar ?? '') && filtrar({ buscar })}
                             placeholder={esPiezas ? 'ej. CM22' : 'ej. ACC-PL12'}
                             className="input-sm"
                         />
                     </Filtro>
 
                     <div className="ml-auto flex items-center gap-2">
-                        <span className="bg-base-200 text-base-content/70 rounded-full px-3 py-1.5 text-sm">
-                            {conteo}
-                        </span>
+                        <span className="bg-base-200 text-base-content/70 rounded-full px-3 py-1.5 text-sm">{conteoTexto}</span>
                         <button
                             type="button"
-                            onClick={() => setFiltros(FILTROS_VACIOS)}
+                            onClick={() => {
+                                setBuscar('');
+                                router.get(RUTA, filtros.que === 'acc' ? { que: 'acc' } : {}, { replace: true });
+                            }}
                             className="btn btn-sm btn-ghost"
                         >
                             Limpiar
@@ -332,30 +277,22 @@ export default function RegistrosCalidad() {
                     </div>
                 </div>
 
-                {esPiezas ? (
-                    <TablaPiezas
-                        filas={piezasFiltradas}
-                        orden={orden}
-                        onOrdenar={ordenarPor}
-                        onVer={setFichaPieza}
-                    />
-                ) : (
-                    <TablaSublotes
-                        filas={sublotesFiltrados}
-                        orden={orden}
-                        onOrdenar={ordenarPor}
-                        onVer={setFichaSublote}
-                    />
+                {esPiezas && registros && (
+                    <>
+                        <TablaPiezas filas={registros.data} orden={orden} onOrdenar={ordenarPor} onVer={(id) => abrir('ficha', id)} />
+                        <Paginacion datos={registros} />
+                    </>
+                )}
+                {!esPiezas && sublotes && (
+                    <>
+                        <TablaSublotes filas={sublotes.data} orden={orden} onOrdenar={ordenarPor} onVer={(id) => abrir('sublote', id)} />
+                        <Paginacion datos={sublotes} />
+                    </>
                 )}
             </div>
 
-            <FichaPieza
-                registro={fichaPieza}
-                registros={registros}
-                onIr={setFichaPieza}
-                onCerrar={() => setFichaPieza(null)}
-            />
-            <FichaSublote registro={fichaSublote} onCerrar={() => setFichaSublote(null)} />
+            <FichaPieza ficha={ficha} onIr={(id) => abrir('ficha', id)} onCerrar={() => abrir('ficha', null)} />
+            <FichaSublote ficha={fichaSublote} onIr={(id) => abrir('sublote', id)} onCerrar={() => abrir('sublote', null)} />
         </AppLayout>
     );
 }
@@ -374,10 +311,10 @@ function TablaPiezas({
     onOrdenar,
     onVer,
 }: {
-    filas: RegistroPieza[];
+    filas: FilaPieza[];
     orden: Orden;
     onOrdenar: (campo: string) => void;
-    onVer: (registro: RegistroPieza) => void;
+    onVer: (id: number) => void;
 }) {
     return (
         <Tabla vacio={filas.length ? null : 'Ningún registro coincide con los filtros.'}>
@@ -392,21 +329,17 @@ function TablaPiezas({
                     <Th campo="marca" orden={orden} onOrdenar={onOrdenar}>
                         Marca / Folio
                     </Th>
-                    <Th campo="consec" orden={orden} onOrdenar={onOrdenar}>
-                        Consec.
+                    <Th campo="consecutivo" orden={orden} onOrdenar={onOrdenar}>
+                        Pieza
                     </Th>
-                    <Th campo="ninsp" orden={orden} onOrdenar={onOrdenar}>
+                    <Th campo="numero_inspeccion" orden={orden} onOrdenar={onOrdenar}>
                         Insp.
                     </Th>
-                    <Th campo="obra" orden={orden} onOrdenar={onOrdenar}>
-                        Obra
-                    </Th>
+                    <Th>Obra</Th>
                     <Th campo="modulo" orden={orden} onOrdenar={onOrdenar}>
                         Módulo
                     </Th>
-                    <Th campo="inspector" orden={orden} onOrdenar={onOrdenar}>
-                        Inspector
-                    </Th>
+                    <Th>Inspector</Th>
                     <Th campo="estatus" orden={orden} onOrdenar={onOrdenar}>
                         Estatus
                     </Th>
@@ -414,45 +347,39 @@ function TablaPiezas({
                 </tr>
             </thead>
             <tbody>
-                {filas.map((r) => {
-                    const sub = r.p2_subetapa ?? r.p1_subtipo;
-
-                    return (
-                        <tr key={r.id} className="hover:bg-base-200/50">
-                            <td className="font-mono text-sm">{r.fecha}</td>
-                            <td>
-                                {r.fase}
-                                {sub && <span className="text-base-content/50 ml-1 text-xs">· {sub}</span>}
-                            </td>
-                            <td>
-                                <span className="font-semibold">{r.marca || r.folio || '—'}</span>
-                                {r.marca && r.folio && (
-                                    <div className="text-base-content/50 font-mono text-xs">{r.folio}</div>
-                                )}
-                            </td>
-                            <td className="font-mono">{r.consec}</td>
-                            <td className="font-mono">
-                                {/* Una segunda inspección significa que la pieza se
-                                    rechazó antes: se marca para que se note sin
-                                    tener que abrir la ficha. */}
-                                {r.ninsp > 1 ? (
-                                    <span className="badge badge-sm badge-warning">#{r.ninsp}</span>
-                                ) : (
-                                    r.ninsp
-                                )}
-                            </td>
-                            <td className="text-sm">{r.obra}</td>
-                            <td className="font-mono text-sm">{r.modulo}</td>
-                            <td className="text-sm">{r.inspector}</td>
-                            <td>
-                                <PastillaEstatus estatus={r.estatus as Estatus} />
-                            </td>
-                            <td className="text-right">
-                                <BotonFicha onClick={() => onVer(r)} />
-                            </td>
-                        </tr>
-                    );
-                })}
+                {filas.map((fila) => (
+                    <tr key={fila.id} className="hover:bg-base-200/50">
+                        <td className="font-mono text-sm">{fila.fecha}</td>
+                        <td>
+                            {fila.fase}
+                            {fila.etapa && <span className="text-base-content/50 ml-1 text-xs">· {fila.etapa}</span>}
+                        </td>
+                        <td>
+                            <span className="font-semibold">{fila.marca}</span>
+                            {fila.lote && <span className="text-base-content/50 ml-1 text-xs">lote {fila.lote}</span>}
+                            <div className="text-base-content/50 font-mono text-xs">{fila.folio}</div>
+                        </td>
+                        <td className="font-mono text-sm">{fila.consecutivo ? `#${fila.consecutivo}` : fila.qr}</td>
+                        <td className="font-mono">
+                            {/* Una segunda inspección significa que la pieza se
+                                rechazó antes: se marca para que se note sin abrir la ficha. */}
+                            {fila.numero_inspeccion > 1 ? (
+                                <span className="badge badge-sm badge-warning">#{fila.numero_inspeccion}</span>
+                            ) : (
+                                fila.numero_inspeccion
+                            )}
+                        </td>
+                        <td className="text-sm">{fila.obra}</td>
+                        <td className="font-mono text-sm">{fila.modulo}</td>
+                        <td className="text-sm">{fila.inspector}</td>
+                        <td>
+                            <PastillaEstatus estatus={fila.estatus} />
+                        </td>
+                        <td className="text-right">
+                            <BotonFicha onClick={() => onVer(fila.id)} />
+                        </td>
+                    </tr>
+                ))}
             </tbody>
         </Tabla>
     );
@@ -464,27 +391,20 @@ function TablaSublotes({
     onOrdenar,
     onVer,
 }: {
-    filas: RegistroSublote[];
+    filas: FilaSublote[];
     orden: Orden;
     onOrdenar: (campo: string) => void;
-    onVer: (registro: RegistroSublote) => void;
+    onVer: (id: number) => void;
 }) {
     return (
-        <Tabla vacio={filas.length ? null : 'Ninguna inspección de sublote coincide con los filtros.'}>
+        <Tabla vacio={filas.length ? null : 'Ningún sublote coincide con los filtros.'}>
             <thead>
                 <tr>
                     <Th campo="fecha" orden={orden} onOrdenar={onOrdenar}>
                         Fecha
                     </Th>
-                    <Th campo="marca" orden={orden} onOrdenar={onOrdenar}>
-                        Marca del lote
-                    </Th>
-                    <Th campo="grupo" orden={orden} onOrdenar={onOrdenar}>
-                        Sublote
-                    </Th>
-                    <Th campo="obra" orden={orden} onOrdenar={onOrdenar}>
-                        Obra
-                    </Th>
+                    <Th>Marca del lote</Th>
+                    <Th>Obra</Th>
                     <Th campo="unidades" orden={orden} onOrdenar={onOrdenar}>
                         Unidades
                     </Th>
@@ -494,59 +414,54 @@ function TablaSublotes({
                     <Th campo="rechazadas" orden={orden} onOrdenar={onOrdenar}>
                         Rech.
                     </Th>
+                    <Th campo="numero_inspeccion" orden={orden} onOrdenar={onOrdenar}>
+                        Insp.
+                    </Th>
                     <Th campo="veredicto" orden={orden} onOrdenar={onOrdenar}>
                         Veredicto
                     </Th>
-                    <Th campo="disposicion" orden={orden} onOrdenar={onOrdenar}>
-                        Disposición
-                    </Th>
-                    <Th campo="inspector" orden={orden} onOrdenar={onOrdenar}>
-                        Inspector
-                    </Th>
+                    <Th>Disposición</Th>
+                    <Th>Inspector</Th>
                     <Th className="w-12" />
                 </tr>
             </thead>
             <tbody>
-                {filas.map((x) => (
-                    <tr key={x.id} className="hover:bg-base-200/50">
-                        <td className="font-mono text-sm">{x.fecha}</td>
-                        <td className="font-semibold">{x.marca}</td>
-                        <td className="font-mono text-sm">{x.grupo}</td>
-                        <td className="text-sm">{x.obra}</td>
+                {filas.map((fila) => (
+                    <tr key={fila.id} className="hover:bg-base-200/50">
+                        <td className="font-mono text-sm">{fila.fecha}</td>
+                        <td className="font-semibold">{fila.marca}</td>
+                        <td className="text-sm">{fila.obra}</td>
                         <td className="font-mono">
-                            {x.unidades}
-                            <span className="text-base-content/50 text-xs"> / {x.totalLote}</span>
+                            {fila.unidades}
+                            <span className="text-base-content/50 text-xs"> / {fila.total_lote}</span>
                         </td>
                         <td className="font-mono">
-                            {x.muestra}
-                            <span className="text-base-content/50 text-xs"> · {x.nivel}</span>
+                            {fila.muestra}
+                            <span className="text-base-content/50 text-xs"> · {fila.nivel}</span>
                         </td>
                         <td className="font-mono">
-                            {x.rechazadas > 0 ? (
-                                <span className="text-error font-bold">{x.rechazadas}</span>
+                            {fila.rechazadas > 0 ? <span className="text-error font-bold">{fila.rechazadas}</span> : fila.rechazadas}
+                        </td>
+                        <td className="font-mono">
+                            {fila.numero_inspeccion > 1 ? (
+                                <span className="badge badge-sm badge-warning">#{fila.numero_inspeccion}</span>
                             ) : (
-                                x.rechazadas
+                                fila.numero_inspeccion
                             )}
                         </td>
                         <td>
-                            <span
-                                className={`rounded-full px-2.5 py-0.5 text-xs font-bold ${
-                                    subloteLiberado(x) ? 'bg-success/15 text-success' : 'bg-error/15 text-error'
-                                }`}
-                            >
-                                {x.veredicto}
-                            </span>
+                            <PastillaVeredicto veredicto={fila.veredicto} liberado={fila.liberado} />
                         </td>
                         <td className="text-sm">
-                            {sinDisposicion(x) ? (
+                            {fila.sin_disposicion ? (
                                 <span className="text-error text-xs font-semibold">sin decidir</span>
                             ) : (
-                                x.disposicion || <span className="text-base-content/40">—</span>
+                                fila.disposicion || <span className="text-base-content/40">—</span>
                             )}
                         </td>
-                        <td className="text-sm">{x.inspector}</td>
+                        <td className="text-sm">{fila.inspector}</td>
                         <td className="text-right">
-                            <BotonFicha onClick={() => onVer(x)} />
+                            <BotonFicha onClick={() => onVer(fila.id)} />
                         </td>
                     </tr>
                 ))}

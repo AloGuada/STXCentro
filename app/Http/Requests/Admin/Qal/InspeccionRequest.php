@@ -12,6 +12,7 @@ use App\Enums\Qal\SubtipoPrimera;
 use App\Enums\Qal\TipoJunta;
 use App\Models\Concepto;
 use App\Models\Prod\Pieza;
+use App\Models\Qal\Inspeccion;
 use App\Models\Qal\PuntoInspeccion;
 use App\Services\Qal\CalculadorAql;
 use App\Services\Qal\CalculadorEspesores;
@@ -122,6 +123,9 @@ class InspeccionRequest extends FormRequest
             // Fotos de la tablet, o el escaneo en PDF cuando la prueba se hizo
             // en papel.
             'fotos.*' => ['file', 'mimes:jpg,jpeg,png,webp,pdf', 'max:10240'],
+            // Al corregir: la evidencia guardada que se retira.
+            'fotos_quitar' => ['nullable', 'array'],
+            'fotos_quitar.*' => ['integer'],
 
             'juntas' => [Rule::prohibitedIf(! $soldado), 'nullable', 'array', 'max:300'],
             'juntas.*.identificador' => ['required', 'string', 'max:40', 'distinct:ignore_case'],
@@ -150,6 +154,7 @@ class InspeccionRequest extends FormRequest
                     return;
                 }
 
+                $this->validarIdentidad($validator);
                 $this->validarPieza($validator);
                 $this->validarEstatus($validator);
                 $this->validarPuntos($validator);
@@ -226,6 +231,33 @@ class InspeccionRequest extends FormRequest
             $fase === FaseTransformacion::Tercera => [AmbitoDefecto::Pintura],
             default => [],
         };
+    }
+
+    /**
+     * Al corregir no cambia de qué pieza ni de qué etapa es la inspección:
+     * folio y número de inspección dependen de eso. Si se capturó en la pieza
+     * equivocada, se borra y se captura de nuevo.
+     */
+    private function validarIdentidad(Validator $validator): void
+    {
+        $inspeccion = $this->route('inspeccion');
+
+        if (! $inspeccion instanceof Inspeccion) {
+            return;
+        }
+
+        $mismaPieza = $inspeccion->fase === FaseTransformacion::Primera
+            ? (int) $inspeccion->concepto_id === $this->integer('concepto_id') && (int) $inspeccion->consecutivo === $this->integer('consecutivo')
+            : (int) $inspeccion->prod_pieza_id === $this->integer('prod_pieza_id');
+
+        $misma = (int) $inspeccion->obra_id === $this->integer('obra_id')
+            && $inspeccion->fase === $this->fase()
+            && $inspeccion->subetapa === $this->subetapa()
+            && $mismaPieza;
+
+        if (! $misma) {
+            $validator->errors()->add('fase', 'Al corregir no cambian la obra, la transformación, la sub-etapa ni la pieza: si se capturó mal, bórrala y captúrala de nuevo.');
+        }
     }
 
     private function validarPieza(Validator $validator): void

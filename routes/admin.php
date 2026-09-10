@@ -119,6 +119,7 @@ use App\Http\Controllers\Admin\Qal\LaboratorioController as QalLaboratorioContro
 use App\Http\Controllers\Admin\Qal\OperadorController as QalOperadorController;
 use App\Http\Controllers\Admin\Qal\PiezaController as QalPiezaController;
 use App\Http\Controllers\Admin\Qal\PndController as QalPndController;
+use App\Http\Controllers\Admin\Qal\RegistroController as QalRegistroController;
 use App\Http\Controllers\Admin\Qal\ReporteSemanalController as QalReporteSemanalController;
 use App\Http\Controllers\Admin\Qal\ResponsableController as QalResponsableController;
 use App\Http\Controllers\Admin\Qal\SoldadorController as QalSoldadorController;
@@ -811,9 +812,21 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
                 ->name('formularios');
             Route::post('inspecciones', [QalInspeccionController::class, 'store'])
                 ->name('inspecciones.store');
+            // Una inspección nueva de la misma pieza: la anterior se conserva.
+            Route::get('inspecciones/{inspeccion}/reinspeccionar', [QalInspeccionController::class, 'reinspeccionar'])
+                ->name('inspecciones.reinspeccionar');
             Route::get('piezas/resolver', [QalPiezaController::class, 'resolver'])
                 ->name('piezas.resolver');
         });
+        Route::middleware('permission:qal.inspecciones.editar')->group(function () {
+            Route::get('inspecciones/{inspeccion}/edit', [QalInspeccionController::class, 'edit'])
+                ->name('inspecciones.edit');
+            Route::put('inspecciones/{inspeccion}', [QalInspeccionController::class, 'update'])
+                ->name('inspecciones.update');
+        });
+        Route::delete('inspecciones/{inspeccion}', [QalInspeccionController::class, 'destroy'])
+            ->middleware('permission:qal.inspecciones.eliminar')
+            ->name('inspecciones.destroy');
 
         // Lotes de accesorios: la entrega se captura en Formularios (modo
         // lote); aquí se consulta el avance de cada marca y se decide qué
@@ -841,13 +854,15 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
                 ->name('sublotes.destroy');
         });
 
-        // La base en crudo de lo que se captura en Formularios, asi que de
-        // momento cuelga del mismo permiso. Es pantalla de auditoria —quien la
-        // abre ve lo que capturo cualquier inspector— y cuando lea de la base
-        // va a pedir su propio qal.registros.ver, con exportar aparte (RF-18.3).
-        Route::get('registros', [QalVistasController::class, 'registros'])
-            ->middleware('permission:qal.reportes.ver')
+        // La base en crudo de lo capturado, para auditar: quien la abre ve lo
+        // que capturó cualquier inspector. Exportar va aparte (RF-18.3): es
+        // sacar la información del sistema.
+        Route::get('registros', [QalRegistroController::class, 'index'])
+            ->middleware('permission:qal.registros.ver')
             ->name('registros.index');
+        Route::get('registros/exportar', [QalRegistroController::class, 'exportar'])
+            ->middleware('permission:qal.registros.exportar')
+            ->name('registros.exportar');
         // Producción contra calidad, semana a semana. Cuelga del mismo permiso
         // que la captura porque lo que compara es justo lo que se inspecciona;
         // cuando pueda guardar el plan va a pedir qal.programacion.capturar.

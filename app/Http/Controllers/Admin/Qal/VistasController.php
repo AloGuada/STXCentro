@@ -24,22 +24,6 @@ use Inertia\Response;
 class VistasController extends Controller
 {
     /**
-     * Registros: el `Registros_Steelex.html` de la aplicación anterior.
-     *
-     * Es la tabla de auditoría del módulo —lo capturado en crudo, sin resumir—,
-     * no un reporte. Comparte pantalla con los lotes de accesorios porque son
-     * dos conjuntos de la misma base, aunque no compartan columnas.
-     *
-     * Tampoco recibe nada todavía: sus filas salen de un módulo del front
-     * marcado como falso, porque `qal_inspecciones` y las tablas de accesorios
-     * no existen.
-     */
-    public function registros(): Response
-    {
-        return Inertia::render('admin/calidad/registros/index');
-    }
-
-    /**
      * Avance de producción: el `Produccion_Steelex.html` de la aplicación
      * anterior.
      *

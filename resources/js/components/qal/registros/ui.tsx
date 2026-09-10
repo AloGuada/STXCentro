@@ -1,16 +1,17 @@
 /**
  * Piezas sueltas de la pantalla de Registros.
  *
- * La barra de filtros y la cabecera ordenable viven aquí porque las comparten
- * las dos tablas —piezas y sublotes—, que son la misma pantalla con dos
- * conjuntos distintos.
+ * La barra de filtros, la cabecera ordenable y la paginación viven aquí porque
+ * las comparten las dos tablas —piezas y sublotes—, que son la misma pantalla
+ * con dos conjuntos distintos.
  */
 
-import { ArrowDownIcon, ArrowUpIcon } from 'lucide-react';
+import { Link } from '@inertiajs/react';
+import { ArrowDownIcon, ArrowUpIcon, ChevronLeftIcon, ChevronRightIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { Select, SelectItem } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
-import type { Estatus } from './datos';
+import type { PaginatedData } from '@/types/models';
 
 /** Un filtro de la barra: etiqueta arriba, control abajo, ancho propio. */
 export function Filtro({ label, className, children }: { label: string; className?: string; children: ReactNode }) {
@@ -22,7 +23,10 @@ export function Filtro({ label, className, children }: { label: string; classNam
     );
 }
 
-/** Un desplegable de filtro, con su opción «todas» al frente. */
+/**
+ * Un desplegable de filtro, con su opción «todas» al frente. Las opciones
+ * admiten el par [valor, texto] para los catálogos que filtran por id.
+ */
 export function FiltroSelect({
     label,
     value,
@@ -34,7 +38,7 @@ export function FiltroSelect({
     label: string;
     value: string;
     onChange: (valor: string) => void;
-    opciones: readonly string[];
+    opciones: readonly (string | readonly [string, string])[];
     todas: string;
     className?: string;
 }) {
@@ -42,24 +46,26 @@ export function FiltroSelect({
         <Filtro label={label} className={className}>
             <Select value={value} onValueChange={onChange} className="select-sm">
                 <SelectItem value="">{todas}</SelectItem>
-                {opciones.map((opcion) => (
-                    <SelectItem key={opcion} value={opcion}>
-                        {opcion}
-                    </SelectItem>
-                ))}
+                {opciones.map((opcion) => {
+                    const [valor, texto] = typeof opcion === 'string' ? [opcion, opcion] : opcion;
+                    return (
+                        <SelectItem key={valor} value={valor}>
+                            {texto}
+                        </SelectItem>
+                    );
+                })}
             </Select>
         </Filtro>
     );
 }
 
-export type Orden = { campo: string; dir: 1 | -1 };
+export type Orden = { campo: string; dir: 'asc' | 'desc' };
 
 /**
  * Cabecera ordenable.
  *
- * El orden es del cliente, no del servidor: la maqueta trae sus filas en el
- * front. Cuando esto lea de la base habrá que moverlo a la URL como en PND,
- * porque ordenar sólo la página que se ve engaña.
+ * El orden es del servidor y va en la URL: ordenar sólo la página que se ve
+ * engañaría, porque las filas de las demás páginas no entrarían en la cuenta.
  */
 export function Th({
     campo,
@@ -93,27 +99,47 @@ export function Th({
             >
                 {children}
                 {activo &&
-                    (orden.dir > 0 ? <ArrowUpIcon className="size-3" /> : <ArrowDownIcon className="size-3" />)}
+                    (orden.dir === 'asc' ? <ArrowUpIcon className="size-3" /> : <ArrowDownIcon className="size-3" />)}
             </button>
         </th>
     );
 }
 
+const ESTATUS: Record<string, string> = { liberado: 'Liberado', rechazado: 'Rechazado', pendiente: 'Pendiente' };
+
 /**
- * El estatus de un registro.
+ * El estatus de una inspección.
  *
  * Tres estados y tres colores fijos: verde liberado, rojo rechazado, ámbar
  * pendiente. Es estado, no categoría — no se reusan para otra cosa.
  */
-export function PastillaEstatus({ estatus }: { estatus: Estatus }) {
+export function PastillaEstatus({ estatus }: { estatus: string }) {
     const tono =
-        estatus === 'Liberado'
+        estatus === 'liberado'
             ? 'bg-success/15 text-success'
-            : estatus === 'Rechazado'
+            : estatus === 'rechazado'
               ? 'bg-error/15 text-error'
               : 'bg-warning/15 text-warning';
 
-    return <span className={cn('rounded-full px-2.5 py-0.5 text-xs font-bold', tono)}>{estatus}</span>;
+    return <span className={cn('rounded-full px-2.5 py-0.5 text-xs font-bold', tono)}>{ESTATUS[estatus] ?? estatus}</span>;
+}
+
+/** El veredicto de un sublote: sin veredicto es muestra incompleta, no aceptado. */
+export function PastillaVeredicto({ veredicto, liberado }: { veredicto: string | null; liberado?: boolean }) {
+    if (veredicto === null) {
+        return <span className="bg-warning/15 text-warning rounded-full px-2.5 py-0.5 text-xs font-bold">EN CURSO</span>;
+    }
+
+    return (
+        <span
+            className={cn(
+                'rounded-full px-2.5 py-0.5 text-xs font-bold',
+                veredicto === 'aceptado' || liberado ? 'bg-success/15 text-success' : 'bg-error/15 text-error',
+            )}
+        >
+            {veredicto.toUpperCase()}
+        </span>
+    );
 }
 
 /** El marco de una tabla de la pantalla, con su mensaje de vacío. */
@@ -129,6 +155,32 @@ export function Tabla({ vacio, children }: { vacio: string | null; children: Rea
     return (
         <div className="border-base-300 bg-base-100 overflow-x-auto rounded-xl border">
             <table className="table-sm table w-full whitespace-nowrap">{children}</table>
+        </div>
+    );
+}
+
+/** Anterior y siguiente, con los filtros que ya trae la URL del paginador. */
+export function Paginacion<T>({ datos }: { datos: PaginatedData<T> }) {
+    if (datos.last_page <= 1) {
+        return null;
+    }
+
+    const boton = (url: string | null, contenido: ReactNode) =>
+        url ? (
+            <Link href={url} preserveState preserveScroll className="btn btn-sm btn-ghost">
+                {contenido}
+            </Link>
+        ) : (
+            <span className="btn btn-sm btn-ghost btn-disabled">{contenido}</span>
+        );
+
+    return (
+        <div className="flex items-center justify-end gap-2 text-sm">
+            <span className="text-base-content/60">
+                {datos.from}–{datos.to} de {datos.total} · página {datos.current_page} de {datos.last_page}
+            </span>
+            {boton(datos.prev_page_url, <ChevronLeftIcon className="size-4" />)}
+            {boton(datos.next_page_url, <ChevronRightIcon className="size-4" />)}
         </div>
     );
 }
