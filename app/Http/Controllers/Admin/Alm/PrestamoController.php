@@ -88,6 +88,8 @@ class PrestamoController extends Controller
             'almacenes' => $this->opcionesAlmacen($request),
             'pedidosSurtibles' => $this->pedidosSurtibles($request, $request->integer('almacen_id') ?: null),
             'pedidoSeleccionado' => $request->integer('pedido_id') ?: null,
+            // Responde por lo prestado un supervisor; autorizar puede cualquiera.
+            'supervisores' => Usuario::query()->supervisoresDeAlmacen()->get(['id', 'name']),
             'usuarios' => Usuario::query()->orderBy('name')->get(['id', 'name']),
             'obras' => Obra::query()->orderBy('no')->get(['id', 'no', 'descripcion']),
             'gruposTrabajo' => GrupoTrabajo::query()->orderBy('descripcion')->get(['id', 'descripcion']),

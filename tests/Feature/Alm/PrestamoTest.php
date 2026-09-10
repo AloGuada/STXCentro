@@ -57,14 +57,16 @@ function almacenConActivos(): array
 }
 
 /**
+ * Responde un supervisor de almacén: sólo a él se le presta.
+ *
  * @param  list<array<string, mixed>>  $renglones
  * @return array<string, mixed>
  */
-function prestamoValido(Almacen $almacen, User $responsable, array $renglones): array
+function prestamoValido(Almacen $almacen, array $renglones): array
 {
     return [
         'almacen_id' => $almacen->id,
-        'responsable_id' => $responsable->id,
+        'responsable_id' => supervisorDeAlmacen()->id,
         'fecha_salida' => today()->toDateString(),
         'fecha_retorno_esperada' => today()->addWeek()->toDateString(),
         'renglones' => $renglones,
@@ -78,7 +80,7 @@ describe('prestar', function () {
         $movimientosAntes = Movimiento::count();
 
         $this->actingAs($user)
-            ->post(route('admin.alm.prestamos.store'), prestamoValido($almacen, $user, [
+            ->post(route('admin.alm.prestamos.store'), prestamoValido($almacen, [
                 ['articulo_id' => $pulidora->articulo_id, 'activo_id' => $pulidora->id, 'condicion_salida' => 'Buena'],
                 ['articulo_id' => $extension->id, 'cantidad' => 4],
             ]))
@@ -111,13 +113,13 @@ describe('prestar', function () {
         ]);
 
         $this->actingAs($user)
-            ->post(route('admin.alm.prestamos.store'), prestamoValido($almacen, $user, [
+            ->post(route('admin.alm.prestamos.store'), prestamoValido($almacen, [
                 ['articulo_id' => $pulidora->articulo_id, 'activo_id' => $pulidora->id],
             ]))
             ->assertSessionHasErrors('renglones.0.activo_id');
 
         $this->actingAs($user)
-            ->post(route('admin.alm.prestamos.store'), prestamoValido($almacen, $user, [
+            ->post(route('admin.alm.prestamos.store'), prestamoValido($almacen, [
                 ['articulo_id' => $extension->id, 'cantidad' => 3],
             ]))
             ->assertSessionHasErrors('renglones.0.cantidad');
@@ -132,13 +134,13 @@ describe('prestar', function () {
         Existencia::factory()->conSaldo(100)->create(['almacen_id' => $almacen->id, 'articulo_id' => $tornillo->id, 'producto_id' => $tornillo->producto_id]);
 
         $this->actingAs($user)
-            ->post(route('admin.alm.prestamos.store'), prestamoValido($almacen, $user, [
+            ->post(route('admin.alm.prestamos.store'), prestamoValido($almacen, [
                 ['articulo_id' => $tornillo->id, 'cantidad' => 5],
             ]))
             ->assertSessionHasErrors('renglones.0.articulo_id');
 
         $this->actingAs($user)
-            ->post(route('admin.alm.prestamos.store'), prestamoValido($almacen, $user, [
+            ->post(route('admin.alm.prestamos.store'), prestamoValido($almacen, [
                 ['articulo_id' => $pulidora->articulo_id, 'cantidad' => 1],
             ]))
             ->assertSessionHasErrors('renglones.0.articulo_id');
@@ -168,7 +170,7 @@ describe('prestar', function () {
         $sinPermiso = usuarioDePrestamos(['alm.prestamos.ver']);
 
         $this->actingAs($sinPermiso)
-            ->post(route('admin.alm.prestamos.store'), prestamoValido($almacen, $sinPermiso, [
+            ->post(route('admin.alm.prestamos.store'), prestamoValido($almacen, [
                 ['articulo_id' => $extension->id, 'cantidad' => 1],
             ]))
             ->assertForbidden();
@@ -178,10 +180,33 @@ describe('prestar', function () {
         $ajeno->givePermissionTo('alm.prestamos.crear');
 
         $this->actingAs($ajeno)
-            ->post(route('admin.alm.prestamos.store'), prestamoValido($almacen, $ajeno, [
+            ->post(route('admin.alm.prestamos.store'), prestamoValido($almacen, [
                 ['articulo_id' => $extension->id, 'cantidad' => 1],
             ]))
             ->assertForbidden();
+    });
+
+    it('sólo responde un supervisor de almacén', function () {
+        ['almacen' => $almacen, 'extension' => $extension] = almacenConActivos();
+        $user = usuarioDePrestamos();
+        $supervisor = supervisorDeAlmacen('Ana Supervisora');
+
+        $this->actingAs($user)
+            ->get(route('admin.alm.prestamos.create'))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->component('admin/almacen/prestamos/create')
+                ->has('supervisores', 1)
+                ->where('supervisores.0.id', $supervisor->id));
+
+        $this->actingAs($user)
+            ->post(route('admin.alm.prestamos.store'), [
+                ...prestamoValido($almacen, [['articulo_id' => $extension->id, 'cantidad' => 1]]),
+                'responsable_id' => $user->id,
+            ])
+            ->assertSessionHasErrors('responsable_id');
+
+        expect(Prestamo::count())->toBe(0);
     });
 });
 
@@ -223,7 +248,7 @@ describe('el pedido de herramienta se surte prestando', function () {
 
         $this->actingAs($user)
             ->post(route('admin.alm.prestamos.store'), [
-                ...prestamoValido($almacen, $user, [
+                ...prestamoValido($almacen, [
                     ['articulo_id' => $pulidora->articulo_id, 'activo_id' => $pulidora->id, 'pedido_detalle_id' => $renglonPulidora->id],
                     ['articulo_id' => $extension->id, 'cantidad' => 3, 'pedido_detalle_id' => $renglonExtension->id],
                 ]),
@@ -248,7 +273,7 @@ describe('el pedido de herramienta se surte prestando', function () {
 
         $this->actingAs($user)
             ->post(route('admin.alm.prestamos.store'), [
-                ...prestamoValido($almacen, $user, [
+                ...prestamoValido($almacen, [
                     ['articulo_id' => $extension->id, 'cantidad' => 5, 'pedido_detalle_id' => $renglon->id],
                 ]),
                 'pedido_id' => $pedido->id,
@@ -259,7 +284,7 @@ describe('el pedido de herramienta se surte prestando', function () {
 
         $this->actingAs($user)
             ->post(route('admin.alm.prestamos.store'), [
-                ...prestamoValido($otro, $user, [['articulo_id' => $extension->id, 'cantidad' => 1]]),
+                ...prestamoValido($otro, [['articulo_id' => $extension->id, 'cantidad' => 1]]),
                 'pedido_id' => $pedido->id,
             ])
             ->assertSessionHasErrors('pedido_id');

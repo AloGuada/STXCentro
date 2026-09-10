@@ -123,6 +123,8 @@ function renglonesDe(pedido: PedidoSurtible): Renglon[] {
 
 type Props = {
     almacenes: AlmAlmacenOpcion[];
+    /** Quien puede responder por el vale: tiene `alm.pedidos.supervisar`. */
+    supervisores: { id: string; name: string }[];
     usuarios: { id: string; name: string }[];
     obras: { id: number; no: string; descripcion: string | null }[];
     gruposTrabajo: { id: number; descripcion: string }[];
@@ -139,6 +141,7 @@ type Props = {
  */
 export default function PrestamoCreate({
     almacenes,
+    supervisores,
     usuarios,
     obras,
     gruposTrabajo,
@@ -391,7 +394,7 @@ export default function PrestamoCreate({
                                 description={
                                     pedido
                                         ? 'Lo fija el pedido: responde el supervisor que pidió la herramienta.'
-                                        : 'A esta persona se le reclama todo el vale.'
+                                        : 'Un supervisor de almacén: a él se le reclama todo el vale.'
                                 }
                                 required
                             >
@@ -399,7 +402,7 @@ export default function PrestamoCreate({
                                     <Input id="responsable_id" value={pedido.solicitante ?? '—'} readOnly />
                                 ) : (
                                     <SearchSelect
-                                        options={usuarios.map((u) => ({ value: u.id, label: u.name }))}
+                                        options={supervisores.map((u) => ({ value: u.id, label: u.name }))}
                                         value={form.data.responsable_id}
                                         onValueChange={(v) => form.setData('responsable_id', v)}
                                         placeholder="Escribe un nombre..."

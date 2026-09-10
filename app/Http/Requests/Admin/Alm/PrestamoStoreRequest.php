@@ -4,7 +4,9 @@ namespace App\Http\Requests\Admin\Alm;
 
 use App\Models\Alm\Pedido;
 use App\Models\Alm\PedidoDetalle;
+use App\Models\Usuario;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
 
 class PrestamoStoreRequest extends FormRequest
@@ -19,6 +21,10 @@ class PrestamoStoreRequest extends FormRequest
      * con `cantidad` (un activo por cantidad). Cuál de los dos aplica lo dice
      * el catálogo, y lo comprueba el servicio al prestar.
      *
+     * Responde un supervisor —quien tiene `alm.pedidos.supervisar`—. Con
+     * pedido no se revisa aquí: responde el del pedido, y ése lo fija el
+     * controlador.
+     *
      * @return array<string, mixed>
      */
     public function rules(): array
@@ -26,7 +32,17 @@ class PrestamoStoreRequest extends FormRequest
         return [
             'almacen_id' => ['required', 'integer', 'exists:alm_almacenes,id'],
             'pedido_id' => ['nullable', 'integer', 'exists:alm_pedidos,id'],
-            'responsable_id' => ['required', 'uuid', 'exists:usuarios,id'],
+            'responsable_id' => [
+                'required', 'uuid',
+                Rule::when(
+                    $this->filled('pedido_id'),
+                    ['exists:usuarios,id'],
+                    [Rule::exists('usuarios', 'id')->where(fn ($q) => $q->whereIn(
+                        'id',
+                        Usuario::query()->supervisoresDeAlmacen()->select('id'),
+                    ))],
+                ),
+            ],
             'obra_id' => ['nullable', 'integer', 'exists:obras,id'],
             'grupo_trabajo_id' => ['nullable', 'integer', 'exists:prod_grupos_trabajo,id'],
             'fecha_salida' => ['required', 'date', 'before_or_equal:today'],
@@ -141,6 +157,7 @@ class PrestamoStoreRequest extends FormRequest
         return [
             'almacen_id.required' => 'Indica de qué almacén sale.',
             'responsable_id.required' => 'Indica quién responde por lo prestado.',
+            'responsable_id.exists' => 'Responde por lo prestado un supervisor de almacén.',
             'fecha_salida.required' => 'Indica cuándo se lo llevó.',
             'fecha_salida.before_or_equal' => 'Nada se presta antes de que ocurra: la fecha no puede ser futura.',
             'fecha_retorno_esperada.after_or_equal' => 'No puede volver antes de salir.',

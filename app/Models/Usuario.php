@@ -111,8 +111,9 @@ class Usuario extends Authenticatable
     }
 
     /**
-     * A cuyo nombre puede quedar un pedido de almacén. Es la lista que la
-     * pantalla de pedidos ofrece, y la que el pedido exige al guardarse.
+     * A cuyo nombre puede quedar un pedido de almacén, y quién responde por un
+     * préstamo. Es la lista que ofrecen esas pantallas y la que exigen al
+     * guardarse.
      *
      * @param  Builder<Usuario>  $query
      */
