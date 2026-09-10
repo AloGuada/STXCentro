@@ -16,6 +16,7 @@ use App\Models\User;
 use Database\Seeders\AlmDevSeeder;
 use Database\Seeders\AlmEntradaDevSeeder;
 use Database\Seeders\AlmMovimientosDevSeeder;
+use Database\Seeders\AlmPedidosHerramientaDevSeeder;
 
 /**
  * Los seeders de ejemplo no son código de producción, pero se apoyan en los
@@ -170,4 +171,27 @@ test('correrlos dos veces no duplica nada', function () {
         ->and(Pedido::count())->toBe($antes['pedidos'])
         ->and(Activo::count())->toBe($antes['activos'])
         ->and((float) Asignacion::sum('cantidad'))->toBe($antes['asignado']);
+});
+
+test('los pedidos de herramienta de ejemplo cubren los tres casos y son idempotentes', function () {
+    sembrarAlmacenDemo();
+    test()->seed(AlmPedidosHerramientaDevSeeder::class);
+    test()->seed(AlmPedidosHerramientaDevSeeder::class);
+
+    $pedidos = \App\Models\Alm\Pedido::query()
+        ->where('observaciones', 'like', '%[demo-alm-herramienta]%')
+        ->with('detalles.articulo')
+        ->get();
+
+    // Uno solo de insumos, uno solo de herramienta y uno mixto; correrlo dos
+    // veces no los duplica.
+    expect($pedidos)->toHaveCount(3)
+        ->and($pedidos->filter(fn ($p) => $p->pideHerramienta())->count())->toBe(2)
+        ->and($pedidos->filter(fn ($p) => ! $p->pideHerramienta())->count())->toBe(1)
+        ->and(\App\Models\Alm\Pedido::query()->surtiblesConPrestamo()->count())->toBe(2);
+
+    // La extensión sin serie quedó con existencia real, por el registrador.
+    $extension = \App\Models\Alm\Articulo::query()->activosPorCantidad()->firstOrFail();
+
+    expect((float) $extension->existencias()->sum('cantidad'))->toBe(12.0);
 });
