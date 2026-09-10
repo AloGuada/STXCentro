@@ -1,3 +1,5 @@
+import { Head, router, usePage } from '@inertiajs/react';
+import { ArrowLeftIcon, PencilIcon, PowerIcon, PowerOffIcon, TagIcon, TrendingDownIcon, TrendingUpIcon } from 'lucide-react';
 import { CodigoBarras } from '@/components/alm/codigo-barras';
 import { MiniaturaArticulo } from '@/components/alm/miniatura-articulo';
 import { ButtonLink } from '@/components/ui/button';
@@ -5,8 +7,6 @@ import { Select, SelectItem } from '@/components/ui/select';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import type { AlmArticulo, AlmArticuloExistencia, AlmArticuloPrecio } from '@/types/models';
-import { Head, router } from '@inertiajs/react';
-import { ArrowLeftIcon, PencilIcon, TagIcon, TrendingDownIcon, TrendingUpIcon } from 'lucide-react';
 
 const moneda = (n: number) => n.toLocaleString('es-MX', { style: 'currency', currency: 'MXN' });
 const numero = (n: number) => n.toLocaleString('es-MX', { maximumFractionDigits: 3 });
@@ -36,6 +36,18 @@ type Props = {
  * una pantalla — qué es, cuánto ha costado y dónde está.
  */
 export default function ArticuloShow({ articulo, existencias, precios, ubicaciones }: Props) {
+    const { flash, errors } = usePage<{ flash: { success?: string }; errors: { activo?: string } }>().props;
+
+    const alternar = () => {
+        const pregunta = articulo.activo
+            ? `¿Desactivar ${articulo.codigo}? Deja de aparecer en compras, conteos y préstamos. Su historial se conserva.`
+            : `¿Reactivar ${articulo.codigo}?`;
+
+        if (window.confirm(pregunta)) {
+            router.patch(`/admin/almacen/articulos/${articulo.id}/toggle`, {}, { preserveScroll: true });
+        }
+    };
+
     const breadcrumbs: BreadcrumbItem[] = [
         { title: 'Dashboard', href: '/dashboard' },
         { title: 'Inventarios', href: '/admin/almacen/existencias' },
@@ -78,6 +90,11 @@ export default function ArticuloShow({ articulo, existencias, precios, ubicacion
                                 <span className="badge badge-sm">
                                     {articulo.tipo === 'activo' ? 'Activo' : 'Insumo'}
                                 </span>
+                                {!articulo.activo && (
+                                    <span className="badge badge-sm badge-error" title="Sigue en el kardex, pero ya no se compra, se cuenta ni se presta">
+                                        Inactivo
+                                    </span>
+                                )}
                                 {(
                                     <span
                                         className={`badge badge-sm ${CLASE_ABC[articulo.clasificacion_abc] ?? 'badge-ghost'}`}
@@ -109,12 +126,27 @@ export default function ArticuloShow({ articulo, existencias, precios, ubicacion
                             <PencilIcon className="size-4" />
                             Editar
                         </ButtonLink>
+                        <button type="button" className="btn btn-outline" onClick={alternar}>
+                            {articulo.activo ? <PowerOffIcon className="size-4" /> : <PowerIcon className="size-4" />}
+                            {articulo.activo ? 'Desactivar' : 'Reactivar'}
+                        </button>
                         <ButtonLink href={`/admin/almacen/etiquetas?articulo=${articulo.id}`} variant="primary">
                             <TagIcon className="size-4" />
                             Imprimir etiquetas
                         </ButtonLink>
                     </div>
                 </div>
+
+                {flash?.success && (
+                    <div className="alert alert-success mb-4">
+                        <span>{flash.success}</span>
+                    </div>
+                )}
+                {errors?.activo && (
+                    <div className="alert alert-error mb-4">
+                        <span>{errors.activo}</span>
+                    </div>
+                )}
 
                 <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
                     <div className="rounded-box border-base-300 border p-4">

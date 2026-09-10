@@ -446,6 +446,12 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
             ->middlewareFor(['index', 'show'], 'permission:alm.articulos.ver')
             ->middlewareFor(['create', 'store'], 'permission:alm.articulos.crear')
             ->middlewareFor(['edit', 'update'], 'permission:alm.articulos.editar');
+        // Desactivar/reactivar apaga o prende las dos caras del maestro a la
+        // vez. Se niega con saldo o con piezas afuera: primero se ajusta.
+        Route::patch('articulos/{articulo}/toggle', [AlmArticuloController::class, 'toggle'])
+            ->whereNumber('articulo')
+            ->middleware('permission:alm.articulos.editar')
+            ->name('articulos.toggle');
 
         // Ubicaciones: una sola pantalla con el arbol y el alta. Sin destroy,
         // el kardex viejo menciona el lugar y borrarlo dejaria movimientos

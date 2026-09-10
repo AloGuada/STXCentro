@@ -4117,6 +4117,8 @@ export type AlmArticulo = {
     precio_ultimo: number | null;
     /** Sumando todos los almacenes. */
     existencia_total: number;
+    /** Apagado: sigue en el kardex, pero no se compra, se cuenta ni se presta. */
+    activo: boolean;
 };
 
 /** Cuánto hay de un artículo en un almacén, para la ficha. */

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin\Alm;
 
+use App\Enums\Alm\ActivoEstatus;
 use App\Enums\Alm\ClasificacionAbc;
 use App\Enums\Alm\ProductoTipo;
 use App\Http\Controllers\Controller;
@@ -57,6 +58,9 @@ class ArticuloController extends Controller
             ->when($request->string('area_id')->value(), fn (Builder $q, string $a) => $q->where('area_id', $a))
             ->when($request->string('clase')->value(), fn (Builder $q, string $c) => $q->where('clasificacion_abc', $c))
             ->when($request->boolean('sin_ligar'), fn (Builder $q) => $q->sinLigar())
+            // Lo inactivo se esconde por default: sigue en el kardex, pero ya
+            // no es algo que se compre, se cuente ni se preste.
+            ->when(! $request->boolean('inactivos'), fn (Builder $q) => $q->where('activo', true))
             ->orderBy('descripcion')
             ->paginate(25)
             ->withQueryString()
@@ -64,7 +68,7 @@ class ArticuloController extends Controller
 
         return Inertia::render('admin/almacen/articulos/index', [
             'articulos' => $articulos,
-            'filters' => $request->only(['search', 'tipo', 'area_id', 'clase', 'sin_ligar']),
+            'filters' => $request->only(['search', 'tipo', 'area_id', 'clase', 'sin_ligar', 'inactivos']),
             // La bandeja de entrada, ahora al revés: artículos que la bodega
             // guarda y que todavía no se emparejan con nada de Compras. Salen de
             // la carga inicial de un almacén. Va como cuenta y no como filtro por
@@ -155,6 +159,51 @@ class ArticuloController extends Controller
         ]);
     }
 
+    /**
+     * Apaga o prende el artículo, y con él su cara de Compras: es un solo item
+     * del maestro, y un producto que se sigue cotizando para un artículo que ya
+     * no existe sería material que se compra y no se puede recibir.
+     *
+     * Apagar se niega mientras haya saldo en algún almacén o piezas afuera: un
+     * artículo con existencia no desaparece, primero se ajusta o se retira. El
+     * historial del kardex se conserva siempre; lo inactivo sólo deja de salir
+     * en los buscadores, en el sorteo de conteos y en lo prestable.
+     */
+    public function toggle(Request $request, Articulo $articulo): RedirectResponse
+    {
+        if (! $articulo->activo) {
+            DB::transaction(function () use ($articulo): void {
+                $articulo->update(['activo' => true]);
+                $articulo->producto?->update(['activo' => true]);
+            });
+
+            return back()->with('success', "{$articulo->codigo} reactivado.");
+        }
+
+        $saldo = (float) $articulo->existencias()->sum('cantidad');
+
+        if (abs($saldo) > (float) config('costos.epsilon_cantidad')) {
+            return back()->withErrors([
+                'activo' => "No se puede desactivar: todavía hay {$saldo} {$articulo->unidad} en existencia. Ajusta o retira el saldo primero.",
+            ]);
+        }
+
+        $afuera = $articulo->piezas()->where('estatus', ActivoEstatus::Prestado)->count();
+
+        if ($afuera > 0) {
+            return back()->withErrors([
+                'activo' => "No se puede desactivar: hay {$afuera} pieza(s) afuera en resguardo. Recíbelas primero.",
+            ]);
+        }
+
+        DB::transaction(function () use ($articulo): void {
+            $articulo->update(['activo' => false]);
+            $articulo->producto?->update(['activo' => false]);
+        });
+
+        return back()->with('success', "{$articulo->codigo} desactivado. Sigue en el kardex, pero ya no se compra, se cuenta ni se presta.");
+    }
+
     public function edit(Articulo $articulo): Response
     {
         $articulo->load('producto:id,codigo,descripcion');
@@ -232,6 +281,7 @@ class ArticuloController extends Controller
             'area' => $articulo->area?->descripcion,
             'unidad' => $articulo->unidad,
             'tipo' => $articulo->tipo?->value,
+            'activo' => (bool) $articulo->activo,
             'clasificacion_abc' => $articulo->clasificacion_abc?->value,
             // Con qué lo compra Compras. Null es material sin identidad de
             // compra todavía, y la pantalla lo marca como pendiente de ligar.

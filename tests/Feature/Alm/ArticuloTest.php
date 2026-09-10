@@ -193,6 +193,76 @@ describe('clasificacion', function () {
     });
 });
 
+describe('desactivar', function () {
+    it('apaga las dos caras y lo saca del listado, sin borrar nada', function () {
+        $articulo = Articulo::factory()->create(['descripcion' => 'Cinta vieja']);
+
+        $this->actingAs(usuarioDeArticulos())
+            ->patch(route('admin.alm.articulos.toggle', $articulo))
+            ->assertRedirect()
+            ->assertSessionHasNoErrors();
+
+        expect($articulo->refresh()->activo)->toBeFalse()
+            ->and($articulo->producto->refresh()->activo)->toBeFalse()
+            ->and(Articulo::count())->toBe(1);
+
+        $this->actingAs(usuarioDeArticulos(['ver']))
+            ->get(route('admin.alm.articulos.index'))
+            ->assertInertia(fn ($page) => $page->has('articulos.data', 0));
+
+        $this->actingAs(usuarioDeArticulos(['ver']))
+            ->get(route('admin.alm.articulos.index', ['inactivos' => 1]))
+            ->assertInertia(fn ($page) => $page->has('articulos.data', 1)->where('articulos.data.0.activo', false));
+    });
+
+    it('se niega mientras haya saldo en algún almacén', function () {
+        $almacen = Almacen::factory()->create();
+        $articulo = Articulo::factory()->create();
+        app(AlmacenLedger::class)->registrarPorArticulo($almacen->id, $articulo->id, MovimientoTipo::Entrada, 5, 10);
+
+        $this->actingAs(usuarioDeArticulos())
+            ->patch(route('admin.alm.articulos.toggle', $articulo))
+            ->assertSessionHasErrors('activo');
+
+        expect($articulo->refresh()->activo)->toBeTrue();
+    });
+
+    it('se niega con piezas afuera, y reactivar vuelve a prender las dos caras', function () {
+        $almacen = Almacen::factory()->create();
+        $articulo = Articulo::factory()->porPieza()->create();
+        [$pieza] = app(\App\Services\Alm\RegistradorPiezas::class)->alta($articulo, $almacen, [['no_serie' => 'X-1']]);
+        $pieza->update(['estatus' => \App\Enums\Alm\ActivoEstatus::Prestado]);
+
+        // Con la pieza afuera el saldo es 1: ya lo detiene el saldo. Se retira
+        // la pieza (saldo 0) pero se deja prestada para probar la segunda guarda.
+        app(\App\Services\Alm\RegistradorPiezas::class)->baja($pieza, 'prueba');
+        $pieza->update(['estatus' => \App\Enums\Alm\ActivoEstatus::Prestado]);
+
+        $this->actingAs(usuarioDeArticulos())
+            ->patch(route('admin.alm.articulos.toggle', $articulo))
+            ->assertSessionHasErrors('activo');
+
+        $pieza->update(['estatus' => \App\Enums\Alm\ActivoEstatus::Baja]);
+        $articulo->update(['activo' => false]);
+        $articulo->producto->update(['activo' => false]);
+
+        $this->actingAs(usuarioDeArticulos())
+            ->patch(route('admin.alm.articulos.toggle', $articulo))
+            ->assertSessionHasNoErrors();
+
+        expect($articulo->refresh()->activo)->toBeTrue()
+            ->and($articulo->producto->refresh()->activo)->toBeTrue();
+    });
+
+    it('pide el permiso de editar', function () {
+        $articulo = Articulo::factory()->create();
+
+        $this->actingAs(usuarioDeArticulos(['ver']))
+            ->patch(route('admin.alm.articulos.toggle', $articulo))
+            ->assertForbidden();
+    });
+});
+
 describe('listado y ficha', function () {
     it('trae la existencia total sumando todos los almacenes', function () {
         $ledger = app(AlmacenLedger::class);

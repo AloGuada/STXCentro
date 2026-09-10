@@ -1,3 +1,5 @@
+import { Head, Link, router } from '@inertiajs/react';
+import { BarcodeIcon, PencilIcon, PlusIcon, TagIcon, TriangleAlertIcon } from 'lucide-react';
 import { MiniaturaArticulo } from '@/components/alm/miniatura-articulo';
 import { DataTable, type Column } from '@/components/data-table';
 import { ButtonLink } from '@/components/ui/button';
@@ -5,8 +7,6 @@ import { Select, SelectItem } from '@/components/ui/select';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import type { AlmArea, AlmArticulo, AlmOpcion, AlmOpcionClase, AlmProductoTipo, PaginatedData } from '@/types/models';
-import { Head, Link, router } from '@inertiajs/react';
-import { BarcodeIcon, PencilIcon, PlusIcon, TagIcon, TriangleAlertIcon } from 'lucide-react';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
@@ -30,7 +30,7 @@ const moneda = (n: number) => n.toLocaleString('es-MX', { style: 'currency', cur
 
 type Props = {
     articulos: PaginatedData<AlmArticulo>;
-    filters: { search?: string; tipo?: string; area_id?: string; clase?: string; sin_ligar?: boolean };
+    filters: { search?: string; tipo?: string; area_id?: string; clase?: string; sin_ligar?: boolean; inactivos?: boolean };
     /** Lo que Compras tecleó al vuelo y todavía no entra al kardex. */
     /** Material que la bodega guarda y que nadie ha emparejado con Compras. */
     sinLigar: number;
@@ -68,6 +68,7 @@ export default function ArticulosIndex({ articulos, filters, sinLigar, areas, ti
                             aria-label="Tiene código de barras"
                         />
                     )}
+                    {!a.activo && <span className="badge badge-xs badge-error ml-1">Inactivo</span>}
                 </>
             ),
         },
@@ -301,6 +302,16 @@ export default function ArticulosIndex({ articulos, filters, sinLigar, areas, ti
                             ))}
                         </Select>
                     </div>
+
+                    <label className="flex cursor-pointer items-center gap-2 pb-3">
+                        <input
+                            type="checkbox"
+                            className="checkbox checkbox-sm"
+                            checked={Boolean(filters.inactivos)}
+                            onChange={(e) => filtrar({ inactivos: e.target.checked ? '1' : undefined })}
+                        />
+                        <span className="text-sm">Ver inactivos</span>
+                    </label>
                 </DataTable>
             </div>
         </AppLayout>
