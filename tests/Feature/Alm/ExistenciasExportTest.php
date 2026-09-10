@@ -44,7 +44,7 @@ function existenciaDe(Almacen $almacen, Articulo $articulo, float $cantidad, flo
     );
 }
 
-test('descarga un xlsx con lo filtrado y las seis columnas del reporte', function () {
+test('descarga un xlsx con lo filtrado y las siete columnas del reporte', function () {
     Excel::fake();
     $this->freezeTime();
 
@@ -52,11 +52,11 @@ test('descarga un xlsx con lo filtrado y las seis columnas del reporte', functio
     $otro = Almacen::factory()->create();
     $area = Area::factory()->create(['descripcion' => 'Tornillería']);
     $tornillo = Articulo::factory()->create(['codigo' => 'ART-001', 'descripcion' => 'Tornillo 1/2', 'unidad' => 'PZA', 'area_id' => $area->id]);
-    $placa = Articulo::factory()->create(['codigo' => 'ART-002', 'descripcion' => 'Placa 1/4', 'unidad' => 'KG']);
+    $pulidora = Articulo::factory()->activoPorCantidad()->create(['codigo' => 'ART-002', 'descripcion' => 'Pulidora 4 1/2', 'unidad' => 'PZA']);
 
     existenciaDe($almacen, $tornillo, 100, 2.5);
-    existenciaDe($almacen, $placa, 40, 30);
-    existenciaDe($otro, $placa, 7, 30);
+    existenciaDe($almacen, $pulidora, 4, 1500);
+    existenciaDe($otro, $pulidora, 7, 1500);
 
     $this->actingAs(usuarioQueExporta())
         ->get(route('admin.alm.existencias.exportar', ['almacen_id' => $almacen->id]))
@@ -65,13 +65,13 @@ test('descarga un xlsx con lo filtrado y las seis columnas del reporte', functio
     Excel::assertDownloaded(archivoEsperado(), function (ExistenciasExport $export): bool {
         $filas = $export->collection()->values();
 
-        expect($export->headings())->toBe(['Código de item', 'Descripción', 'Stock', 'Nombre unidad', 'Precio', 'Nombre área'])
+        expect($export->headings())->toBe(['Código de item', 'Descripción', 'Tipo', 'Stock', 'Nombre unidad', 'Precio', 'Nombre área'])
             ->and($filas)->toHaveCount(2)
             ->and($filas[0])->toBe([
-                'codigo' => 'ART-002', 'descripcion' => 'Placa 1/4', 'stock' => 40.0, 'unidad' => 'KG', 'precio' => 30.0, 'area' => null,
+                'codigo' => 'ART-002', 'descripcion' => 'Pulidora 4 1/2', 'tipo' => 'Activo', 'stock' => 4.0, 'unidad' => 'PZA', 'precio' => 1500.0, 'area' => null,
             ])
             ->and($filas[1])->toBe([
-                'codigo' => 'ART-001', 'descripcion' => 'Tornillo 1/2', 'stock' => 100.0, 'unidad' => 'PZA', 'precio' => 2.5, 'area' => 'Tornillería',
+                'codigo' => 'ART-001', 'descripcion' => 'Tornillo 1/2', 'tipo' => 'Insumo', 'stock' => 100.0, 'unidad' => 'PZA', 'precio' => 2.5, 'area' => 'Tornillería',
             ]);
 
         return true;

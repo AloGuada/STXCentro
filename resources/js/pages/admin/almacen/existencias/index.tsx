@@ -37,6 +37,8 @@ type ExistenciaFila = {
     codigo: string | null;
     descripcion: string | null;
     unidad: string | null;
+    /** El insumo se consume; el activo sale en resguardo y regresa. */
+    tipo: 'insumo' | 'activo' | null;
     clasificacion_abc: string | null;
     /** La familia del insumo. Null es legítimo: hay artículos sin clasificar. */
     area: string | null;
@@ -317,6 +319,7 @@ export default function ExistenciasIndex({
                                 <tr>
                                     <th>Almacén</th>
                                     <th>Artículo</th>
+                                    <th>Tipo</th>
                                     <th>Área</th>
                                     <th>Unidad</th>
                                     <th>Ubicación</th>
@@ -330,7 +333,7 @@ export default function ExistenciasIndex({
                             <tbody>
                                 {existencias.data.length === 0 ? (
                                     <tr>
-                                        <td colSpan={10} className="text-base-content/50 py-6 text-center">
+                                        <td colSpan={11} className="text-base-content/50 py-6 text-center">
                                             No hay existencias con esos filtros.
                                         </td>
                                     </tr>
@@ -364,6 +367,15 @@ export default function ExistenciasIndex({
                                                         >
                                                             {e.piezas.disponibles} de {cantidad(e.cantidad)} disponible(s)
                                                         </Link>
+                                                    )}
+                                                </td>
+                                                <td>
+                                                    {e.tipo === 'activo' ? (
+                                                        <span className="badge badge-sm badge-info">Activo</span>
+                                                    ) : e.tipo === 'insumo' ? (
+                                                        <span className="badge badge-sm badge-ghost">Insumo</span>
+                                                    ) : (
+                                                        <span className="text-base-content/30">—</span>
                                                     )}
                                                 </td>
                                                 <td>
@@ -480,7 +492,7 @@ export default function ExistenciasIndex({
                                 con piezas no daría un número, daría un error. */}
                             <tfoot className="bg-base-200 text-base-content">
                                 <tr>
-                                    <td colSpan={7} className="text-right font-medium">
+                                    <td colSpan={8} className="text-right font-medium">
                                         Total de {totales.renglones}{' '}
                                         {totales.renglones === 1 ? 'renglón' : 'renglones'}
                                         {existencias.total > existencias.data.length && (

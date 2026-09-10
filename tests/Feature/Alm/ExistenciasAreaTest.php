@@ -95,6 +95,31 @@ test('el renglón dice de qué área es, y dice null cuando no tiene', function 
         });
 });
 
+test('el renglón dice si el artículo es activo o insumo', function () {
+    $almacen = Almacen::factory()->create();
+
+    conSaldoEnArea($almacen, null, 'TORNILLO A325 3/4');
+
+    $pulidora = Articulo::factory()->activoPorCantidad()->create(['descripcion' => 'PULIDORA 4 1/2']);
+    app(AlmacenLedger::class)->registrarPorArticulo(
+        almacenId: $almacen->id,
+        articuloId: $pulidora->id,
+        tipo: MovimientoTipo::Entrada,
+        cantidad: 2,
+        costoUnitario: 1500,
+    );
+
+    $this->actingAs(usuarioDeExistencias())
+        ->get(route('admin.alm.existencias.index', ['almacen_id' => $almacen->id]))
+        ->assertInertia(function ($page) {
+            $filas = collect($page->toArray()['props']['existencias']['data'])
+                ->keyBy('descripcion');
+
+            expect($filas['TORNILLO A325 3/4']['tipo'])->toBe('insumo')
+                ->and($filas['PULIDORA 4 1/2']['tipo'])->toBe('activo');
+        });
+});
+
 test('la pantalla ofrece las áreas activas para filtrar', function () {
     Area::factory()->create(['descripcion' => 'Tornillería']);
     Area::factory()->inactiva()->create(['descripcion' => 'Obsoleta']);

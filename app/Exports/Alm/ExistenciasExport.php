@@ -44,6 +44,7 @@ class ExistenciasExport implements FromCollection, ShouldAutoSize, WithColumnFor
         return [
             'Código de item',
             'Descripción',
+            'Tipo',
             'Stock',
             'Nombre unidad',
             'Precio',
@@ -54,7 +55,7 @@ class ExistenciasExport implements FromCollection, ShouldAutoSize, WithColumnFor
     public function collection(): Collection
     {
         return $this->consulta
-            ->with(['articulo:id,codigo,descripcion,unidad,area_id', 'articulo.area:id,descripcion'])
+            ->with(['articulo:id,codigo,descripcion,unidad,tipo,area_id', 'articulo.area:id,descripcion'])
             ->join('alm_articulos', 'alm_articulos.id', '=', 'alm_existencias.articulo_id')
             ->orderBy('alm_articulos.descripcion')
             ->select('alm_existencias.*')
@@ -62,6 +63,7 @@ class ExistenciasExport implements FromCollection, ShouldAutoSize, WithColumnFor
             ->map(fn (Existencia $e): array => [
                 'codigo' => $e->articulo?->codigo,
                 'descripcion' => $e->articulo?->descripcion,
+                'tipo' => $e->articulo?->tipo?->etiqueta(),
                 'stock' => (float) $e->cantidad,
                 'unidad' => $e->articulo?->unidad,
                 'precio' => (float) $e->costo_promedio,
@@ -75,8 +77,8 @@ class ExistenciasExport implements FromCollection, ShouldAutoSize, WithColumnFor
     public function columnFormats(): array
     {
         return [
-            'C' => NumberFormat::FORMAT_NUMBER_COMMA_SEPARATED1,
-            'E' => NumberFormat::FORMAT_NUMBER_COMMA_SEPARATED2,
+            'D' => NumberFormat::FORMAT_NUMBER_COMMA_SEPARATED1,
+            'F' => NumberFormat::FORMAT_NUMBER_COMMA_SEPARATED2,
         ];
     }
 
@@ -85,8 +87,8 @@ class ExistenciasExport implements FromCollection, ShouldAutoSize, WithColumnFor
      */
     public function styles(Worksheet $sheet): array
     {
-        $sheet->getStyle('A1:F1')->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('4472C4');
-        $sheet->getStyle('A1:F1')->getFont()->setBold(true)->getColor()->setRGB('FFFFFF');
+        $sheet->getStyle('A1:G1')->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('4472C4');
+        $sheet->getStyle('A1:G1')->getFont()->setBold(true)->getColor()->setRGB('FFFFFF');
 
         return [];
     }

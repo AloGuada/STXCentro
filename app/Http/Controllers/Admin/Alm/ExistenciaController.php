@@ -80,7 +80,7 @@ class ExistenciaController extends Controller
             ->with([
                 'almacen:id,clave,nombre,obra_id',
                 'almacen.obra:id,no',
-                'articulo:id,codigo,descripcion,unidad,stock_minimo,se_controla_por_pieza,clasificacion_abc,area_id',
+                'articulo:id,codigo,descripcion,unidad,tipo,stock_minimo,se_controla_por_pieza,clasificacion_abc,area_id',
                 'articulo.area:id,descripcion',
                 'ubicacion.padre',
                 // El desglose por obra viaja con la fila: son pocas por renglón
@@ -107,6 +107,8 @@ class ExistenciaController extends Controller
             'codigo' => $e->articulo?->codigo,
             'descripcion' => $e->articulo?->descripcion,
             'unidad' => $e->articulo?->unidad,
+            // Si se gasta o si sale y regresa: con eso se lee el renglón.
+            'tipo' => $e->articulo?->tipo?->value,
             'clasificacion_abc' => $e->articulo?->clasificacion_abc?->value,
             // Null es legítimo: la carga inicial de los dos primeros almacenes
             // entró sin área, y clasificarla es trabajo pendiente.
