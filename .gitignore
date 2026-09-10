@@ -31,3 +31,8 @@ yarn-error.log
 /.zed
 nul
 *.xlsx
+
+# sidecar de Calidad: el venv y los caches no se versionan
+/ifc-service/.venv
+/ifc-service/**/__pycache__
+/ifc-service/.pytest_cache
