@@ -8,7 +8,6 @@
  */
 
 import { useState } from 'react';
-import { DEFECTOS_SOLDADURA } from './datos';
 import type { Campos, Junta } from './estado';
 import { Mapeo } from './mapeo';
 import { calcularDimensional } from './reglas';
@@ -33,16 +32,22 @@ export function FaseSegunda({
     campos,
     defectos,
     onDefectos,
+    defectosCatalogo,
     juntas,
     onJuntas,
+    soldadores,
     onAviso,
     onRechazar,
 }: {
     campos: Campos;
+    /** Por nombre: los chips cuentan por nombre y al guardar se traducen a id. */
     defectos: Record<string, number>;
     onDefectos: (defectos: Record<string, number>) => void;
+    /** Los defectos de soldadura activos del catálogo. */
+    defectosCatalogo: string[];
     juntas: Junta[];
     onJuntas: (juntas: Junta[]) => void;
+    soldadores: [string, string][];
     onAviso: (mensaje: string, tono?: 'ok' | 'error') => void;
     onRechazar: () => void;
 }) {
@@ -127,13 +132,7 @@ export function FaseSegunda({
             )}
 
             {soldado && mapeoAbierto && (
-                <Mapeo
-                    plano={campos.v('mp_plano')}
-                    onPlano={(valor) => campos.set('mp_plano', valor)}
-                    juntas={juntas}
-                    onJuntas={onJuntas}
-                    onAviso={onAviso}
-                />
+                <Mapeo juntas={juntas} onJuntas={onJuntas} soldadores={soldadores} onAviso={onAviso} />
             )}
 
             <Tarjeta titulo="Inspección dimensional (2ª)">
@@ -215,9 +214,9 @@ export function FaseSegunda({
 
                         <div className="mt-[14px]">
                             <Campo label="Tipo(s) de defecto en soldadura (AWS D1.1 · placa/no tubular)">
-                                <ChipsContados opciones={DEFECTOS_SOLDADURA} valor={defectos} onChange={onDefectos} />
+                                <ChipsContados opciones={defectosCatalogo} valor={defectos} onChange={onDefectos} />
                             </Campo>
-                            <Pista className="mt-2">La lista real puede ser más larga — se afina con los inspectores.</Pista>
+                            <Pista className="mt-2">La lista sale de Catálogos → Defectos, ámbito soldadura.</Pista>
                         </div>
                     </Tarjeta>
 

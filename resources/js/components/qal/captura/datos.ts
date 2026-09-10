@@ -1,16 +1,16 @@
 /**
- * Catálogos y tablas de referencia de la pantalla de captura.
+ * Catálogos y tablas de referencia de la captura.
  *
- * Son datos FALSOS a propósito: la pantalla se está construyendo contra la
- * forma del formulario, no contra la base. Las tablas de inspección del módulo
- * (`qal_inspecciones`, `qal_puntos_inspeccion`, `qal_juntas`…) todavía no
- * existen, así que aquí se reproduce lo que la aplicación anterior traía
- * escrito en el HTML. Cuando el backend exista, esto se sustituye por props
- * del controlador y el archivo desaparece.
+ * La captura de piezas ya lee sus catálogos del servidor (obras, marcas,
+ * soldadores, defectos…). Lo que queda aquí de ejemplo —obras, operadores,
+ * responsables, soldadores, defectos— sólo alimenta las maquetas que todavía no
+ * leen de la base: Registros, Avance de producción y el lote de accesorios. Se
+ * va con ellas.
  *
  * Lo que NO es dato de ejemplo y hay que conservar tal cual: la tabla de
  * muestreo AQL, los prefijos de tipo de pieza y los puntos del mapeo. Eso es
- * norma de la empresa, no relleno.
+ * norma de la empresa, no relleno; el servidor tiene su propia copia de la
+ * tabla AQL (`CalculadorAql`) y es la que vale al guardar.
  */
 
 /** Nivel de inspección del muestreo. */

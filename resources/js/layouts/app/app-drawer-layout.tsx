@@ -224,71 +224,89 @@ const navGroups: NavGroup[] = [
         // Va pegado a Produccion: inspecciona justo lo que sale de la nave.
         title: 'Calidad',
         icon: ShieldCheck,
+        // Dos bloques con dos lectores distintos: lo que se captura y se
+        // consulta en planta, y lo que se lee en direccion.
         items: [
             {
-                // Va primero: es la pantalla con la que se entra a mirar como
-                // va la obra, no una mas del modulo.
-                title: 'Dashboard',
+                title: 'Control y calidad',
+                href: '/admin/calidad/formularios',
+                icon: ClipboardCheck,
+                children: [
+                    {
+                        title: 'Formularios',
+                        href: '/admin/calidad/formularios',
+                        icon: FileCheck,
+                        permission: 'qal.inspecciones.crear',
+                    },
+                    {
+                        // Pruebas no destructivas: juntas soldadas evaluadas por
+                        // un laboratorio externo. No se suman con las piezas que
+                        // el inspector revisa a la vista, por eso es entrada aparte.
+                        title: 'PND',
+                        href: '/admin/calidad/pnd',
+                        icon: Radar,
+                        permission: 'qal.pnd.ver',
+                    },
+                    {
+                        // La base en crudo de lo que se captura en Formularios:
+                        // aqui se consulta y se audita, alla se llena. Pasa a
+                        // qal.registros.ver cuando lea de la base.
+                        title: 'Registros',
+                        href: '/admin/calidad/registros',
+                        icon: Table2,
+                        permission: 'qal.reportes.ver',
+                    },
+                    {
+                        title: 'Catálogos',
+                        href: '/admin/calidad/catalogos',
+                        icon: Folder,
+                        // Las listas viven en una sola pantalla, y cada pestaña
+                        // se esconde sola segun los permisos del usuario.
+                        permissionModulo: 'qal',
+                    },
+                ],
+            },
+            {
+                title: 'Reportes administrativos',
                 href: '/admin/calidad/dashboard',
                 icon: LayoutDashboard,
-                permission: 'qal.dashboard.ver',
-            },
-            {
-                title: 'Formularios',
-                href: '/admin/calidad/reportes',
-                icon: FileCheck,
-                permission: 'qal.reportes.ver',
-            },
-            {
-                // Pruebas no destructivas: juntas soldadas evaluadas por un
-                // laboratorio externo. No se suman con las piezas que el
-                // inspector revisa a la vista, por eso es entrada aparte.
-                title: 'PND',
-                href: '/admin/calidad/pnd',
-                icon: Radar,
-                permission: 'qal.pnd.ver',
-            },
-            {
-                // La base en crudo de lo que se captura en Formularios: aqui se
-                // consulta y se audita, alla se llena. Mismo permiso por ahora.
-                title: 'Registros',
-                href: '/admin/calidad/registros',
-                icon: Table2,
-                permission: 'qal.reportes.ver',
-            },
-            {
-                // El F-STX-CA-31 que se manda a direccion. Es un documento con
-                // folio de formato y semana de corte, no el tablero filtrado.
-                title: 'Reporte semanal',
-                href: '/admin/calidad/reporte-semanal',
-                icon: CalendarRange,
-                permission: 'qal.reporte-semanal.ver',
-            },
-            {
-                title: 'Catálogos',
-                href: '/admin/calidad/catalogos',
-                icon: Folder,
-                // Las nueve listas viven en una sola pantalla, y cada pestaña
-                // se esconde sola segun los permisos del usuario.
-                permissionModulo: 'qal',
-            },
-            {
-                // Lo que produccion programo contra lo que calidad vio. Se llama
-                // avance y no produccion para no confundirlo con el modulo prod_,
-                // que es otra cosa: aqui la unidad es la pieza inspeccionada.
-                title: 'Avance de produccion',
-                href: '/admin/calidad/avance',
-                icon: GitCompareArrows,
-                permission: 'qal.reportes.ver',
-            },
-            {
-                // Lo que falla durante el montaje, en obra. Circuito aparte del
-                // taller: aqui el denominador son las piezas ya montadas, no
-                // las inspeccionadas en planta.
-                title: 'Incidencias en obra',
-                href: '/admin/calidad/incidencias',
-                icon: TriangleAlert,
-                permission: 'qal.incidencias.ver',
+                children: [
+                    {
+                        // Va primero: es la pantalla con la que se entra a mirar
+                        // como va la obra.
+                        title: 'Dashboard',
+                        href: '/admin/calidad/dashboard',
+                        icon: LayoutDashboard,
+                        permission: 'qal.dashboard.ver',
+                    },
+                    {
+                        // Lo que produccion programo contra lo que calidad vio.
+                        // Se llama avance y no produccion para no confundirlo
+                        // con el modulo prod_: aqui la unidad es la pieza
+                        // inspeccionada.
+                        title: 'Avance de produccion',
+                        href: '/admin/calidad/avance',
+                        icon: GitCompareArrows,
+                        permission: 'qal.reportes.ver',
+                    },
+                    {
+                        // Lo que falla durante el montaje, en obra. Circuito
+                        // aparte del taller: aqui el denominador son las piezas
+                        // ya montadas, no las inspeccionadas en planta.
+                        title: 'Incidencias en obra',
+                        href: '/admin/calidad/incidencias',
+                        icon: TriangleAlert,
+                        permission: 'qal.incidencias.ver',
+                    },
+                    {
+                        // El F-STX-CA-31 que se manda a direccion. Se queda
+                        // aqui hasta que el Dashboard lo absorba.
+                        title: 'Reporte semanal',
+                        href: '/admin/calidad/reporte-semanal',
+                        icon: CalendarRange,
+                        permission: 'qal.reporte-semanal.ver',
+                    },
+                ],
             },
         ],
     },

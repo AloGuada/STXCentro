@@ -113,8 +113,10 @@ use App\Http\Controllers\Admin\Qal\CatalogoController as QalCatalogoController;
 use App\Http\Controllers\Admin\Qal\DefectoController as QalDefectoController;
 use App\Http\Controllers\Admin\Qal\EquipoController as QalEquipoController;
 use App\Http\Controllers\Admin\Qal\IncidenciasController as QalIncidenciasController;
+use App\Http\Controllers\Admin\Qal\InspeccionController as QalInspeccionController;
 use App\Http\Controllers\Admin\Qal\LaboratorioController as QalLaboratorioController;
 use App\Http\Controllers\Admin\Qal\OperadorController as QalOperadorController;
+use App\Http\Controllers\Admin\Qal\PiezaController as QalPiezaController;
 use App\Http\Controllers\Admin\Qal\PndController as QalPndController;
 use App\Http\Controllers\Admin\Qal\ReporteSemanalController as QalReporteSemanalController;
 use App\Http\Controllers\Admin\Qal\ResponsableController as QalResponsableController;
@@ -800,9 +802,17 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::get('dashboard', [QalVistasController::class, 'dashboard'])
             ->middleware('permission:qal.dashboard.ver')
             ->name('dashboard');
-        Route::get('reportes', [QalVistasController::class, 'reportes'])
-            ->middleware('permission:qal.reportes.ver')
-            ->name('reportes.index');
+        // Captura de inspección: 1ª, 2ª con sus juntas y pintura en una sola
+        // pantalla, porque la tablet se queda abierta aquí y lo que cambia es
+        // la fase. El lector de QR pregunta por la pieza sin salir de ella.
+        Route::middleware('permission:qal.inspecciones.crear')->group(function () {
+            Route::get('formularios', [QalInspeccionController::class, 'create'])
+                ->name('formularios');
+            Route::post('inspecciones', [QalInspeccionController::class, 'store'])
+                ->name('inspecciones.store');
+            Route::get('piezas/resolver', [QalPiezaController::class, 'resolver'])
+                ->name('piezas.resolver');
+        });
         // La base en crudo de lo que se captura en Formularios, asi que de
         // momento cuelga del mismo permiso. Es pantalla de auditoria —quien la
         // abre ve lo que capturo cualquier inspector— y cuando lea de la base

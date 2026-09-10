@@ -466,6 +466,25 @@ class RolesAndPermissionsSeeder extends Seeder
             'qal.incidencias.ver',
             'qal.incidencias.capturar',
             'qal.incidencias.eliminar',
+            // La captura de 1ª, 2ª y pintura. Las juntas se capturan en el
+            // mismo formulario que la pieza y no llevan permiso aparte.
+            'qal.inspecciones.ver',
+            'qal.inspecciones.crear',
+            'qal.inspecciones.editar',
+            'qal.inspecciones.eliminar',
+            'qal.accesorios.ver',
+            'qal.accesorios.crear',
+            'qal.accesorios.editar',
+            'qal.accesorios.eliminar',
+            'qal.modelos.ver',
+            'qal.modelos.crear',
+            'qal.modelos.eliminar',
+            // La base en crudo; exportar va aparte porque saca la información
+            // del sistema.
+            'qal.registros.ver',
+            'qal.registros.exportar',
+            'qal.programacion.ver',
+            'qal.programacion.capturar',
         ];
 
         // Permisos Core

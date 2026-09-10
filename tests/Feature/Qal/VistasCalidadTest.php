@@ -9,7 +9,7 @@ use Spatie\Permission\Models\Permission;
  * comprueba que la ruta abre y que respeta el permiso `qal.*` que ya existía.
  */
 $pantallas = [
-    'reportes' => ['admin.qal.reportes.index', 'admin/calidad/reportes/index', 'qal.reportes.ver'],
+    'formularios' => ['admin.qal.formularios', 'admin/calidad/formularios/index', 'qal.inspecciones.crear'],
     'registros' => ['admin.qal.registros.index', 'admin/calidad/registros/index', 'qal.reportes.ver'],
     'avance' => ['admin.qal.avance', 'admin/calidad/avance/index', 'qal.reportes.ver'],
     'tablero' => ['admin.qal.dashboard', 'admin/calidad/dashboard/index', 'qal.dashboard.ver'],
@@ -44,6 +44,6 @@ test('el permiso de una pantalla no abre las demas', function () {
     $usuario->givePermissionTo('qal.soldadores.ver');
 
     $this->actingAs($usuario)->get(route('admin.qal.catalogos.index'))->assertOk();
-    $this->actingAs($usuario)->get(route('admin.qal.reportes.index'))->assertForbidden();
+    $this->actingAs($usuario)->get(route('admin.qal.formularios'))->assertForbidden();
     $this->actingAs($usuario)->get(route('admin.qal.dashboard'))->assertForbidden();
 });

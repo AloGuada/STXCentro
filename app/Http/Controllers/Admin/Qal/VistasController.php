@@ -24,18 +24,6 @@ use Inertia\Response;
 class VistasController extends Controller
 {
     /**
-     * Captura de inspección: el `captura.html` de la aplicación anterior.
-     *
-     * La pantalla ya está construida, pero todavía no recibe nada: sus
-     * catálogos son de ejemplo y viven en el front. Deja de pasar por aquí
-     * cuando existan las tablas de inspección y tenga su propio controlador.
-     */
-    public function reportes(): Response
-    {
-        return Inertia::render('admin/calidad/reportes/index');
-    }
-
-    /**
      * Registros: el `Registros_Steelex.html` de la aplicación anterior.
      *
      * Es la tabla de auditoría del módulo —lo capturado en crudo, sin resumir—,

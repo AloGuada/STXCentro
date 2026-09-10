@@ -7,8 +7,8 @@
  * calcula sola para que el inspector no tenga que echar cuentas de pie.
  */
 
-import { DEFECTOS_PINTURA } from './datos';
 import type { Campos } from './estado';
+import { evidenciaDe, type Evidencia } from './fotos';
 import { ESPESOR_MEDICIONES_BASE, ESPESOR_MEDICIONES_MAX, resumirEspesores } from './reglas';
 import { Boton, Campo, Chips, Pista, Rejilla, Selector, Tarjeta, Texto } from './ui';
 
@@ -36,6 +36,7 @@ export function FaseTercera({
     onMediciones,
     defectos,
     onDefectos,
+    defectosCatalogo,
     adherenciaAbierta,
     onAdherencia,
     fotos,
@@ -51,10 +52,12 @@ export function FaseTercera({
     onMediciones: (mediciones: number) => void;
     defectos: string[];
     onDefectos: (defectos: string[]) => void;
+    /** Los defectos de pintura activos del catálogo. */
+    defectosCatalogo: string[];
     adherenciaAbierta: boolean;
     onAdherencia: (abierta: boolean) => void;
-    fotos: { nombre: string; url: string }[];
-    onFotos: (fotos: { nombre: string; url: string }[]) => void;
+    fotos: Evidencia[];
+    onFotos: (fotos: Evidencia[]) => void;
     onAviso: (mensaje: string, tono?: 'ok' | 'error') => void;
 }) {
     const resumen = resumirEspesores(lecturas, mediciones, campos.v('p3_req'));
@@ -66,16 +69,21 @@ export function FaseTercera({
         onLecturas(copia);
     };
 
-    const agregarArchivos = (archivos: FileList | null) => {
+    const agregarArchivos = async (archivos: FileList | null) => {
         if (!archivos?.length) {
             return;
         }
-        const nuevas = Array.from(archivos).map((archivo) => ({
-            nombre: archivo.name,
-            url: URL.createObjectURL(archivo),
-        }));
+        const nuevas = await Promise.all(Array.from(archivos).map(evidenciaDe));
         onFotos([...fotos, ...nuevas]);
         onAviso(`${nuevas.length} evidencia(s) adjuntada(s)`, 'ok');
+    };
+
+    const quitarFoto = (indice: number) => {
+        const url = fotos[indice]?.url;
+        if (url) {
+            URL.revokeObjectURL(url);
+        }
+        onFotos(fotos.filter((_, i) => i !== indice));
     };
 
     return (
@@ -256,7 +264,11 @@ export function FaseTercera({
                             <Selector
                                 value={campos.v('p3_accion')}
                                 onChange={(valor) => campos.set('p3_accion', valor)}
-                                opciones={['A = Aceptada', 'R = Rechazada', 'RM = Regresar a módulo']}
+                                opciones={[
+                                    ['A', 'A = Aceptada'],
+                                    ['R', 'R = Rechazada'],
+                                    ['RM', 'RM = Regresar a módulo'],
+                                ]}
                             />
                         </Campo>
                     </Rejilla>
@@ -264,7 +276,7 @@ export function FaseTercera({
 
                 <div className="mt-[14px]">
                     <Campo label="Defecto de pintura">
-                        <Chips opciones={DEFECTOS_PINTURA} valor={defectos} onChange={onDefectos} />
+                        <Chips opciones={defectosCatalogo} valor={defectos} onChange={onDefectos} />
                     </Campo>
                 </div>
             </Tarjeta>
@@ -346,10 +358,20 @@ export function FaseTercera({
                             <div className="mt-[11px] flex flex-wrap gap-[10px]">
                                 {fotos.map((foto, indice) => (
                                     <div key={indice} className="relative">
-                                        <img src={foto.url} alt={foto.nombre} className="size-24 rounded-lg border border-base-300 object-cover" />
+                                        {foto.url ? (
+                                            <img
+                                                src={foto.url}
+                                                alt={foto.archivo.name}
+                                                className="size-24 rounded-lg border border-base-300 object-cover"
+                                            />
+                                        ) : (
+                                            <div className="flex size-24 items-center justify-center rounded-lg border border-base-300 bg-base-200 p-1 text-center text-[11px] break-all">
+                                                📄 {foto.archivo.name}
+                                            </div>
+                                        )}
                                         <button
                                             type="button"
-                                            onClick={() => onFotos(fotos.filter((_, i) => i !== indice))}
+                                            onClick={() => quitarFoto(indice)}
                                             className="absolute -top-2 -right-2 size-6 rounded-full bg-error text-sm font-bold text-error-content"
                                         >
                                             ✕

@@ -4,16 +4,28 @@
  * Es un sub-formulario de la pieza, no una pantalla aparte: las juntas se van
  * añadiendo a una lista y se guardan todas al registrar la pieza. Sólo aplica
  * en 2ª · Soldado, porque antes de soldar no hay junta que revisar.
+ *
+ * Ya no lleva plano: la junta cuelga de la pieza escaneada. Cuando la obra
+ * tenga su modelo 3D, la junta se elegirá sobre el cordón en lugar de
+ * teclearse; mientras tanto se identifica por su número.
  */
 
 import { useState } from 'react';
-import { PUNTOS_MAPEO, SOLDADORES } from './datos';
+import { PUNTOS_MAPEO } from './datos';
 import type { Junta } from './estado';
 import { evaluarFilete, PUNTO_PERFIL } from './reglas';
-import { Boton, Campo, Pastilla, Pista, Rejilla, Selector, Tarjeta, Texto } from './ui';
+import { Boton, Campo, Pastilla, Pista, Rejilla, Selector, SiNo, Tarjeta, Texto } from './ui';
 
 const PUNTO_OPCIONES = ['OK', 'Defecto', 'n/a'];
-const JUNTA_VACIA: Junta = { junta: '', tipo: '', soldador: '', puntos: {}, espesorRequerido: '', espesorMedido: '' };
+const JUNTA_VACIA: Junta = {
+    junta: '',
+    tipo: '',
+    soldador: '',
+    esEmpate: false,
+    puntos: {},
+    espesorRequerido: '',
+    espesorMedido: '',
+};
 
 /** Con que un punto salga "Defecto", la junta entera queda con defecto. */
 export function estadoJunta(junta: Junta): 'Con defecto' | 'Junta Correcta' {
@@ -21,16 +33,15 @@ export function estadoJunta(junta: Junta): 'Con defecto' | 'Junta Correcta' {
 }
 
 export function Mapeo({
-    plano,
-    onPlano,
     juntas,
     onJuntas,
+    soldadores,
     onAviso,
 }: {
-    plano: string;
-    onPlano: (valor: string) => void;
     juntas: Junta[];
     onJuntas: (juntas: Junta[]) => void;
+    /** [id, «NOMBRE (CLAVE)»] del padrón. */
+    soldadores: [string, string][];
     onAviso: (mensaje: string, tono?: 'ok' | 'error') => void;
 }) {
     const [borrador, setBorrador] = useState<Junta>(JUNTA_VACIA);
@@ -41,6 +52,7 @@ export function Mapeo({
 
     const filete = evaluarFilete(borrador.espesorRequerido, borrador.espesorMedido);
     const esFilete = borrador.tipo === 'Filete';
+    const nombreSoldador = (id: string) => soldadores.find(([clave]) => clave === id)?.[1] ?? '—';
 
     const cambiarTipo = (tipo: string) => {
         setBorrador((previo) => ({
@@ -84,13 +96,22 @@ export function Mapeo({
     };
 
     const anadir = () => {
-        if (!borrador.junta.trim()) {
+        const identificador = borrador.junta.trim();
+        if (!identificador) {
             onAviso('Falta el N.º de junta', 'error');
             return;
         }
-        onJuntas([...juntas, { ...borrador, junta: borrador.junta.trim() }]);
+        if (!borrador.tipo) {
+            onAviso('Elige si la junta es de filete o de ranura', 'error');
+            return;
+        }
+        if (juntas.some((junta) => junta.junta === identificador)) {
+            onAviso(`La junta ${identificador} ya está en la lista — edítala`, 'error');
+            return;
+        }
+        onJuntas([...juntas, { ...borrador, junta: identificador }]);
         setBorrador(JUNTA_VACIA);
-        onAviso(`Junta ${borrador.junta.trim()} añadida a la lista`, 'ok');
+        onAviso(`Junta ${identificador} añadida a la lista`, 'ok');
     };
 
     /** Editar saca la junta de la lista y la devuelve al formulario. */
@@ -109,9 +130,6 @@ export function Mapeo({
             </Pista>
 
             <Rejilla>
-                <Campo label="Plano">
-                    <Texto value={plano} onChange={onPlano} placeholder="Ej. REI-ALF1-23" mayusculas />
-                </Campo>
                 <Campo label="Junta N.º">
                     <Texto
                         value={borrador.junta}
@@ -120,18 +138,26 @@ export function Mapeo({
                         mayusculas
                     />
                 </Campo>
+                <Campo label="Tipo de junta">
+                    <Selector value={borrador.tipo} onChange={cambiarTipo} opciones={['Filete', 'Ranura']} />
+                </Campo>
             </Rejilla>
 
             <div className="mt-3">
                 <Rejilla>
-                    <Campo label="Tipo de junta">
-                        <Selector value={borrador.tipo} onChange={cambiarTipo} opciones={['Filete', 'Ranura']} />
-                    </Campo>
                     <Campo label="Soldador de la Junta">
                         <Selector
                             value={borrador.soldador}
                             onChange={(valor) => setBorrador((previo) => ({ ...previo, soldador: valor }))}
-                            opciones={SOLDADORES.map(([nombre, clave]) => [nombre, `${nombre} (${clave})`] as [string, string])}
+                            opciones={soldadores}
+                        />
+                    </Campo>
+                    <Campo label="¿Es empate?" ayuda="Une dos tramos del mismo miembro.">
+                        <SiNo
+                            value={borrador.esEmpate ? 'si' : ''}
+                            onChange={(valor) => setBorrador((previo) => ({ ...previo, esEmpate: valor === 'si' }))}
+                            si={{ valor: 'si', texto: 'Empate' }}
+                            no={{ valor: 'no', texto: 'No' }}
                         />
                     </Campo>
                 </Rejilla>
@@ -202,58 +228,63 @@ export function Mapeo({
                             Juntas de esta pieza ({juntas.length})
                             {conDefecto > 0 && <span className="text-error"> · {conDefecto} con defecto</span>}
                         </div>
-                        <table className="w-full border-collapse text-[13px]">
-                            <thead>
-                                <tr className="text-[11px] tracking-[.5px] text-primary uppercase">
-                                    <th className="border-b border-base-300 px-[6px] py-2 text-left">Junta</th>
-                                    <th className="border-b border-base-300 px-[6px] py-2 text-left">Tipo</th>
-                                    <th className="border-b border-base-300 px-[6px] py-2 text-left">Filete</th>
-                                    <th className="border-b border-base-300 px-[6px] py-2 text-left">Soldador</th>
-                                    <th className="border-b border-base-300 px-[6px] py-2 text-left">Resultado</th>
-                                    <th className="border-b border-base-300" />
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {juntas.map((junta, indice) => {
-                                    const resultado = estadoJunta(junta);
-                                    const medida = evaluarFilete(junta.espesorRequerido, junta.espesorMedido);
-                                    return (
-                                        <tr key={`${junta.junta}-${indice}`}>
-                                            <td className="border-b border-base-300 px-[6px] py-2">{junta.junta}</td>
-                                            <td className="border-b border-base-300 px-[6px] py-2">{junta.tipo}</td>
-                                            <td className="border-b border-base-300 px-[6px] py-2">
-                                                {junta.espesorMedido ? (
-                                                    <>
-                                                        {junta.espesorMedido}/{junta.espesorRequerido || '?'} mm{' '}
-                                                        <Pastilla tono={medida?.cumple ? 'lib' : 'rej'}>
-                                                            {medida?.cumple ? 'ok' : 'no cumple'}
-                                                        </Pastilla>
-                                                    </>
-                                                ) : (
-                                                    '—'
-                                                )}
-                                            </td>
-                                            <td className="border-b border-base-300 px-[6px] py-2">{junta.soldador}</td>
-                                            <td className="border-b border-base-300 px-[6px] py-2">
-                                                <Pastilla tono={resultado === 'Con defecto' ? 'rej' : 'lib'}>{resultado}</Pastilla>
-                                            </td>
-                                            <td className="border-b border-base-300 px-[6px] py-2 text-right whitespace-nowrap">
-                                                <button type="button" onClick={() => editar(indice)} title="Editar" className="mr-2">
-                                                    ✏️
-                                                </button>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => onJuntas(juntas.filter((_, i) => i !== indice))}
-                                                    title="Quitar"
-                                                >
-                                                    🗑️
-                                                </button>
-                                            </td>
-                                        </tr>
-                                    );
-                                })}
-                            </tbody>
-                        </table>
+                        <div className="overflow-x-auto">
+                            <table className="w-full border-collapse text-[13px]">
+                                <thead>
+                                    <tr className="text-[11px] tracking-[.5px] text-primary uppercase">
+                                        <th className="border-b border-base-300 px-[6px] py-2 text-left">Junta</th>
+                                        <th className="border-b border-base-300 px-[6px] py-2 text-left">Tipo</th>
+                                        <th className="border-b border-base-300 px-[6px] py-2 text-left">Filete</th>
+                                        <th className="border-b border-base-300 px-[6px] py-2 text-left">Soldador</th>
+                                        <th className="border-b border-base-300 px-[6px] py-2 text-left">Resultado</th>
+                                        <th className="border-b border-base-300" />
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {juntas.map((junta, indice) => {
+                                        const resultado = estadoJunta(junta);
+                                        const medida = evaluarFilete(junta.espesorRequerido, junta.espesorMedido);
+                                        return (
+                                            <tr key={`${junta.junta}-${indice}`}>
+                                                <td className="border-b border-base-300 px-[6px] py-2">
+                                                    {junta.junta}
+                                                    {junta.esEmpate && <span className="ml-1 text-xs text-base-content/60">(empate)</span>}
+                                                </td>
+                                                <td className="border-b border-base-300 px-[6px] py-2">{junta.tipo}</td>
+                                                <td className="border-b border-base-300 px-[6px] py-2">
+                                                    {junta.espesorMedido ? (
+                                                        <>
+                                                            {junta.espesorMedido}/{junta.espesorRequerido || '?'} mm{' '}
+                                                            <Pastilla tono={medida?.cumple ? 'lib' : 'rej'}>
+                                                                {medida?.cumple ? 'ok' : 'no cumple'}
+                                                            </Pastilla>
+                                                        </>
+                                                    ) : (
+                                                        '—'
+                                                    )}
+                                                </td>
+                                                <td className="border-b border-base-300 px-[6px] py-2">{nombreSoldador(junta.soldador)}</td>
+                                                <td className="border-b border-base-300 px-[6px] py-2">
+                                                    <Pastilla tono={resultado === 'Con defecto' ? 'rej' : 'lib'}>{resultado}</Pastilla>
+                                                </td>
+                                                <td className="border-b border-base-300 px-[6px] py-2 text-right whitespace-nowrap">
+                                                    <button type="button" onClick={() => editar(indice)} title="Editar" className="mr-2">
+                                                        ✏️
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => onJuntas(juntas.filter((_, i) => i !== indice))}
+                                                        title="Quitar"
+                                                    >
+                                                        🗑️
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                        </div>
                         <Pista className="mt-2">
                             Estas juntas se guardarán al pulsar <b>Guardar registro</b>, junto con el resto de la pieza.
                         </Pista>

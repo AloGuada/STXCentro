@@ -3,10 +3,9 @@
  *
  * Se guarda plano —un diccionario de `id → valor` con las mismas claves que el
  * formulario anterior (`p1_defl`, `p2_bisel`, `p3_req`…)— y es deliberado: son
- * las claves que reconocen los inspectores y las que hoy nombran las columnas.
- * Cuando el backend exista, cada una será una fila de `qal_inspeccion_puntos`
- * apuntando a su punto del catálogo, y este diccionario es exactamente el mapa
- * que hace falta para esa traducción.
+ * las claves que reconocen los inspectores y las del catálogo de puntos. Al
+ * guardar, cada una es una fila de `qal_inspeccion_puntos`; el servidor se
+ * queda sólo con las del formulario que se llenó.
  */
 
 import { useCallback, useState } from 'react';
@@ -17,6 +16,8 @@ export type Campos = {
     set: (id: string, valor: string) => void;
     /** Vacía varios campos de golpe (cambio de fase, re-inspección, limpiar). */
     limpiar: (ids: string[]) => void;
+    /** El diccionario entero: de aquí sale lo que se manda como `puntos`. */
+    valores: Record<string, string>;
 };
 
 export function useCampos(iniciales: Record<string, string> = {}): [Campos, () => void] {
@@ -35,14 +36,17 @@ export function useCampos(iniciales: Record<string, string> = {}): [Campos, () =
     );
     const reiniciar = useCallback(() => setValores(iniciales), [iniciales]);
 
-    return [{ v, set, limpiar }, reiniciar];
+    return [{ v, set, limpiar, valores }, reiniciar];
 }
 
 /** Una junta del mapeo, tal como se añade a la lista de la pieza. */
 export type Junta = {
     junta: string;
     tipo: string;
+    /** Id del soldador en el padrón; vacío si no se eligió. */
     soldador: string;
+    /** Une dos tramos del mismo miembro: el reporte de soldaduras lo separa. */
+    esEmpate: boolean;
     /** Resultado de cada punto de `PUNTOS_MAPEO`. */
     puntos: Record<string, string>;
     espesorRequerido: string;
