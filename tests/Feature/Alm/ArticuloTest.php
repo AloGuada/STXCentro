@@ -4,6 +4,8 @@ use App\Enums\Alm\MovimientoTipo;
 use App\Models\Alm\Almacen;
 use App\Models\Alm\Area;
 use App\Models\Alm\Articulo;
+use App\Models\Costos\OrdenCompra;
+use App\Models\Costos\OrdenCompraDetalle;
 use App\Models\Costos\Producto;
 use App\Models\User;
 use App\Services\Alm\AlmacenLedger;
@@ -227,6 +229,50 @@ describe('desactivar', function () {
         expect($articulo->refresh()->activo)->toBeTrue();
     });
 
+    it('se niega mientras esté en una orden de compra sin cerrar', function () {
+        $articulo = Articulo::factory()->create();
+        $orden = OrdenCompra::factory()->create(['estatus' => 'pendiente_entrega']);
+        OrdenCompraDetalle::factory()->create(['orden_compra_id' => $orden->id, 'producto_id' => $articulo->producto_id]);
+
+        $this->actingAs(usuarioDeArticulos())
+            ->patch(route('admin.alm.articulos.toggle', $articulo))
+            ->assertSessionHasErrors('activo');
+
+        expect($articulo->refresh()->activo)->toBeTrue();
+
+        $this->actingAs(usuarioDeArticulos())
+            ->get(route('admin.alm.articulos.edit', $articulo))
+            ->assertInertia(fn ($page) => $page->where('ordenes_abiertas', [$orden->refresh()->folio]));
+    });
+
+    it('las órdenes pagadas o canceladas ya no lo detienen', function () {
+        $articulo = Articulo::factory()->create();
+
+        foreach (['pagada', 'cancelada'] as $estatus) {
+            $orden = OrdenCompra::factory()->create(['estatus' => $estatus]);
+            OrdenCompraDetalle::factory()->create(['orden_compra_id' => $orden->id, 'producto_id' => $articulo->producto_id]);
+        }
+
+        $this->actingAs(usuarioDeArticulos())
+            ->patch(route('admin.alm.articulos.toggle', $articulo))
+            ->assertSessionHasNoErrors();
+
+        expect($articulo->refresh()->activo)->toBeFalse();
+    });
+
+    it('la edición recibe el saldo de todos los almacenes para bloquear el modal', function () {
+        $ledger = app(AlmacenLedger::class);
+        $articulo = Articulo::factory()->create();
+        $ledger->registrarPorArticulo(Almacen::factory()->create()->id, $articulo->id, MovimientoTipo::Entrada, 5, 10);
+        $ledger->registrarPorArticulo(Almacen::factory()->create()->id, $articulo->id, MovimientoTipo::Entrada, 3, 10);
+
+        $this->actingAs(usuarioDeArticulos())
+            ->get(route('admin.alm.articulos.edit', $articulo))
+            ->assertInertia(fn ($page) => $page
+                ->where('articulo.activo', true)
+                ->where('articulo.existencia_total', 8));
+    });
+
     it('se niega con piezas afuera, y reactivar vuelve a prender las dos caras', function () {
         $almacen = Almacen::factory()->create();
         $articulo = Articulo::factory()->porPieza()->create();
@@ -252,6 +298,22 @@ describe('desactivar', function () {
 
         expect($articulo->refresh()->activo)->toBeTrue()
             ->and($articulo->producto->refresh()->activo)->toBeTrue();
+    });
+
+    it('se hace desde la edición y regresa ahí mismo, ya marcado como inactivo', function () {
+        $articulo = Articulo::factory()->create();
+        $edicion = route('admin.alm.articulos.edit', $articulo);
+
+        $this->actingAs(usuarioDeArticulos())
+            ->from($edicion)
+            ->patch(route('admin.alm.articulos.toggle', $articulo))
+            ->assertRedirect($edicion);
+
+        $this->actingAs(usuarioDeArticulos())
+            ->get($edicion)
+            ->assertInertia(fn ($page) => $page
+                ->component('admin/almacen/articulos/edit')
+                ->where('articulo.activo', false));
     });
 
     it('pide su propio permiso: editar no alcanza', function () {

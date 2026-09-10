@@ -168,12 +168,14 @@ class ArticuloController extends Controller
         return back()->with('success', $desactivador->alternar($articulo));
     }
 
-    public function edit(Articulo $articulo): Response
+    public function edit(Articulo $articulo, DesactivadorArticulo $desactivador): Response
     {
         $articulo->load('producto:id,codigo,descripcion');
 
         return Inertia::render('admin/almacen/articulos/edit', [
             'articulo' => $this->fila($articulo->loadSum('existencias as existencia_total', 'cantidad')),
+            // Para que el modal de desactivar explique el bloqueo antes del viaje.
+            'ordenes_abiertas' => $desactivador->ordenesAbiertas($articulo),
             ...$this->opciones(),
         ]);
     }

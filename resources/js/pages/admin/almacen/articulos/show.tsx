@@ -1,10 +1,9 @@
 import { Head, router, usePage } from '@inertiajs/react';
-import { ArrowLeftIcon, PencilIcon, PowerIcon, PowerOffIcon, TagIcon, TrendingDownIcon, TrendingUpIcon } from 'lucide-react';
+import { ArrowLeftIcon, PencilIcon, TagIcon, TrendingDownIcon, TrendingUpIcon } from 'lucide-react';
 import { CodigoBarras } from '@/components/alm/codigo-barras';
 import { MiniaturaArticulo } from '@/components/alm/miniatura-articulo';
 import { ButtonLink } from '@/components/ui/button';
 import { Select, SelectItem } from '@/components/ui/select';
-import { useCan } from '@/hooks/use-can';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import type { AlmArticulo, AlmArticuloExistencia, AlmArticuloPrecio } from '@/types/models';
@@ -37,18 +36,7 @@ type Props = {
  * una pantalla — qué es, cuánto ha costado y dónde está.
  */
 export default function ArticuloShow({ articulo, existencias, precios, ubicaciones }: Props) {
-    const { flash, errors } = usePage<{ flash: { success?: string }; errors: { activo?: string } }>().props;
-    const { can } = useCan();
-
-    const alternar = () => {
-        const pregunta = articulo.activo
-            ? `¿Desactivar ${articulo.codigo}? Deja de aparecer en compras, conteos y préstamos. Su historial se conserva.`
-            : `¿Reactivar ${articulo.codigo}?`;
-
-        if (window.confirm(pregunta)) {
-            router.patch(`/admin/almacen/articulos/${articulo.id}/toggle`, {}, { preserveScroll: true });
-        }
-    };
+    const { flash } = usePage<{ flash: { success?: string } }>().props;
 
     const breadcrumbs: BreadcrumbItem[] = [
         { title: 'Dashboard', href: '/dashboard' },
@@ -124,19 +112,15 @@ export default function ArticuloShow({ articulo, existencias, precios, ubicacion
                             <ArrowLeftIcon className="size-4" />
                             Volver
                         </ButtonLink>
-                        <ButtonLink href={`/admin/almacen/articulos/${articulo.id}/edit`} variant="outline">
-                            <PencilIcon className="size-4" />
-                            Editar
-                        </ButtonLink>
-                        {can('alm.articulos.desactivar') && (
-                            <button type="button" className="btn btn-outline" onClick={alternar}>
-                                {articulo.activo ? <PowerOffIcon className="size-4" /> : <PowerIcon className="size-4" />}
-                                {articulo.activo ? 'Desactivar' : 'Reactivar'}
-                            </button>
-                        )}
-                        <ButtonLink href={`/admin/almacen/etiquetas?articulo=${articulo.id}`} variant="primary">
+                        <ButtonLink href={`/admin/almacen/etiquetas?articulo=${articulo.id}`} variant="outline">
                             <TagIcon className="size-4" />
                             Imprimir etiquetas
+                        </ButtonLink>
+                        {/* Principal porque es la puerta a todo lo que se corrige del
+                            artículo, desactivarlo incluido: eso vive en la edición. */}
+                        <ButtonLink href={`/admin/almacen/articulos/${articulo.id}/edit`} variant="primary">
+                            <PencilIcon className="size-4" />
+                            Editar
                         </ButtonLink>
                     </div>
                 </div>
@@ -144,11 +128,6 @@ export default function ArticuloShow({ articulo, existencias, precios, ubicacion
                 {flash?.success && (
                     <div className="alert alert-success mb-4">
                         <span>{flash.success}</span>
-                    </div>
-                )}
-                {errors?.activo && (
-                    <div className="alert alert-error mb-4">
-                        <span>{errors.activo}</span>
                     </div>
                 )}
 
