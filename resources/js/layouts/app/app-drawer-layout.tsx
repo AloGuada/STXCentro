@@ -240,23 +240,6 @@ const navGroups: NavGroup[] = [
                 permission: 'qal.reportes.ver',
             },
             {
-                // La base en crudo de lo que se captura en Formularios: aqui se
-                // consulta y se audita, alla se llena. Mismo permiso por ahora.
-                title: 'Registros',
-                href: '/admin/calidad/registros',
-                icon: Table2,
-                permission: 'qal.reportes.ver',
-            },
-            {
-                // Lo que produccion programo contra lo que calidad vio. Se llama
-                // avance y no produccion para no confundirlo con el modulo prod_,
-                // que es otra cosa: aqui la unidad es la pieza inspeccionada.
-                title: 'Avance de produccion',
-                href: '/admin/calidad/avance',
-                icon: GitCompareArrows,
-                permission: 'qal.reportes.ver',
-            },
-            {
                 // Pruebas no destructivas: juntas soldadas evaluadas por un
                 // laboratorio externo. No se suman con las piezas que el
                 // inspector revisa a la vista, por eso es entrada aparte.
@@ -266,13 +249,12 @@ const navGroups: NavGroup[] = [
                 permission: 'qal.pnd.ver',
             },
             {
-                // Lo que falla durante el montaje, en obra. Circuito aparte del
-                // taller: aqui el denominador son las piezas ya montadas, no
-                // las inspeccionadas en planta.
-                title: 'Incidencias en obra',
-                href: '/admin/calidad/incidencias',
-                icon: TriangleAlert,
-                permission: 'qal.incidencias.ver',
+                // La base en crudo de lo que se captura en Formularios: aqui se
+                // consulta y se audita, alla se llena. Mismo permiso por ahora.
+                title: 'Registros',
+                href: '/admin/calidad/registros',
+                icon: Table2,
+                permission: 'qal.reportes.ver',
             },
             {
                 // El F-STX-CA-31 que se manda a direccion. Es un documento con
@@ -289,6 +271,24 @@ const navGroups: NavGroup[] = [
                 // Las nueve listas viven en una sola pantalla, y cada pestaña
                 // se esconde sola segun los permisos del usuario.
                 permissionModulo: 'qal',
+            },
+            {
+                // Lo que produccion programo contra lo que calidad vio. Se llama
+                // avance y no produccion para no confundirlo con el modulo prod_,
+                // que es otra cosa: aqui la unidad es la pieza inspeccionada.
+                title: 'Avance de produccion',
+                href: '/admin/calidad/avance',
+                icon: GitCompareArrows,
+                permission: 'qal.reportes.ver',
+            },
+            {
+                // Lo que falla durante el montaje, en obra. Circuito aparte del
+                // taller: aqui el denominador son las piezas ya montadas, no
+                // las inspeccionadas en planta.
+                title: 'Incidencias en obra',
+                href: '/admin/calidad/incidencias',
+                icon: TriangleAlert,
+                permission: 'qal.incidencias.ver',
             },
         ],
     },
