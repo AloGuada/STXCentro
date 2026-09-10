@@ -811,6 +811,12 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::get('registros', [QalVistasController::class, 'registros'])
             ->middleware('permission:qal.reportes.ver')
             ->name('registros.index');
+        // Producción contra calidad, semana a semana. Cuelga del mismo permiso
+        // que la captura porque lo que compara es justo lo que se inspecciona;
+        // cuando pueda guardar el plan va a pedir qal.programacion.capturar.
+        Route::get('avance', [QalVistasController::class, 'avance'])
+            ->middleware('permission:qal.reportes.ver')
+            ->name('avance');
 
         // Pruebas no destructivas. Es recurso aparte de reportes: aqui se
         // cuentan juntas soldadas evaluadas por un laboratorio externo, alla

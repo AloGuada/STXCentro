@@ -52,6 +52,22 @@ class VistasController extends Controller
     }
 
     /**
+     * Avance de producción: el `Produccion_Steelex.html` de la aplicación
+     * anterior.
+     *
+     * El control semanal de lo que producción programó contra lo que calidad
+     * inspeccionó. Se escribe la lista de marcas de la semana y el resto se
+     * deduce; la unidad es la pieza, no la cantidad.
+     *
+     * Tampoco recibe nada todavía: le faltan `qal_inspecciones` y
+     * `qal_programaciones`, así que el plan no se puede guardar.
+     */
+    public function avance(): Response
+    {
+        return Inertia::render('admin/calidad/avance/index');
+    }
+
+    /**
      * Tablero de Calidad: el `Dashboard_Calidad_Steelex.html` de la aplicación
      * anterior, reestructurado en una sola página.
      *

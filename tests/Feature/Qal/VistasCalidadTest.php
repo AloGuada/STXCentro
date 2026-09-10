@@ -11,6 +11,7 @@ use Spatie\Permission\Models\Permission;
 $pantallas = [
     'reportes' => ['admin.qal.reportes.index', 'admin/calidad/reportes/index', 'qal.reportes.ver'],
     'registros' => ['admin.qal.registros.index', 'admin/calidad/registros/index', 'qal.reportes.ver'],
+    'avance' => ['admin.qal.avance', 'admin/calidad/avance/index', 'qal.reportes.ver'],
     'tablero' => ['admin.qal.dashboard', 'admin/calidad/dashboard/index', 'qal.dashboard.ver'],
 ];
 
