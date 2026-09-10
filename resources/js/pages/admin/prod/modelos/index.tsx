@@ -1,16 +1,16 @@
 /**
- * Modelos 3D — el IFC de cada obra convertido en marcas con sus cordones.
+ * Modelo 3D de la obra — las versiones de su IFC convertidas en marcas con sus
+ * cordones.
  *
- * El IFC se sube normalmente desde el catálogo de Producción de la obra; aquí
- * también, para quien vive en Calidad. Cada archivo es una versión nueva y la
- * conversión tarda minutos: la pantalla se refresca sola mientras haya alguna
- * en cola o procesando.
+ * Es una opción del catálogo de Producción de cada obra: aquí se sube el IFC y
+ * se ve cómo quedó cada versión. La conversión tarda minutos, así que la
+ * pantalla se refresca sola mientras haya alguna en cola o procesando. Sobre
+ * los cordones de la versión reporta Calidad cada junta.
  */
 
 import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
 import { UploadIcon } from 'lucide-react';
 import { useEffect, type FormEvent } from 'react';
-import { Select, SelectItem } from '@/components/ui/select';
 import { useCan } from '@/hooks/use-can';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem, SharedData } from '@/types';
@@ -38,20 +38,36 @@ export type ModeloResumen = {
     subido_at: string | null;
 };
 
+/** El catálogo de la obra, para volver a él. */
+export type CatalogoDelModelo = {
+    id: number;
+    nombre: string;
+    version: number;
+    obra_id: number;
+    obra: string | null;
+};
+
 type Props = {
-    obras: { id: number; no: string | null; descripcion: string | null }[];
-    obraId: number | null;
+    catalogo: CatalogoDelModelo;
     modelos: ModeloResumen[];
 };
 
-const breadcrumbs: BreadcrumbItem[] = [
-    { title: 'Dashboard', href: '/dashboard' },
-    { title: 'Calidad', href: '/admin/calidad/catalogos' },
-    { title: 'Modelos 3D', href: '/admin/calidad/modelos' },
-];
-
 /** Cada cuánto se pregunta mientras algo se convierte. */
 const REFRESCO_MS = 10000;
+
+export function migasDelModelo(catalogo: CatalogoDelModelo | null): BreadcrumbItem[] {
+    return [
+        { title: 'Dashboard', href: '/dashboard' },
+        { title: 'Produccion', href: '/admin/prod/destajos' },
+        { title: 'Catalogos', href: '/admin/prod/catalogos' },
+        ...(catalogo
+            ? [
+                  { title: `${catalogo.nombre} v${catalogo.version}`, href: `/admin/prod/catalogos/${catalogo.id}` },
+                  { title: 'Modelo 3D', href: `/admin/prod/catalogos/${catalogo.id}/modelos` },
+              ]
+            : []),
+    ];
+}
 
 export function PastillaModelo({ modelo }: { modelo: Pick<ModeloResumen, 'estatus' | 'estatus_etiqueta' | 'resumen'> }) {
     const tono =
@@ -66,10 +82,10 @@ export function PastillaModelo({ modelo }: { modelo: Pick<ModeloResumen, 'estatu
     );
 }
 
-export default function ModelosIndex({ obras, obraId, modelos }: Props) {
+export default function ModelosDeLaObra({ catalogo, modelos }: Props) {
     const { can } = useCan();
     const { props } = usePage<SharedData & { flash?: { success?: string | null } }>();
-    const formulario = useForm<{ obra_id: string; archivo: File | null }>({ obra_id: obraId ? String(obraId) : '', archivo: null });
+    const formulario = useForm<{ obra_id: number; archivo: File | null }>({ obra_id: catalogo.obra_id, archivo: null });
     const enCurso = modelos.some((modelo) => modelo.estatus === 'pendiente' || modelo.estatus === 'procesando');
 
     useEffect(() => {
@@ -82,7 +98,7 @@ export default function ModelosIndex({ obras, obraId, modelos }: Props) {
 
     const subir = (evento: FormEvent) => {
         evento.preventDefault();
-        formulario.post('/admin/calidad/modelos', {
+        formulario.post('/admin/prod/modelos', {
             forceFormData: true,
             preserveScroll: true,
             onSuccess: () => formulario.reset('archivo'),
@@ -90,50 +106,23 @@ export default function ModelosIndex({ obras, obraId, modelos }: Props) {
     };
 
     return (
-        <AppLayout breadcrumbs={breadcrumbs}>
-            <Head title="Calidad — Modelos 3D" />
+        <AppLayout breadcrumbs={migasDelModelo(catalogo)}>
+            <Head title={`Modelo 3D — ${catalogo.nombre}`} />
 
             <div className="space-y-4 p-6">
-                <div className="flex flex-wrap items-end justify-between gap-3">
-                    <div>
-                        <h1 className="text-2xl font-semibold">Modelos 3D</h1>
-                        <p className="text-base-content/60 text-sm">
-                            El IFC de cada obra convertido en marcas con sus cordones de soldadura. Sobre ellos se
-                            reporta cada junta en la captura de soldado.
-                        </p>
-                    </div>
-                    <label className="flex flex-col gap-1">
-                        <span className="text-base-content/60 text-xs font-medium">Obra</span>
-                        <Select
-                            value={obraId ? String(obraId) : ''}
-                            onValueChange={(valor) => router.get('/admin/calidad/modelos', valor ? { obra: valor } : {}, { replace: true })}
-                            className="select-sm w-64"
-                        >
-                            <SelectItem value="">Todas</SelectItem>
-                            {obras.map((obra) => (
-                                <SelectItem key={obra.id} value={String(obra.id)}>
-                                    {[obra.no, obra.descripcion].filter(Boolean).join(' — ')}
-                                </SelectItem>
-                            ))}
-                        </Select>
-                    </label>
+                <div>
+                    <h1 className="text-2xl font-semibold">Modelo 3D</h1>
+                    <p className="text-base-content/60 text-sm">
+                        {catalogo.obra ? `Obra ${catalogo.obra}. ` : ''}El IFC de la obra convertido en marcas con sus
+                        cordones de soldadura; sobre ellos Calidad reporta cada junta. Cada IFC que se sube es una versión
+                        nueva y la anterior se conserva.
+                    </p>
                 </div>
 
                 {props.flash?.success && <div className="alert alert-success text-sm">{props.flash.success}</div>}
 
                 {can('qal.modelos.crear') && (
                     <form onSubmit={subir} className="border-base-300 bg-base-100 flex flex-wrap items-end gap-3 rounded-xl border p-4">
-                        <label className="flex flex-col gap-1">
-                            <span className="text-base-content/60 text-xs font-medium">Obra del modelo</span>
-                            <Select value={formulario.data.obra_id} onValueChange={(valor) => formulario.setData('obra_id', valor)} className="select-sm w-64">
-                                <SelectItem value="">—</SelectItem>
-                                {obras.map((obra) => (
-                                    <SelectItem key={obra.id} value={String(obra.id)}>
-                                        {[obra.no, obra.descripcion].filter(Boolean).join(' — ')}
-                                    </SelectItem>
-                                ))}
-                            </Select>
-                        </label>
                         <label className="flex flex-col gap-1">
                             <span className="text-base-content/60 text-xs font-medium">Archivo IFC</span>
                             <input
@@ -143,11 +132,7 @@ export default function ModelosIndex({ obras, obraId, modelos }: Props) {
                                 className="file-input file-input-bordered file-input-sm w-72"
                             />
                         </label>
-                        <button
-                            type="submit"
-                            disabled={formulario.processing || !formulario.data.archivo || !formulario.data.obra_id}
-                            className="btn btn-sm btn-primary"
-                        >
+                        <button type="submit" disabled={formulario.processing || !formulario.data.archivo} className="btn btn-sm btn-primary">
                             <UploadIcon className="size-4" />
                             {formulario.processing ? 'Subiendo…' : 'Añadir IFC'}
                         </button>
@@ -159,15 +144,13 @@ export default function ModelosIndex({ obras, obraId, modelos }: Props) {
 
                 {modelos.length === 0 ? (
                     <div className="border-base-300 bg-base-100 text-base-content/60 rounded-xl border p-10 text-center">
-                        Todavía no hay modelos{obraId ? ' de esta obra' : ''}. El IFC se sube desde el catálogo de
-                        Producción de la obra.
+                        Todavía no hay modelo de esta obra. Sube el IFC exportado de Tekla.
                     </div>
                 ) : (
                     <div className="border-base-300 bg-base-100 overflow-x-auto rounded-xl border">
                         <table className="table-sm table w-full whitespace-nowrap">
                             <thead>
                                 <tr className="bg-base-200 text-xs">
-                                    <th>Obra</th>
                                     <th>Versión</th>
                                     <th>Archivo</th>
                                     <th>Estatus</th>
@@ -180,7 +163,6 @@ export default function ModelosIndex({ obras, obraId, modelos }: Props) {
                             <tbody>
                                 {modelos.map((modelo) => (
                                     <tr key={modelo.id} className="hover:bg-base-200/50">
-                                        <td className="text-sm">{modelo.obra}</td>
                                         <td className="font-mono">v{modelo.version}</td>
                                         <td className="text-sm">{modelo.nombre_original}</td>
                                         <td>
@@ -191,7 +173,7 @@ export default function ModelosIndex({ obras, obraId, modelos }: Props) {
                                         <td className="font-mono">{modelo.resumen?.cordones ?? '—'}</td>
                                         <td className="font-mono text-sm">{modelo.subido_at?.slice(0, 16)}</td>
                                         <td className="text-right">
-                                            <Link href={`/admin/calidad/modelos/${modelo.id}`} className="btn btn-xs btn-ghost">
+                                            <Link href={`/admin/prod/modelos/${modelo.id}`} className="btn btn-xs btn-ghost">
                                                 Ver
                                             </Link>
                                         </td>

@@ -4,6 +4,7 @@ use App\Enums\Qal\EstatusModelo;
 use App\Jobs\Qal\ProcesarModeloIfc;
 use App\Models\Concepto;
 use App\Models\Obra;
+use App\Models\Prod\Catalogo;
 use App\Models\Qal\Junta;
 use App\Models\Qal\Modelo;
 use App\Models\Qal\ModeloCordon;
@@ -13,6 +14,7 @@ use App\Services\Qal\Ifc\ImportadorDeModelo;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
+use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Storage;
 use Spatie\Permission\Models\Permission;
 
@@ -97,7 +99,7 @@ test('subir el ifc crea la version siguiente y la manda a la cola ifc', function
 
     foreach (range(1, 2) as $vuelta) {
         $this->actingAs($usuario)
-            ->post(route('admin.qal.modelos.store'), ['obra_id' => $obra->id, 'archivo' => UploadedFile::fake()->create('NAVE.ifc', 500)])
+            ->post(route('admin.prod.modelos.store'), ['obra_id' => $obra->id, 'archivo' => UploadedFile::fake()->create('NAVE.ifc', 500)])
             ->assertSessionHasNoErrors();
     }
 
@@ -111,11 +113,11 @@ test('lo que no es ifc no se sube, y ver no alcanza para subir', function () {
     $obra = Obra::factory()->create();
 
     $this->actingAs(usuarioDeModelos())
-        ->post(route('admin.qal.modelos.store'), ['obra_id' => $obra->id, 'archivo' => UploadedFile::fake()->create('planos.pdf', 50)])
+        ->post(route('admin.prod.modelos.store'), ['obra_id' => $obra->id, 'archivo' => UploadedFile::fake()->create('planos.pdf', 50)])
         ->assertSessionHasErrors('archivo');
 
     $this->actingAs(usuarioDeModelos(['qal.modelos.ver']))
-        ->post(route('admin.qal.modelos.store'), ['obra_id' => $obra->id, 'archivo' => UploadedFile::fake()->create('NAVE.ifc', 50)])
+        ->post(route('admin.prod.modelos.store'), ['obra_id' => $obra->id, 'archivo' => UploadedFile::fake()->create('NAVE.ifc', 50)])
         ->assertForbidden();
 
     expect(Modelo::count())->toBe(0);
@@ -177,7 +179,7 @@ test('reprocesar crea una version nueva y conserva la anterior con sus cordones'
     ModeloCordon::factory()->for(ModeloMarca::factory()->for($modelo, 'modelo'), 'marca')->create();
 
     $this->actingAs(usuarioDeModelos())
-        ->post(route('admin.qal.modelos.reprocesar', $modelo))
+        ->post(route('admin.prod.modelos.reprocesar', $modelo))
         ->assertRedirect();
 
     $nueva = Modelo::query()->latest('id')->first();
@@ -195,14 +197,14 @@ test('un modelo con juntas capturadas sobre sus cordones no se borra', function 
     $usuario = usuarioDeModelos(['qal.modelos.eliminar']);
 
     $this->actingAs($usuario)
-        ->delete(route('admin.qal.modelos.destroy', $cordon->marca->modelo))
+        ->delete(route('admin.prod.modelos.destroy', $cordon->marca->modelo))
         ->assertSessionHasErrors('modelo');
 
     $libre = ModeloCordon::factory()->create()->marca->modelo;
     Storage::disk('public')->put("qal/modelos/{$libre->id}/marks/X.glb", 'glTF');
 
     $this->actingAs($usuario)
-        ->delete(route('admin.qal.modelos.destroy', $libre))
+        ->delete(route('admin.prod.modelos.destroy', $libre))
         ->assertRedirect();
 
     expect(Modelo::query()->pluck('id')->all())->toBe([$cordon->marca->modelo_id]);
@@ -214,29 +216,43 @@ test('las marcas se vuelven a amarrar al catalogo vigente cuando se pide', funct
     Concepto::factory()->create(['obra_id' => $marca->modelo->obra_id, 'marca' => 'SX-TP4-2']);
 
     $this->actingAs(usuarioDeModelos())
-        ->post(route('admin.qal.modelos.resolver-marcas', $marca->modelo))
+        ->post(route('admin.prod.modelos.resolver-marcas', $marca->modelo))
         ->assertRedirect();
 
     expect($marca->fresh()->concepto_id)->not->toBeNull();
 });
 
-test('las pantallas piden ver, y el estado se pregunta en json', function () {
+test('el modelo es una opcion del catalogo de produccion de la obra', function () {
     $modelo = Modelo::factory()->create();
+    Modelo::factory()->create();
+    $catalogo = Catalogo::factory()->create(['obra_id' => $modelo->obra_id]);
     $usuario = usuarioDeModelos(['qal.modelos.ver']);
 
     $this->actingAs($usuario)
-        ->get(route('admin.qal.modelos.index'))
-        ->assertInertia(fn ($page) => $page->component('admin/calidad/modelos/index')->has('modelos', 1));
+        ->get(route('admin.prod.catalogos.modelos', $catalogo))
+        ->assertInertia(fn ($page) => $page
+            ->component('admin/prod/modelos/index')
+            ->where('catalogo.id', $catalogo->id)
+            ->has('modelos', 1));
 
     $this->actingAs($usuario)
-        ->get(route('admin.qal.modelos.show', $modelo))
-        ->assertInertia(fn ($page) => $page->component('admin/calidad/modelos/show')->where('modelo.version', 1));
+        ->get(route('admin.prod.modelos.show', $modelo))
+        ->assertInertia(fn ($page) => $page
+            ->component('admin/prod/modelos/show')
+            ->where('modelo.version', 1)
+            ->where('catalogo.id', $catalogo->id));
 
     $this->actingAs($usuario)
-        ->getJson(route('admin.qal.modelos.estado', $modelo))
+        ->getJson(route('admin.prod.modelos.estado', $modelo))
         ->assertJsonPath('estatus', 'listo');
 
     $this->actingAs(User::factory()->create())
-        ->get(route('admin.qal.modelos.index'))
+        ->get(route('admin.prod.catalogos.modelos', $catalogo))
         ->assertForbidden();
+});
+
+test('calidad ya no tiene pantalla de modelos, solo la marca para el visor', function () {
+    expect(Route::has('admin.qal.modelos.index'))->toBeFalse()
+        ->and(Route::has('admin.qal.modelos.show'))->toBeFalse()
+        ->and(Route::has('admin.qal.modelos.marca'))->toBeTrue();
 });

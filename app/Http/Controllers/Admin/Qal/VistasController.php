@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Admin\Qal;
 
 use App\Http\Controllers\Controller;
+use App\Services\Qal\AvanceDeAccesorios;
+use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -43,12 +45,21 @@ class VistasController extends Controller
      * Tablero de Calidad: el `Dashboard_Calidad_Steelex.html` de la aplicación
      * anterior, reestructurado en una sola página.
      *
-     * Tampoco recibe nada todavía. Sus números salen de un módulo del front
-     * marcado como falso porque las tablas de inspección —de donde tendría que
-     * calcularlos— no existen; se conecta cuando existan.
+     * Casi todo sigue saliendo de un módulo del front marcado como falso. La
+     * excepción es la pestaña Accesorios, que ya lee los lotes de verdad: se
+     * calcula sólo cuando se abre (`?tab=accesorios`) y sólo para quien puede
+     * ver los lotes. La URL la recuerda para que corregir un sublote regrese a
+     * ella.
      */
-    public function dashboard(): Response
+    public function dashboard(Request $request, AvanceDeAccesorios $accesorios): Response
     {
-        return Inertia::render('admin/calidad/dashboard/index');
+        $enAccesorios = $request->string('tab')->value() === 'accesorios';
+
+        return Inertia::render('admin/calidad/dashboard/index', [
+            'tab' => $enAccesorios ? 'accesorios' : null,
+            'accesorios' => $enAccesorios && $request->user()?->can('qal.accesorios.ver')
+                ? $accesorios->tablero($request->integer('obra') ?: null)
+                : null,
+        ]);
     }
 }

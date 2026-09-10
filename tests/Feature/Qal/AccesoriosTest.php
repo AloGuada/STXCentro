@@ -226,18 +226,41 @@ test('el avance cuenta cada sublote una vez y la concesion libera', function () 
     Sublote::factory()->rechazado('Liberado bajo concesión')->create(['lote_id' => $lote->id, 'unidades' => 50]);
     Sublote::factory()->rechazado()->create(['lote_id' => $lote->id, 'unidades' => 30]);
 
-    $this->actingAs(usuarioDeAccesorios(['qal.accesorios.ver']))
-        ->get(route('admin.qal.accesorios.index'))
+    $this->actingAs(usuarioDeAccesorios(['qal.dashboard.ver', 'qal.accesorios.ver']))
+        ->get(route('admin.qal.dashboard', ['tab' => 'accesorios']))
         ->assertOk()
         ->assertInertia(fn ($page) => $page
-            ->component('admin/calidad/accesorios/index')
-            ->where('lotes.0.avance.recibidas', 180)
-            ->where('lotes.0.avance.liberadas', 150)
-            ->where('lotes.0.avance.detenidas', 30)
-            ->where('lotes.0.avance.sublotes', 3)
-            ->where('lotes.0.avance.sin_disposicion', 1)
-            ->has('lotes.0.grupos', 3)
-            ->has('lotes.0.grupos.0', 2));
+            ->component('admin/calidad/dashboard/index')
+            ->where('tab', 'accesorios')
+            ->where('accesorios.lotes.0.avance.recibidas', 180)
+            ->where('accesorios.lotes.0.avance.liberadas', 150)
+            ->where('accesorios.lotes.0.avance.detenidas', 30)
+            ->where('accesorios.lotes.0.avance.sublotes', 3)
+            ->where('accesorios.lotes.0.avance.sin_disposicion', 1)
+            ->has('accesorios.lotes.0.grupos', 3)
+            ->has('accesorios.lotes.0.grupos.0', 2));
+});
+
+test('los lotes son una pestaña del tablero: se llenan al abrirla y solo con permiso', function () {
+    LoteAccesorio::factory()->create();
+
+    $this->actingAs(usuarioDeAccesorios(['qal.dashboard.ver', 'qal.accesorios.ver']))
+        ->get(route('admin.qal.dashboard'))
+        ->assertInertia(fn ($page) => $page->where('tab', null)->where('accesorios', null));
+
+    $this->actingAs(usuarioDeAccesorios(['qal.dashboard.ver']))
+        ->get(route('admin.qal.dashboard', ['tab' => 'accesorios']))
+        ->assertInertia(fn ($page) => $page->where('accesorios', null));
+});
+
+test('corregir un sublote regresa a la pestaña de accesorios de su obra', function () {
+    $sublote = Sublote::factory()->create();
+
+    $this->actingAs(usuarioDeAccesorios(['qal.accesorios.editar']))
+        ->put(route('admin.qal.accesorios.sublotes.update', $sublote), entregaValida($sublote->lote->obra, [
+            'marca' => $sublote->lote->marca,
+        ]))
+        ->assertRedirect(route('admin.qal.dashboard', ['tab' => 'accesorios', 'obra' => $sublote->lote->obra_id]));
 });
 
 test('reinspeccionar abre la captura en modo lote con el muestreo en blanco', function () {

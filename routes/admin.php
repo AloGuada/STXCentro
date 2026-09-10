@@ -123,6 +123,7 @@ use App\Http\Controllers\Admin\Prod\DestajoController as ProdDestajoController;
 use App\Http\Controllers\Admin\Prod\GrupoPrecioConceptoController as ProdGrupoPrecioConceptoController;
 use App\Http\Controllers\Admin\Prod\GrupoPrecioController as ProdGrupoPrecioController;
 use App\Http\Controllers\Admin\Prod\GrupoTrabajoController as ProdGrupoTrabajoController;
+use App\Http\Controllers\Admin\Prod\ModeloController as ProdModeloController;
 use App\Http\Controllers\Admin\Prod\ObraProcesoController as ProdObraProcesoController;
 use App\Http\Controllers\Admin\Prod\PagoExtraController as ProdPagoExtraController;
 use App\Http\Controllers\Admin\Prod\ProcesoController as ProdProcesoController;
@@ -137,7 +138,7 @@ use App\Http\Controllers\Admin\Qal\EquipoController as QalEquipoController;
 use App\Http\Controllers\Admin\Qal\IncidenciasController as QalIncidenciasController;
 use App\Http\Controllers\Admin\Qal\InspeccionController as QalInspeccionController;
 use App\Http\Controllers\Admin\Qal\LaboratorioController as QalLaboratorioController;
-use App\Http\Controllers\Admin\Qal\ModeloController as QalModeloController;
+use App\Http\Controllers\Admin\Qal\ModeloMarcaController as QalModeloMarcaController;
 use App\Http\Controllers\Admin\Qal\OperadorController as QalOperadorController;
 use App\Http\Controllers\Admin\Qal\PiezaController as QalPiezaController;
 use App\Http\Controllers\Admin\Qal\PndController as QalPndController;
@@ -202,6 +203,35 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::post('catalogos/{catalogo}/nueva-version', [ProdCatalogoController::class, 'nuevaVersion'])->name('catalogos.nueva-version');
         Route::get('catalogos/{catalogo}/comparar/{contra}', [ProdCatalogoController::class, 'comparar'])->name('catalogos.comparar');
         Route::post('catalogos/{catalogo}/import-csv', [ProdConceptoController::class, 'importCsv'])->name('catalogos.import-csv');
+
+        // El modelo 3D de la obra: su IFC convertido en marcas con sus
+        // cordones. Es una opcion del catalogo porque aqui esta quien tiene el
+        // IFC; Calidad reporta las juntas sobre esos cordones.
+        Route::get('catalogos/{catalogo}/modelos', [ProdModeloController::class, 'index'])
+            ->middleware('permission:qal.modelos.ver')
+            ->name('catalogos.modelos');
+        Route::prefix('modelos')->name('modelos.')->group(function () {
+            Route::post('/', [ProdModeloController::class, 'store'])
+                ->middleware('permission:qal.modelos.crear')
+                ->name('store');
+            Route::middleware('permission:qal.modelos.ver')->group(function () {
+                Route::get('{modelo}', [ProdModeloController::class, 'show'])
+                    ->whereNumber('modelo')
+                    ->name('show');
+                Route::get('{modelo}/estado', [ProdModeloController::class, 'estado'])
+                    ->whereNumber('modelo')
+                    ->name('estado');
+            });
+            Route::middleware('permission:qal.modelos.crear')->group(function () {
+                Route::post('{modelo}/reprocesar', [ProdModeloController::class, 'reprocesar'])
+                    ->name('reprocesar');
+                Route::post('{modelo}/resolver-marcas', [ProdModeloController::class, 'resolverMarcas'])
+                    ->name('resolver-marcas');
+            });
+            Route::delete('{modelo}', [ProdModeloController::class, 'destroy'])
+                ->middleware('permission:qal.modelos.eliminar')
+                ->name('destroy');
+        });
         Route::resource('catalogos', ProdCatalogoController::class)
             ->parameters(['catalogos' => 'catalogo'])
             ->except(['create', 'edit']);
@@ -1153,12 +1183,9 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
             ->name('inspecciones.destroy');
 
         // Lotes de accesorios: la entrega se captura en Formularios (modo
-        // lote); aquí se consulta el avance de cada marca y se decide qué
-        // hacer con lo detenido.
+        // lote) y el avance de cada marca se consulta en la pestaña
+        // Accesorios del tablero; aquí sólo se escribe.
         Route::prefix('accesorios')->name('accesorios.')->group(function () {
-            Route::get('/', [QalAccesorioController::class, 'index'])
-                ->middleware('permission:qal.accesorios.ver')
-                ->name('index');
             Route::middleware('permission:qal.accesorios.crear')->group(function () {
                 Route::post('sublotes', [QalAccesorioController::class, 'store'])
                     ->name('sublotes.store');
@@ -1178,37 +1205,12 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
                 ->name('sublotes.destroy');
         });
 
-        // Modelos 3D: el IFC de la obra convertido en marcas con sus cordones.
-        // La marca la pide también la captura de soldado para montar el visor,
-        // así que capturar alcanza para leerla.
-        Route::prefix('modelos')->name('modelos.')->group(function () {
-            Route::get('/', [QalModeloController::class, 'index'])
-                ->middleware('permission:qal.modelos.ver')
-                ->name('index');
-            Route::post('/', [QalModeloController::class, 'store'])
-                ->middleware('permission:qal.modelos.crear')
-                ->name('store');
-            Route::get('marcas/{modeloMarca}', [QalModeloController::class, 'marca'])
-                ->middleware('permission:qal.modelos.ver|qal.inspecciones.crear')
-                ->name('marca');
-            Route::middleware('permission:qal.modelos.ver')->group(function () {
-                Route::get('{modelo}', [QalModeloController::class, 'show'])
-                    ->whereNumber('modelo')
-                    ->name('show');
-                Route::get('{modelo}/estado', [QalModeloController::class, 'estado'])
-                    ->whereNumber('modelo')
-                    ->name('estado');
-            });
-            Route::middleware('permission:qal.modelos.crear')->group(function () {
-                Route::post('{modelo}/reprocesar', [QalModeloController::class, 'reprocesar'])
-                    ->name('reprocesar');
-                Route::post('{modelo}/resolver-marcas', [QalModeloController::class, 'resolverMarcas'])
-                    ->name('resolver-marcas');
-            });
-            Route::delete('{modelo}', [QalModeloController::class, 'destroy'])
-                ->middleware('permission:qal.modelos.eliminar')
-                ->name('destroy');
-        });
+        // La marca de un modelo 3D con sus cordones, para montar el visor. La
+        // pide la captura de soldado, así que capturar alcanza para leerla; la
+        // pantalla del modelo vive en Producción, junto al catálogo de la obra.
+        Route::get('modelos/marcas/{modeloMarca}', [QalModeloMarcaController::class, 'show'])
+            ->middleware('permission:qal.modelos.ver|qal.inspecciones.crear')
+            ->name('modelos.marca');
 
         // La base en crudo de lo capturado, para auditar: quien la abre ve lo
         // que capturó cualquier inspector. Exportar va aparte (RF-18.3): es

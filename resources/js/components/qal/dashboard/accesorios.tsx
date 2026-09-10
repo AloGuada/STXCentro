@@ -1,12 +1,12 @@
 /**
- * Accesorios — el avance de cada lote.
+ * Accesorios — la pestaña del tablero con el avance de cada lote.
  *
  * Es el panel de lotes que la captura anterior tenía dentro de Registros:
  * cuánto de cada marca llegó, cuánto se liberó y qué está detenido. Aquí se
  * consulta y se decide; cada entrega se captura en Formularios, en modo «lote
- * de accesorios», y los botones de esta pantalla abren esa captura ya llenada.
+ * de accesorios», y los botones de esta pestaña abren esa captura ya llenada.
  *
- * Tres reglas que la pantalla hace visibles porque son criterio:
+ * Tres reglas que la pestaña hace visibles porque son criterio:
  *
  *  - Cada sublote cuenta una vez, con su última inspección. Uno rechazado y
  *    después aceptado es material liberado, no una entrega doble.
@@ -16,13 +16,12 @@
  *    nadie decidió qué hacer con él, y en una lista en blanco no se ve.
  */
 
-import { Head, Link, router, usePage } from '@inertiajs/react';
+import { Link, router, usePage } from '@inertiajs/react';
 import { ChevronDownIcon, ChevronRightIcon, PlusIcon } from 'lucide-react';
 import { useState } from 'react';
 import { Select, SelectItem } from '@/components/ui/select';
 import { useCan } from '@/hooks/use-can';
-import AppLayout from '@/layouts/app-layout';
-import type { BreadcrumbItem, SharedData } from '@/types';
+import type { SharedData } from '@/types';
 
 type InspeccionSublote = {
     id: number;
@@ -64,68 +63,53 @@ type Lote = {
     grupos: InspeccionSublote[][];
 };
 
-type Props = {
+export type DatosAccesorios = {
     obras: { id: number; no: string | null; descripcion: string | null }[];
     obraId: number | null;
     lotes: Lote[];
 };
 
-const breadcrumbs: BreadcrumbItem[] = [
-    { title: 'Dashboard', href: '/dashboard' },
-    { title: 'Calidad', href: '/admin/calidad/catalogos' },
-    { title: 'Accesorios', href: '/admin/calidad/accesorios' },
-];
-
 const numero = (valor: number) => valor.toLocaleString('es-MX');
 
-export default function AccesoriosCalidad({ obras, obraId, lotes }: Props) {
+export function TabAccesorios({ datos, onObra }: { datos: DatosAccesorios; onObra: (obra: string) => void }) {
     const { props } = usePage<SharedData & { flash?: { success?: string | null } }>();
     const error = (props.errors as Record<string, string> | undefined)?.sublote;
     const exito = props.flash?.success;
-
-    const filtrarObra = (valor: string) =>
-        router.get('/admin/calidad/accesorios', valor ? { obra: valor } : {}, { preserveState: true, replace: true });
+    const { obras, obraId, lotes } = datos;
 
     return (
-        <AppLayout breadcrumbs={breadcrumbs}>
-            <Head title="Calidad — Accesorios" />
+        <div className="space-y-4">
+            <div className="flex flex-wrap items-end justify-between gap-3">
+                <p className="text-base-content/60 text-sm">
+                    Cuánto de cada marca llegó, cuánto se liberó y qué está detenido. Cada entrega se captura en
+                    Formularios.
+                </p>
 
-            <div className="space-y-4 p-6">
-                <div className="flex flex-wrap items-end justify-between gap-3">
-                    <div>
-                        <h1 className="text-2xl font-semibold">Accesorios</h1>
-                        <p className="text-base-content/60 text-sm">
-                            Cuánto de cada marca llegó, cuánto se liberó y qué está detenido. Cada entrega se captura en
-                            Formularios.
-                        </p>
-                    </div>
-
-                    <label className="flex flex-col gap-1">
-                        <span className="text-base-content/60 text-xs font-medium">Obra</span>
-                        <Select value={obraId ? String(obraId) : ''} onValueChange={filtrarObra} className="select-sm w-64">
-                            <SelectItem value="">Todas</SelectItem>
-                            {obras.map((obra) => (
-                                <SelectItem key={obra.id} value={String(obra.id)}>
-                                    {[obra.no, obra.descripcion].filter(Boolean).join(' — ')}
-                                </SelectItem>
-                            ))}
-                        </Select>
-                    </label>
-                </div>
-
-                {exito && <div className="alert alert-success text-sm">{exito}</div>}
-                {error && <div className="alert alert-error text-sm">{error}</div>}
-
-                {lotes.length === 0 ? (
-                    <div className="border-base-300 bg-base-100 text-base-content/60 rounded-xl border p-10 text-center">
-                        Todavía no hay lotes de accesorios{obraId ? ' en esta obra' : ''}. El lote nace con su primera
-                        entrega, desde Formularios.
-                    </div>
-                ) : (
-                    lotes.map((lote) => <TarjetaLote key={lote.id} lote={lote} />)
-                )}
+                <label className="flex flex-col gap-1">
+                    <span className="text-base-content/60 text-xs font-medium">Obra</span>
+                    <Select value={obraId ? String(obraId) : ''} onValueChange={onObra} className="select-sm w-64">
+                        <SelectItem value="">Todas</SelectItem>
+                        {obras.map((obra) => (
+                            <SelectItem key={obra.id} value={String(obra.id)}>
+                                {[obra.no, obra.descripcion].filter(Boolean).join(' — ')}
+                            </SelectItem>
+                        ))}
+                    </Select>
+                </label>
             </div>
-        </AppLayout>
+
+            {exito && <div className="alert alert-success text-sm">{exito}</div>}
+            {error && <div className="alert alert-error text-sm">{error}</div>}
+
+            {lotes.length === 0 ? (
+                <div className="border-base-300 bg-base-100 text-base-content/60 rounded-xl border p-10 text-center">
+                    Todavía no hay lotes de accesorios{obraId ? ' en esta obra' : ''}. El lote nace con su primera
+                    entrega, desde Formularios.
+                </div>
+            ) : (
+                lotes.map((lote) => <TarjetaLote key={lote.id} lote={lote} />)
+            )}
+        </div>
     );
 }
 

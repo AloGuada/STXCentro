@@ -11,7 +11,6 @@ use Spatie\Permission\Models\Permission;
 $pantallas = [
     'formularios' => ['admin.qal.formularios', 'admin/calidad/formularios/index', 'qal.inspecciones.crear'],
     'registros' => ['admin.qal.registros.index', 'admin/calidad/registros/index', 'qal.registros.ver'],
-    'accesorios' => ['admin.qal.accesorios.index', 'admin/calidad/accesorios/index', 'qal.accesorios.ver'],
     'avance' => ['admin.qal.avance', 'admin/calidad/avance/index', 'qal.reportes.ver'],
     'tablero' => ['admin.qal.dashboard', 'admin/calidad/dashboard/index', 'qal.dashboard.ver'],
 ];

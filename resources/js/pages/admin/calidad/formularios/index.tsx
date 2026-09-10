@@ -698,11 +698,11 @@ export default function CapturaCalidad({ obras, obraId, marcas, lotes, catalogos
                                 <Link href="/admin/calidad/registros" className="link">
                                     Registros
                                 </Link>{' '}
-                                y el avance de cada lote de accesorios en{' '}
-                                <Link href="/admin/calidad/accesorios" className="link">
+                                y el avance de cada lote de accesorios en la pestaña{' '}
+                                <Link href="/admin/calidad/dashboard?tab=accesorios" className="link">
                                     Accesorios
-                                </Link>
-                                . Desde ahí se corrige y se reinspecciona.
+                                </Link>{' '}
+                                del Tablero. Desde ahí se corrige y se reinspecciona.
                             </Pista>
                         </Tarjeta>
                     ) : (

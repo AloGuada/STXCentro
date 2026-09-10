@@ -1,6 +1,6 @@
 /**
- * Un modelo 3D: sus marcas y cómo va cada cordón según las juntas que se
- * capturaron encima.
+ * Una versión del modelo 3D: sus marcas y cómo va cada cordón según las juntas
+ * que Calidad capturó encima.
  *
  * Una marca se fabrica muchas veces, así que el modelo es la plantilla: un
  * cordón está con defecto si alguna pieza lo tiene así ahora, correcto si
@@ -15,8 +15,8 @@ import { cargarMarca, type MarcaVisor } from '@/components/qal/juntas3d/tipos';
 import { Visor } from '@/components/qal/juntas3d/visor';
 import { useCan } from '@/hooks/use-can';
 import AppLayout from '@/layouts/app-layout';
-import type { BreadcrumbItem, SharedData } from '@/types';
-import { PastillaModelo, type ModeloResumen } from './index';
+import type { SharedData } from '@/types';
+import { migasDelModelo, PastillaModelo, type CatalogoDelModelo, type ModeloResumen } from './index';
 
 type MarcaFila = {
     id: number;
@@ -30,13 +30,15 @@ type MarcaFila = {
 };
 
 type Props = {
+    /** El catálogo de la obra, para volver a él. Null si la obra ya no tiene. */
+    catalogo: CatalogoDelModelo | null;
     modelo: ModeloResumen;
     marcas: MarcaFila[];
 };
 
 const REFRESCO_MS = 5000;
 
-export default function ModeloShow({ modelo, marcas }: Props) {
+export default function ModeloShow({ catalogo, modelo, marcas }: Props) {
     const { can } = useCan();
     const { props } = usePage<SharedData & { flash?: { success?: string | null } }>();
     const error = (props.errors as Record<string, string> | undefined)?.modelo;
@@ -77,22 +79,17 @@ export default function ModeloShow({ modelo, marcas }: Props) {
     const confirmar = (mensaje: string, accion: () => void) => window.confirm(mensaje) && accion();
     const cordon = marca?.cordones.find((c) => c.id === cordonSel) ?? null;
 
-    const breadcrumbs: BreadcrumbItem[] = [
-        { title: 'Dashboard', href: '/dashboard' },
-        { title: 'Calidad', href: '/admin/calidad/catalogos' },
-        { title: 'Modelos 3D', href: '/admin/calidad/modelos' },
-        { title: `v${modelo.version}`, href: `/admin/calidad/modelos/${modelo.id}` },
-    ];
+    const breadcrumbs = [...migasDelModelo(catalogo), { title: `v${modelo.version}`, href: `/admin/prod/modelos/${modelo.id}` }];
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
-            <Head title={`Calidad — Modelo v${modelo.version}`} />
+            <Head title={`Modelo 3D v${modelo.version}`} />
 
             <div className="space-y-4 p-6">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
                         <h1 className="flex flex-wrap items-center gap-2 text-2xl font-semibold">
-                            Modelo v{modelo.version}
+                            Modelo 3D v{modelo.version}
                             <PastillaModelo modelo={modelo} />
                         </h1>
                         <p className="text-base-content/60 text-sm">
@@ -111,7 +108,7 @@ export default function ModeloShow({ modelo, marcas }: Props) {
                     </div>
                     <div className="flex flex-wrap gap-2">
                         {can('qal.modelos.crear') && modelo.estatus === 'listo' && (
-                            <button type="button" className="btn btn-sm btn-outline" onClick={() => router.post(`/admin/calidad/modelos/${modelo.id}/resolver-marcas`, {}, { preserveScroll: true })}>
+                            <button type="button" className="btn btn-sm btn-outline" onClick={() => router.post(`/admin/prod/modelos/${modelo.id}/resolver-marcas`, {}, { preserveScroll: true })}>
                                 Amarrar marcas al catálogo
                             </button>
                         )}
@@ -121,7 +118,7 @@ export default function ModeloShow({ modelo, marcas }: Props) {
                                 className="btn btn-sm btn-outline"
                                 onClick={() =>
                                     confirmar(`¿Convertir otra vez el mismo IFC como versión ${modelo.version + 1}? Esta versión se conserva.`, () =>
-                                        router.post(`/admin/calidad/modelos/${modelo.id}/reprocesar`),
+                                        router.post(`/admin/prod/modelos/${modelo.id}/reprocesar`),
                                     )
                                 }
                             >
@@ -132,7 +129,7 @@ export default function ModeloShow({ modelo, marcas }: Props) {
                             <button
                                 type="button"
                                 className="btn btn-sm btn-ghost text-error"
-                                onClick={() => confirmar(`¿Borrar el modelo v${modelo.version} con sus archivos?`, () => router.delete(`/admin/calidad/modelos/${modelo.id}`))}
+                                onClick={() => confirmar(`¿Borrar el modelo v${modelo.version} con sus archivos?`, () => router.delete(`/admin/prod/modelos/${modelo.id}`))}
                             >
                                 Borrar
                             </button>

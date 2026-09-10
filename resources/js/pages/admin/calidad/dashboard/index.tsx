@@ -10,7 +10,8 @@
  *                       →  tabs: Operación · Estadística · Diagnóstico
  *
  * PND ya es pantalla propia en el mono (`/admin/calidad/pnd`), así que no se
- * duplica aquí.
+ * duplica aquí. Accesorios sí vive aquí, como cuarta pestaña: es la única que
+ * ya lee datos de verdad, y se pide al servidor al abrirla (`?tab=accesorios`).
  *
  * «Resultado final por obra» bajó del resumen ejecutivo a Operación: es una
  * respuesta a *dónde* falla, no uno de los números con los que se abre.
@@ -20,8 +21,9 @@
  * filtros son controles de verdad pero **aún no recalculan**.
  */
 
-import { Head } from '@inertiajs/react';
+import { Head, router } from '@inertiajs/react';
 import { useState } from 'react';
+import { TabAccesorios, type DatosAccesorios } from '@/components/qal/dashboard/accesorios';
 import {
     ALERTAS,
     COBERTURA_BASE,
@@ -56,6 +58,7 @@ import {
     type Tab,
 } from '@/components/qal/dashboard/ui';
 import { BarrasRanking, BarrasSimples, Pareto, ResultadoPorObra, TendenciaLinea } from '@/components/qal/graficas';
+import { useCan } from '@/hooks/use-can';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 
@@ -65,7 +68,7 @@ const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Tablero', href: '/admin/calidad/dashboard' },
 ];
 
-type TabTablero = 'op' | 'est' | 'diag';
+type TabTablero = 'op' | 'est' | 'diag' | 'acc';
 
 const TABS: Tab<TabTablero>[] = [
     { valor: 'op', titulo: '🏭 Operación', nota: 'dónde falla' },
@@ -73,9 +76,38 @@ const TABS: Tab<TabTablero>[] = [
     { valor: 'diag', titulo: '🔎 Diagnóstico', nota: '¿el dato sirve?' },
 ];
 
-export default function TableroCalidad() {
+const TAB_ACCESORIOS: Tab<TabTablero> = { valor: 'acc', titulo: '📦 Accesorios', nota: '¿cuánto se liberó?' };
+
+type Props = {
+    /** La pestaña que pidió la URL; sólo Accesorios se recuerda. */
+    tab: 'accesorios' | null;
+    /** Los lotes, sólo con la pestaña Accesorios abierta y con permiso de verlos. */
+    accesorios: DatosAccesorios | null;
+};
+
+export default function TableroCalidad({ tab: tabDeLaUrl, accesorios }: Props) {
+    const { can } = useCan();
     const [filtros, setFiltros] = useState<FiltrosTablero>(FILTROS_VACIOS);
-    const [tab, setTab] = useState<TabTablero>('op');
+    const [tab, setTab] = useState<TabTablero>(tabDeLaUrl === 'accesorios' ? 'acc' : 'op');
+    const tabs = can('qal.accesorios.ver') ? [...TABS, TAB_ACCESORIOS] : TABS;
+
+    /**
+     * Accesorios es la única pestaña con datos del servidor: se piden al
+     * abrirla, y la URL la recuerda para que volver de corregir un sublote
+     * caiga en ella.
+     */
+    const visitar = (params: Record<string, string>) =>
+        router.get('/admin/calidad/dashboard', params, {
+            preserveState: true,
+            preserveScroll: true,
+            replace: true,
+            only: ['tab', 'accesorios'],
+        });
+
+    const cambiarTab = (valor: TabTablero) => {
+        setTab(valor);
+        visitar(valor === 'acc' ? { tab: 'accesorios' } : {});
+    };
 
     const [periodo, setPeriodo] = useState<'week' | 'month'>('week');
     const [dimension, setDimension] = useState<DimensionRechazo>('obra');
@@ -174,7 +206,7 @@ export default function TableroCalidad() {
                     TRES LECTORES, TRES TABS: quien pregunta dónde falla, quien
                     pregunta si eso es real, y quien revisa si el formulario sirve.
                     --------------------------------------------------------------- */}
-                <Tabs value={tab} onChange={setTab} tabs={TABS} />
+                <Tabs value={tab} onChange={cambiarTab} tabs={tabs} />
 
                 {tab === 'op' && (
                     <Rejilla2>
@@ -323,6 +355,16 @@ export default function TableroCalidad() {
                 {tab === 'est' && <TabEstadistica />}
 
                 {tab === 'diag' && <TabDiagnostico />}
+
+                {tab === 'acc' &&
+                    (accesorios ? (
+                        <TabAccesorios
+                            datos={accesorios}
+                            onObra={(obra) => visitar(obra ? { tab: 'accesorios', obra } : { tab: 'accesorios' })}
+                        />
+                    ) : (
+                        <div className="skeleton h-40 w-full" />
+                    ))}
             </div>
         </AppLayout>
     );

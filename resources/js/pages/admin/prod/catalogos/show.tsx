@@ -1,5 +1,6 @@
 import { Head, Link, router, useForm } from '@inertiajs/react';
 import {
+    BoxIcon,
     ChevronDownIcon,
     ChevronLeftIcon,
     ChevronRightIcon,
@@ -82,7 +83,7 @@ export default function CatalogoShow({
         e.preventDefault();
         if (!ifcForm.data.archivo) return;
 
-        ifcForm.post('/admin/calidad/modelos', {
+        ifcForm.post('/admin/prod/modelos', {
             forceFormData: true,
             preserveScroll: true,
             onSuccess: () => ifcForm.reset('archivo'),
@@ -179,6 +180,14 @@ export default function CatalogoShow({
                             >
                                 <GitCompareIcon className="size-4" />
                                 Comparar con v{versionAnterior.version}
+                            </ButtonLink>
+                        )}
+                        {/* El modelo 3D es de la obra, no de una versión del
+                            catálogo: sus versiones van aparte. */}
+                        {can('qal.modelos.ver') && (
+                            <ButtonLink href={`/admin/prod/catalogos/${catalogo.id}/modelos`} variant="outline">
+                                <BoxIcon className="size-4" />
+                                Modelo 3D
                             </ButtonLink>
                         )}
                         {catalogo.vigente && (
@@ -511,8 +520,8 @@ export default function CatalogoShow({
                     <div className="mt-8 space-y-3">
                         <h2 className="text-lg font-semibold">Modelo 3D (IFC)</h2>
                         <p className="text-base-content/60 text-sm">
-                            El IFC de la obra exportado de Tekla. Calidad lo convierte en una marca por archivo con sus
-                            cordones de soldadura, y con eso el inspector reporta cada junta sobre el modelo. Cada IFC
+                            El IFC de la obra exportado de Tekla. Se convierte en una marca por archivo con sus cordones
+                            de soldadura, y sobre ellos el inspector de Calidad reporta cada junta. Cada IFC
                             que se sube es una <strong>versión nueva</strong>: la anterior se conserva con lo que se
                             capturó sobre ella.
                         </p>
@@ -539,8 +548,8 @@ export default function CatalogoShow({
                                 )}
                                 {calidad.modelo.error && <span className="text-error">{calidad.modelo.error}</span>}
                                 {can('qal.modelos.ver') && (
-                                    <Link href={`/admin/calidad/modelos/${calidad.modelo.id}`} className="link ml-auto">
-                                        Ver en Calidad
+                                    <Link href={`/admin/prod/catalogos/${catalogo.id}/modelos`} className="link ml-auto">
+                                        Ver versiones y cordones
                                     </Link>
                                 )}
                             </div>

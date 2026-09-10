@@ -123,8 +123,8 @@ class CatalogoController extends Controller
                 ->orderByDesc('version')
                 ->get(),
             'filters' => $request->only(['search']),
-            // El IFC de la obra se sube aquí, donde está quien lo tiene; lo
-            // convierte y lo usa Calidad (Modelos 3D).
+            // El IFC de la obra se sube aquí, donde está quien lo tiene; sus
+            // versiones se ven en «Modelo 3D» y Calidad reporta juntas encima.
             'calidad' => [
                 'obra_id' => $catalogo->obra_id,
                 'modelo' => Modelo::query()

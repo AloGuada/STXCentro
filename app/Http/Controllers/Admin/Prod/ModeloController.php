@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Controllers\Admin\Qal;
+namespace App\Http\Controllers\Admin\Prod;
 
 use App\Enums\Qal\EstatusModelo;
 use App\Http\Controllers\Controller;
@@ -10,7 +10,6 @@ use App\Models\Prod\Catalogo;
 use App\Models\Qal\Modelo;
 use App\Models\Qal\ModeloCordon;
 use App\Models\Qal\ModeloMarca;
-use App\Models\Qal\Obra;
 use App\Services\Qal\EstadoDeCordones;
 use App\Services\Qal\ResolutorDeMarcas;
 use Illuminate\Http\JsonResponse;
@@ -22,28 +21,27 @@ use Inertia\Inertia;
 use Inertia\Response;
 
 /**
- * Los modelos 3D de las obras: el IFC de Tekla convertido en marcas con sus
+ * El modelo 3D de cada obra: el IFC de Tekla convertido en marcas con sus
  * cordones de soldadura.
  *
- * El IFC se sube desde el catálogo de Producción de la obra, que es donde está
- * quien lo tiene, y la conversión corre en la cola `ifc` contra el servicio
- * aparte. Aquí se ve cómo terminó, qué marcas trae y cómo va cada cordón según
- * las juntas que se capturaron encima.
+ * Es una opción del catálogo de Producción de la obra, porque ahí está quien
+ * tiene el IFC y quien sabe qué marcas lleva. La conversión corre en la cola
+ * `ifc` contra el servicio aparte, y lo que sale es la plantilla sobre la que
+ * Calidad reporta cada junta: aquí se ve cómo terminó cada versión y cómo va
+ * cada cordón.
  */
 class ModeloController extends Controller
 {
-    public function index(Request $request): Response
+    /** Las versiones del modelo de la obra de este catálogo. */
+    public function index(Catalogo $catalogo): Response
     {
-        $obraId = $request->integer('obra') ?: null;
-
-        return Inertia::render('admin/calidad/modelos/index', [
-            'obras' => fn () => Obra::opcionesDeSelector(soloActivas: false),
-            'obraId' => $obraId,
+        return Inertia::render('admin/prod/modelos/index', [
+            'catalogo' => $this->migas($catalogo),
             'modelos' => fn () => Modelo::query()
                 ->with('obra:id,no,descripcion')
                 ->withCount('marcas')
-                ->when($obraId, fn ($consulta) => $consulta->where('obra_id', $obraId))
-                ->orderByDesc('id')
+                ->where('obra_id', $catalogo->obra_id)
+                ->orderByDesc('version')
                 ->get()
                 ->map(fn (Modelo $modelo): array => $this->resumen($modelo)),
         ]);
@@ -61,7 +59,7 @@ class ModeloController extends Controller
         $modelo->update(['archivo_ifc' => $archivo->storeAs($modelo->carpeta(), 'modelo.ifc', 'local')]);
         ProcesarModeloIfc::dispatch($modelo->id);
 
-        return back()->with('success', "Modelo v{$modelo->version} en cola: se convierte en unos minutos y queda en Calidad → Modelos 3D.");
+        return back()->with('success', "Modelo v{$modelo->version} en cola: se convierte en unos minutos.");
     }
 
     public function show(Modelo $modelo, EstadoDeCordones $estados): Response
@@ -72,8 +70,10 @@ class ModeloController extends Controller
         $cordones = ModeloCordon::query()->whereIn('modelo_marca_id', $marcas->pluck('id'))->get(['id', 'modelo_marca_id']);
         $porCordon = $estados->de($cordones->pluck('id')->all());
         $porMarca = $cordones->groupBy('modelo_marca_id');
+        $catalogo = $this->catalogoDe($modelo->obra_id);
 
-        return Inertia::render('admin/calidad/modelos/show', [
+        return Inertia::render('admin/prod/modelos/show', [
+            'catalogo' => $catalogo ? $this->migas($catalogo) : null,
             'modelo' => $this->resumen($modelo),
             'marcas' => $marcas->map(fn (ModeloMarca $marca): array => [
                 'id' => $marca->id,
@@ -95,43 +95,6 @@ class ModeloController extends Controller
     }
 
     /**
-     * Lo que necesita el visor de una marca: dónde está su geometría y sus
-     * cordones, cada uno con cómo va según sus juntas.
-     */
-    public function marca(ModeloMarca $modeloMarca, EstadoDeCordones $estados): JsonResponse
-    {
-        $cordones = $modeloMarca->cordones()->get();
-        $porCordon = $estados->de($cordones->pluck('id')->all());
-
-        return response()->json([
-            'id' => $modeloMarca->id,
-            'modelo_id' => $modeloMarca->modelo_id,
-            'marca' => $modeloMarca->marca,
-            'glb_url' => $modeloMarca->glbUrl(),
-            'ficha_url' => $modeloMarca->fichaUrl(),
-            'cordones' => $cordones->map(fn (ModeloCordon $cordon): array => [
-                'id' => $cordon->id,
-                'numero' => $cordon->numero,
-                'identificador' => $cordon->identificador(),
-                'tipo' => $cordon->tipo->value,
-                'junta' => $cordon->junta,
-                'piezas' => $cordon->piezas,
-                'largo_mm' => $cordon->largo_mm,
-                'angulo' => $cordon->angulo,
-                't1_mm' => $cordon->t1_mm,
-                't2_mm' => $cordon->t2_mm,
-                'cateto_min_mm' => $cordon->cateto_min_mm,
-                'cateto_max_mm' => $cordon->cateto_max_mm,
-                'garganta_min_mm' => $cordon->garganta_min_mm,
-                'preparacion' => $cordon->preparacion,
-                'avisos' => $cordon->avisos ?? [],
-                'puntos' => $cordon->puntos,
-                ...$porCordon[$cordon->id],
-            ])->values(),
-        ]);
-    }
-
-    /**
      * Convierte otra vez el mismo IFC como versión nueva: para cuando cambió el
      * algoritmo de cordones o la conversión falló. La versión anterior no se
      * toca.
@@ -149,7 +112,7 @@ class ModeloController extends Controller
         ProcesarModeloIfc::dispatch($nueva->id);
 
         return redirect()
-            ->route('admin.qal.modelos.show', $nueva)
+            ->route('admin.prod.modelos.show', $nueva)
             ->with('success', "Se reprocesa como v{$nueva->version}; la v{$modelo->version} se conserva con sus cordones.");
     }
 
@@ -177,8 +140,11 @@ class ModeloController extends Controller
         Storage::disk('public')->deleteDirectory($modelo->carpeta());
         $modelo->delete();
 
-        return redirect()
-            ->route('admin.qal.modelos.index', ['obra' => $modelo->obra_id])
+        $catalogo = $this->catalogoDe($modelo->obra_id);
+
+        return ($catalogo
+            ? redirect()->route('admin.prod.catalogos.modelos', $catalogo)
+            : redirect()->route('admin.prod.catalogos.index'))
             ->with('success', "Modelo v{$modelo->version} eliminado.");
     }
 
@@ -193,6 +159,32 @@ class ModeloController extends Controller
             'estatus' => EstatusModelo::Pendiente,
             'capturista_id' => $capturista,
         ]);
+    }
+
+    /** El catálogo al que se regresa: el vigente de la obra, o su última versión. */
+    private function catalogoDe(int $obraId): ?Catalogo
+    {
+        return Catalogo::query()
+            ->where('obra_id', $obraId)
+            ->orderByDesc('vigente')
+            ->orderByDesc('version')
+            ->first();
+    }
+
+    /**
+     * @return array{id: int, nombre: string, version: int, obra_id: int, obra: string|null}
+     */
+    private function migas(Catalogo $catalogo): array
+    {
+        $catalogo->loadMissing('obra:id,no,descripcion');
+
+        return [
+            'id' => $catalogo->id,
+            'nombre' => $catalogo->nombre,
+            'version' => $catalogo->version,
+            'obra_id' => $catalogo->obra_id,
+            'obra' => $catalogo->obra ? trim("{$catalogo->obra->no} — {$catalogo->obra->descripcion}", ' —') : null,
+        ];
     }
 
     /**
