@@ -281,6 +281,10 @@ class RolesAndPermissionsSeeder extends Seeder
             'alm.pedidos.crear',
             'alm.pedidos.aprobar',
             'alm.pedidos.cancelar',
+            // Quien puede firmar como solicitante del pedido: el supervisor a
+            // cuyo nombre queda, y que arrastran la salida, el prestamo y la
+            // transferencia que lo surten
+            'alm.pedidos.supervisar',
             // Recepcion de material
             'alm.entradas.ver',
             'alm.entradas.crear',

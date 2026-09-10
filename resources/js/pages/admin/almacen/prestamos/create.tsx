@@ -82,6 +82,8 @@ type PedidoSurtible = {
     obra_id: number | null;
     grupo_trabajo_id: number | null;
     solicitante_id: string | null;
+    /** El supervisor a cuyo nombre quedó el pedido: responde él por lo prestado. */
+    solicitante: string | null;
     recibe: string | null;
     fecha_requerida: string | null;
     detalles: {
@@ -386,16 +388,24 @@ export default function PrestamoCreate({
                                 label="Quién responde"
                                 htmlFor="responsable_id"
                                 error={form.errors.responsable_id}
-                                description="A esta persona se le reclama todo el vale."
+                                description={
+                                    pedido
+                                        ? 'Lo fija el pedido: responde el supervisor que pidió la herramienta.'
+                                        : 'A esta persona se le reclama todo el vale.'
+                                }
                                 required
                             >
-                                <SearchSelect
-                                    options={usuarios.map((u) => ({ value: u.id, label: u.name }))}
-                                    value={form.data.responsable_id}
-                                    onValueChange={(v) => form.setData('responsable_id', v)}
-                                    placeholder="Escribe un nombre..."
-                                    maxOptions={30}
-                                />
+                                {pedido ? (
+                                    <Input id="responsable_id" value={pedido.solicitante ?? '—'} readOnly />
+                                ) : (
+                                    <SearchSelect
+                                        options={usuarios.map((u) => ({ value: u.id, label: u.name }))}
+                                        value={form.data.responsable_id}
+                                        onValueChange={(v) => form.setData('responsable_id', v)}
+                                        placeholder="Escribe un nombre..."
+                                        maxOptions={30}
+                                    />
+                                )}
                             </FormField>
 
                             <FormField

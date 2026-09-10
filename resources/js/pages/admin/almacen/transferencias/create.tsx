@@ -1,3 +1,6 @@
+import { Head, Link, useForm } from '@inertiajs/react';
+import { InfoIcon, TruckIcon } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { CapturadorPartidas, PARTIDA_VACIA } from '@/components/alm/capturador-partidas';
 import { FormField } from '@/components/form';
 import { Button } from '@/components/ui/button';
@@ -7,9 +10,6 @@ import AppLayout from '@/layouts/app-layout';
 import { etiquetaDeAlmacen } from '@/lib/alm/almacenes';
 import type { BreadcrumbItem } from '@/types';
 import type { AlmAlmacenOpcion, AlmPartidaBorrador, AlmProductoOpcion } from '@/types/models';
-import { Head, Link, useForm } from '@inertiajs/react';
-import { InfoIcon, TruckIcon } from 'lucide-react';
-import { useEffect, useState } from 'react';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
@@ -33,6 +33,8 @@ type PedidoTransferible = {
     almacen_destino_id: number | null;
     obra_id: number | null;
     obra: string | null;
+    /** El supervisor a cuyo nombre quedó el pedido: el envío queda autorizado por él. */
+    solicitante: string | null;
     fecha_requerida: string | null;
     detalles: {
         id: number;
@@ -316,7 +318,8 @@ export default function TransferenciaCreate({ almacenes, pedidosTransferibles, p
                             <InfoIcon className="size-4" />
                             <span>
                                 Se cargó lo que le falta a {pedido.folio} ({pedido.obra}): {pedido.detalles.length}{' '}
-                                renglón(es), se necesitaba el {pedido.fecha_requerida}.
+                                renglón(es), se necesitaba el {pedido.fecha_requerida}. Lo autoriza{' '}
+                                <strong>{pedido.solicitante ?? '—'}</strong>, el supervisor que lo pidió.
                             </span>
                         </div>
                     )}

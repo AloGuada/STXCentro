@@ -111,12 +111,19 @@ class PrestamoController extends Controller
 
         abort_unless($almacen->esVisiblePara($request->user()), 403);
 
+        // Con pedido, responde el supervisor a cuyo nombre quedó el pedido, y
+        // no se cambia aquí: la herramienta se presta a quien la pidió.
+        $pedido = $request->filled('pedido_id') ? Pedido::find($request->integer('pedido_id')) : null;
+
         $prestamo = $this->registrador->prestar(
             almacen: $almacen,
-            cabecera: $request->safe()->only([
-                'pedido_id', 'responsable_id', 'obra_id', 'grupo_trabajo_id', 'fecha_salida',
-                'fecha_retorno_esperada', 'autorizado_por', 'observaciones',
-            ]),
+            cabecera: [
+                ...$request->safe()->only([
+                    'pedido_id', 'responsable_id', 'obra_id', 'grupo_trabajo_id', 'fecha_salida',
+                    'fecha_retorno_esperada', 'autorizado_por', 'observaciones',
+                ]),
+                'responsable_id' => $pedido?->solicitante_id ?? $request->input('responsable_id'),
+            ],
             renglones: $request->validated('renglones'),
             userId: $request->user()->getAuthIdentifier(),
         );
@@ -224,7 +231,7 @@ class PrestamoController extends Controller
         return Pedido::query()
             ->surtiblesConPrestamo($almacenId)
             ->whereIn('almacen_id', $this->almacenesVisibles($request))
-            ->with(['departamento:id,descripcion', 'detalles.articulo:id,codigo,descripcion,unidad,tipo,se_controla_por_pieza'])
+            ->with(['departamento:id,descripcion', 'solicitante:id,name', 'detalles.articulo:id,codigo,descripcion,unidad,tipo,se_controla_por_pieza'])
             ->orderBy('fecha_requerida')
             ->get()
             ->map(fn (Pedido $p): array => [
@@ -235,6 +242,7 @@ class PrestamoController extends Controller
                 'obra_id' => $p->obra_id,
                 'grupo_trabajo_id' => $p->grupo_trabajo_id,
                 'solicitante_id' => $p->solicitante_id,
+                'solicitante' => $p->solicitante?->name,
                 'recibe' => $p->recibe_nombre,
                 'fecha_requerida' => $p->fecha_requerida?->toDateString(),
                 'detalles' => $p->detalles

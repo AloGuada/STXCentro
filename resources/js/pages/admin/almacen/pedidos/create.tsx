@@ -1,15 +1,16 @@
+import { Head, Link, useForm } from '@inertiajs/react';
+import { InfoIcon } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { CapturadorPartidas, PARTIDA_VACIA } from '@/components/alm/capturador-partidas';
 import { FormField } from '@/components/form';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { SearchSelect } from '@/components/ui/search-select';
 import { Select, SelectItem } from '@/components/ui/select';
 import AppLayout from '@/layouts/app-layout';
 import { etiquetaDeAlmacen } from '@/lib/alm/almacenes';
 import type { BreadcrumbItem } from '@/types';
 import type { AlmAlmacenOpcion, AlmPartidaBorrador } from '@/types/models';
-import { Head, Link, useForm } from '@inertiajs/react';
-import { InfoIcon } from 'lucide-react';
-import { useEffect, useState } from 'react';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
@@ -39,15 +40,18 @@ type Props = {
     /** Los almacenes de obra: el pedido va a uno de éstos o se queda en planta. */
     destinos: AlmAlmacenOpcion[];
     gruposTrabajo: { id: number; descripcion: string }[];
+    /** A nombre de quién puede quedar el pedido: quien tiene permiso de supervisar. */
+    supervisores: { id: string; name: string }[];
 };
 
-export default function PedidoCreate({ almacenes, departamentos, destinos, gruposTrabajo }: Props) {
+export default function PedidoCreate({ almacenes, departamentos, destinos, gruposTrabajo, supervisores }: Props) {
     const hoy = new Date().toISOString().slice(0, 10);
     const [saldos, setSaldos] = useState<Saldo[]>([]);
 
     const form = useForm({
         almacen_id: '',
         departamento_id: '',
+        solicitante_id: '',
         almacen_destino_id: '',
         recibe_nombre: '',
         grupo_trabajo_id: '',
@@ -157,6 +161,22 @@ export default function PedidoCreate({ almacenes, departamentos, destinos, grupo
                                         </SelectItem>
                                     ))}
                                 </Select>
+                            </FormField>
+
+                            <FormField
+                                label="Supervisor que pide"
+                                htmlFor="solicitante_id"
+                                error={form.errors.solicitante_id}
+                                description="El pedido queda a su nombre, y con él se firman la salida, el préstamo o la transferencia que lo surtan."
+                                required
+                            >
+                                <SearchSelect
+                                    options={supervisores.map((u) => ({ value: u.id, label: u.name }))}
+                                    value={form.data.solicitante_id}
+                                    onValueChange={(v) => form.setData('solicitante_id', v)}
+                                    placeholder="Escribe un nombre..."
+                                    maxOptions={30}
+                                />
                             </FormField>
 
                             <FormField

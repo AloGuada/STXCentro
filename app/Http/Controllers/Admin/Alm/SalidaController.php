@@ -86,14 +86,18 @@ class SalidaController extends Controller
 
         abort_unless($almacen->esVisiblePara($request->user()), 403);
 
+        // Con pedido, el solicitante es el supervisor a cuyo nombre quedó el
+        // pedido, y no se cambia aquí: la salida entrega lo que él pidió.
+        $pedido = $request->filled('pedido_id') ? Pedido::find($request->integer('pedido_id')) : null;
+
         $salida = $this->registrador->registrar(
             cabecera: [
                 'almacen_id' => $almacen->id,
-                'pedido_id' => $request->integer('pedido_id') ?: null,
+                'pedido_id' => $pedido?->id,
                 'departamento_id' => $request->integer('departamento_id') ?: null,
                 'obra_destino_id' => $request->integer('obra_destino_id') ?: null,
                 'grupo_trabajo_id' => $request->integer('grupo_trabajo_id') ?: null,
-                'solicitante_id' => $request->input('solicitante_id'),
+                'solicitante_id' => $pedido?->solicitante_id ?? $request->input('solicitante_id'),
                 'entregado_por' => $request->user()->getAuthIdentifier(),
                 'recibe_nombre' => $request->string('recibe_nombre')->value(),
                 'fecha' => $request->date('fecha'),
@@ -226,13 +230,16 @@ class SalidaController extends Controller
         return Pedido::query()
             ->surtiblesConSalida($almacenId)
             ->whereIn('almacen_id', $this->almacenesVisibles($request))
-            ->with(['departamento:id,descripcion', 'detalles.articulo:id,codigo,descripcion,unidad'])
+            ->with(['departamento:id,descripcion', 'solicitante:id,name', 'detalles.articulo:id,codigo,descripcion,unidad'])
             ->orderBy('fecha_requerida')
             ->get()
             ->map(fn (Pedido $p): array => [
                 'id' => $p->id,
                 'folio' => $p->folio,
                 'departamento' => $p->departamento?->descripcion,
+                // El supervisor que lo pidió: la salida queda a su nombre y la
+                // pantalla lo enseña sin dejar cambiarlo.
+                'solicitante' => $p->solicitante?->name,
                 // Los ids, para que la salida herede el destino del pedido en
                 // vez de volver a preguntarlo.
                 'departamento_id' => $p->departamento_id,

@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Admin\Alm;
 
+use App\Models\Usuario;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
@@ -19,6 +20,10 @@ class PedidoStoreRequest extends FormRequest
      * material. Con destino sólo vale un almacén de obra: la obra del pedido se
      * saca de ahí, no se captura aparte.
      *
+     * El pedido queda a nombre de un supervisor —quien tiene
+     * `alm.pedidos.supervisar`—, no de quien lo teclea: es el nombre que
+     * arrastran la salida, el préstamo y la transferencia que lo surten.
+     *
      * A diferencia de la salida, aquí **sí** se puede pedir más de lo que hay:
      * el almacén decide si surte parcial o si hay que comprar. Pedir de más sólo
      * es un error cuando el material va a salir de verdad.
@@ -30,6 +35,13 @@ class PedidoStoreRequest extends FormRequest
         return [
             'almacen_id' => ['required', 'integer', 'exists:alm_almacenes,id'],
             'departamento_id' => ['required', 'integer', 'exists:departamentos,id'],
+            'solicitante_id' => [
+                'required', 'uuid',
+                Rule::exists('usuarios', 'id')->where(fn ($q) => $q->whereIn(
+                    'id',
+                    Usuario::query()->supervisoresDeAlmacen()->select('id'),
+                )),
+            ],
             'almacen_destino_id' => [
                 'nullable', 'integer', 'different:almacen_id',
                 Rule::exists('alm_almacenes', 'id')->whereNotNull('obra_id')->where('activo', true),
@@ -83,6 +95,8 @@ class PedidoStoreRequest extends FormRequest
         return [
             'almacen_id.required' => 'Indica a qué almacén se le está pidiendo.',
             'departamento_id.required' => 'Indica qué área lo pide: siempre hay un responsable.',
+            'solicitante_id.required' => 'Indica qué supervisor lo pide: el pedido queda a su nombre.',
+            'solicitante_id.exists' => 'Esa persona no es supervisor: sólo quien tiene el permiso puede firmar un pedido.',
             'almacen_destino_id.exists' => 'El destino tiene que ser un almacén de obra; si se queda en planta, déjalo en consumo interno.',
             'almacen_destino_id.different' => 'El destino no puede ser el mismo almacén al que se le pide.',
             'fecha_requerida.after_or_equal' => 'No se puede necesitar el material antes de haberlo pedido.',

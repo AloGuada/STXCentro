@@ -12,6 +12,7 @@ use App\Models\Costos\Producto;
 use App\Models\Departamento;
 use App\Models\Obra;
 use App\Models\Prod\GrupoTrabajo;
+use App\Models\Usuario;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -64,6 +65,9 @@ class PedidoController extends Controller
         return Inertia::render('admin/almacen/pedidos/create', [
             ...$this->opciones($request),
             'productos' => $this->productos(),
+            // A nombre de quién queda: los supervisores. Es quien lo pide, no
+            // quien lo teclea, y su nombre firma lo que se surta contra él.
+            'supervisores' => Usuario::query()->supervisoresDeAlmacen()->get(['id', 'name']),
             // A dónde puede ir: sólo almacenes de obra. No se filtra por
             // visibilidad: quien pide casi nunca administra el de la obra.
             'destinos' => Almacen::query()
@@ -91,7 +95,7 @@ class PedidoController extends Controller
                 // La obra sale del destino: es la que filtra los listados y la
                 // que decide si se surte con transferencia o con salida.
                 'obra_id' => $destino?->obra_id,
-                'solicitante_id' => $request->user()->getAuthIdentifier(),
+                'solicitante_id' => $request->input('solicitante_id'),
                 'recibe_nombre' => $request->input('recibe_nombre'),
                 'grupo_trabajo_id' => $request->integer('grupo_trabajo_id') ?: null,
                 'fecha' => $request->date('fecha'),

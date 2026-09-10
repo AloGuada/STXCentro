@@ -1,3 +1,6 @@
+import { Head, Link, router, useForm } from '@inertiajs/react';
+import { InfoIcon } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { CapturadorPartidas, PARTIDA_VACIA } from '@/components/alm/capturador-partidas';
 import { FormField } from '@/components/form';
 import { Button } from '@/components/ui/button';
@@ -7,9 +10,6 @@ import AppLayout from '@/layouts/app-layout';
 import { etiquetaDeAlmacen } from '@/lib/alm/almacenes';
 import type { BreadcrumbItem } from '@/types';
 import type { AlmAlmacenOpcion, AlmPartidaBorrador, AlmProductoOpcion } from '@/types/models';
-import { Head, Link, router, useForm } from '@inertiajs/react';
-import { InfoIcon } from 'lucide-react';
-import { useEffect, useState } from 'react';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
@@ -29,6 +29,8 @@ type PedidoSurtible = {
     departamento: string | null;
     departamento_id: number | null;
     grupo_trabajo_id: number | null;
+    /** El supervisor a cuyo nombre quedó el pedido: la salida se firma con él. */
+    solicitante: string | null;
     recibe: string | null;
     fecha_requerida: string | null;
     detalles: {
@@ -275,6 +277,16 @@ export default function SalidaCreate({
                                     ))}
                                 </Select>
                             </FormField>
+
+                            {pedido && (
+                                <FormField
+                                    label="Supervisor que pidió"
+                                    htmlFor="solicitante"
+                                    description="Lo fija el pedido: la salida entrega lo que él pidió y queda a su nombre."
+                                >
+                                    <Input id="solicitante" value={pedido.solicitante ?? '—'} readOnly />
+                                </FormField>
+                            )}
 
                             <FormField
                                 label="Quién recibe"

@@ -81,6 +81,46 @@ class Usuario extends Authenticatable
         $query->where('activo', true);
     }
 
+    /**
+     * Los que tienen el permiso, por rol o directo.
+     *
+     * Se consulta a mano y no con el scope de Spatie porque las tablas pivote
+     * guardan `App\Models\Usuario` como tipo y el usuario autenticado es
+     * `App\Models\User`: filtrar por tipo no encuentra nada. Aquí sólo cuenta
+     * `model_uuid`.
+     *
+     * @param  Builder<Usuario>  $query
+     */
+    public function scopeConPermiso(Builder $query, string $permiso): void
+    {
+        $tablas = config('permission.table_names');
+
+        $permisoId = \Illuminate\Support\Facades\DB::table($tablas['permissions'])
+            ->where('name', $permiso)
+            ->where('guard_name', 'web')
+            ->select('id');
+
+        $query->where(fn (Builder $q) => $q
+            ->whereIn('id', \Illuminate\Support\Facades\DB::table($tablas['model_has_permissions'])
+                ->whereIn('permission_id', $permisoId)
+                ->select('model_uuid'))
+            ->orWhereIn('id', \Illuminate\Support\Facades\DB::table($tablas['model_has_roles'])
+                ->join($tablas['role_has_permissions'], $tablas['role_has_permissions'].'.role_id', '=', $tablas['model_has_roles'].'.role_id')
+                ->whereIn($tablas['role_has_permissions'].'.permission_id', $permisoId)
+                ->select($tablas['model_has_roles'].'.model_uuid')));
+    }
+
+    /**
+     * A cuyo nombre puede quedar un pedido de almacén. Es la lista que la
+     * pantalla de pedidos ofrece, y la que el pedido exige al guardarse.
+     *
+     * @param  Builder<Usuario>  $query
+     */
+    public function scopeSupervisoresDeAlmacen(Builder $query): void
+    {
+        $query->activos()->conPermiso('alm.pedidos.supervisar')->orderBy('name');
+    }
+
     public function darDeBaja(): void
     {
         $this->forceFill([

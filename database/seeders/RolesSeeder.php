@@ -51,6 +51,7 @@ class RolesSeeder extends Seeder
         $contabilidad = Role::firstOrCreate(['name' => 'contabilidad', 'guard_name' => 'web']);
         $adminCobranza = Role::firstOrCreate(['name' => 'admin-cobranza', 'guard_name' => 'web']);
         $adminRh = Role::firstOrCreate(['name' => 'admin-rh', 'guard_name' => 'web']);
+        $supervisor = Role::firstOrCreate(['name' => 'supervisor', 'guard_name' => 'web']);
         $adminCal = Role::firstOrCreate(['name' => 'admin-cal', 'guard_name' => 'web']);
         $inspectorCal = Role::firstOrCreate(['name' => 'inspector-cal', 'guard_name' => 'web']);
         $empleado = Role::firstOrCreate(['name' => 'empleado', 'guard_name' => 'web']);
@@ -123,6 +124,10 @@ class RolesSeeder extends Seeder
             'costos.solicitudes-pago.ver',
             'costos.solicitudes-pago.ver-todas',
         ]);
+
+        // supervisor es a cuyo nombre queda un pedido de almacén. No opera el
+        // almacén: sólo pide, y su nombre firma lo que se surte contra el pedido.
+        $supervisor->givePermissionTo('alm.pedidos.supervisar');
 
         // almacen registra recepciones contra OC y gestiona devoluciones.
         // Operativo del módulo: ve todas las requisiciones, OC y solicitudes.

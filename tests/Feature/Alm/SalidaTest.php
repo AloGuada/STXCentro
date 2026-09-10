@@ -309,6 +309,7 @@ describe('el pedido', function () {
         $this->actingAs(usuarioDeSalidas())
             ->post(route('admin.alm.pedidos.store'), [
                 'almacen_id' => $almacen->id,
+                'solicitante_id' => supervisorDeAlmacen()->id,
                 'departamento_id' => Departamento::factory()->create()->id,
                 'fecha' => now()->toDateString(),
                 'fecha_requerida' => now()->addDay()->toDateString(),
@@ -329,6 +330,7 @@ describe('el pedido', function () {
         $this->actingAs(usuarioDeSalidas())
             ->post(route('admin.alm.pedidos.store'), [
                 'almacen_id' => $almacen->id,
+                'solicitante_id' => supervisorDeAlmacen()->id,
                 'departamento_id' => Departamento::factory()->create()->id,
                 'recibe_nombre' => 'A. Pérez',
                 'fecha' => now()->toDateString(),
@@ -349,6 +351,7 @@ describe('el pedido', function () {
         $this->actingAs(usuarioDeSalidas())
             ->post(route('admin.alm.pedidos.store'), [
                 'almacen_id' => $almacen->id,
+                'solicitante_id' => supervisorDeAlmacen()->id,
                 'departamento_id' => Departamento::factory()->create()->id,
                 'almacen_destino_id' => Almacen::factory()->deObra()->create()->id,
                 'recibe_nombre' => 'A. Pérez',
@@ -367,6 +370,7 @@ describe('el pedido', function () {
         $this->actingAs(usuarioDeSalidas())
             ->post(route('admin.alm.pedidos.store'), [
                 'almacen_id' => $almacen->id,
+                'solicitante_id' => supervisorDeAlmacen()->id,
                 'departamento_id' => Departamento::factory()->create()->id,
                 'almacen_destino_id' => $destino->id,
                 'fecha' => now()->toDateString(),
@@ -391,6 +395,7 @@ describe('el pedido', function () {
         $this->actingAs(usuarioDeSalidas())
             ->post(route('admin.alm.pedidos.store'), [
                 'almacen_id' => $almacen->id,
+                'solicitante_id' => supervisorDeAlmacen()->id,
                 'departamento_id' => Departamento::factory()->create()->id,
                 'almacen_destino_id' => Almacen::factory()->create()->id,
                 'fecha' => now()->toDateString(),
@@ -411,6 +416,7 @@ describe('el pedido', function () {
         $this->actingAs(usuarioDeSalidas())
             ->post(route('admin.alm.pedidos.store'), [
                 'almacen_id' => $almacen->id,
+                'solicitante_id' => supervisorDeAlmacen()->id,
                 'departamento_id' => Departamento::factory()->create()->id,
                 'fecha' => now()->toDateString(),
                 'fecha_requerida' => now()->addDay()->toDateString(),
@@ -426,6 +432,7 @@ describe('el pedido', function () {
         $this->actingAs(usuarioDeSalidas())
             ->post(route('admin.alm.pedidos.store'), [
                 'almacen_id' => $almacen->id,
+                'solicitante_id' => supervisorDeAlmacen()->id,
                 'departamento_id' => Departamento::factory()->create()->id,
                 'fecha' => now()->toDateString(),
                 'fecha_requerida' => now()->subDay()->toDateString(),

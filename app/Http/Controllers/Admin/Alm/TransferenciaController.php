@@ -74,14 +74,18 @@ class TransferenciaController extends Controller
 
         abort_unless($origen->esVisiblePara($request->user()), 403);
 
+        // Con pedido, autoriza el supervisor a cuyo nombre quedó el pedido:
+        // el envío lleva su firma, no la de quien lo despacha.
+        $pedido = $request->filled('pedido_id') ? Pedido::find($request->integer('pedido_id')) : null;
+
         $transferencia = $this->registrador->enviar(
             cabecera: [
                 'almacen_origen_id' => $origen->id,
                 'almacen_destino_id' => $request->integer('almacen_destino_id'),
-                'pedido_id' => $request->integer('pedido_id') ?: null,
+                'pedido_id' => $pedido?->id,
                 'fecha_envio' => $request->date('fecha_envio'),
                 'enviado_por' => $request->user()->getAuthIdentifier(),
-                'autorizado_por' => $request->user()->getAuthIdentifier(),
+                'autorizado_por' => $pedido?->solicitante_id ?? $request->user()->getAuthIdentifier(),
                 'observaciones' => $request->input('observaciones'),
             ],
             renglones: $request->validated('detalles'),
@@ -262,7 +266,7 @@ class TransferenciaController extends Controller
         return Pedido::query()
             ->transferibles()
             ->whereIn('almacen_id', $this->almacenesVisibles($request))
-            ->with(['almacen:id,clave', 'obra:id,no,descripcion', 'detalles.articulo:id,codigo,descripcion,unidad'])
+            ->with(['almacen:id,clave', 'obra:id,no,descripcion', 'solicitante:id,name', 'detalles.articulo:id,codigo,descripcion,unidad'])
             ->orderBy('fecha_requerida')
             ->get()
             ->map(fn (Pedido $p): array => [
@@ -270,6 +274,8 @@ class TransferenciaController extends Controller
                 'folio' => $p->folio,
                 'almacen_id' => $p->almacen_id,
                 'almacen' => $p->almacen?->clave,
+                // El supervisor que lo pidió: el envío queda autorizado por él.
+                'solicitante' => $p->solicitante?->name,
                 'almacen_destino_id' => $p->almacen_destino_id,
                 'obra_id' => $p->obra_id,
                 'obra' => $p->obra === null ? null : trim($p->obra->no.' — '.$p->obra->descripcion),

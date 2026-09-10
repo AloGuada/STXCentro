@@ -476,3 +476,17 @@ function articuloDe(\App\Models\Costos\Producto $producto): int
 {
     return (int) app(\App\Services\Alm\ResolvedorArticulo::class)->paraProducto($producto->id);
 }
+
+/**
+ * Un supervisor de almacén: a cuyo nombre puede quedar un pedido. Es quien
+ * tiene `alm.pedidos.supervisar`, y su nombre firma lo que surte el pedido.
+ */
+function supervisorDeAlmacen(string $nombre = 'Supervisor'): \App\Models\User
+{
+    \Spatie\Permission\Models\Permission::firstOrCreate(['name' => 'alm.pedidos.supervisar', 'guard_name' => 'web']);
+
+    $usuario = \App\Models\User::factory()->create(['name' => $nombre]);
+    $usuario->givePermissionTo('alm.pedidos.supervisar');
+
+    return $usuario;
+}
