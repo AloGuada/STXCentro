@@ -12,6 +12,7 @@
 
 import { ArrowLeftIcon, ClipboardCopyIcon, SaveIcon } from 'lucide-react';
 import { useMemo, useState } from 'react';
+import { Kpi, Leyenda, Nota, Pastilla, Tarjeta, tonoDeAvance } from '@/components/qal/ui';
 import { cn } from '@/lib/utils';
 import {
     estadoDeFila,
@@ -25,7 +26,6 @@ import { faseDe, FASES, type Fase, type Plan, type PiezaVista } from './datos';
 import { leerMarcas, tipoDeMarca } from './marcas';
 import { Reparaciones } from './reparaciones';
 import { numeroSemana, rangoSemana, semanaMas } from './semanas';
-import { Kpi, Leyenda, Nota, Pastilla, Tarjeta, tonoDeAvance } from './ui';
 
 /**
  * El contador en vivo debajo del área de texto.

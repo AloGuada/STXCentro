@@ -12,12 +12,12 @@
 
 import { ChevronDownIcon, ChevronRightIcon } from 'lucide-react';
 import { useState } from 'react';
+import { Barra, Pastilla, Tarjeta } from '@/components/qal/ui';
 import { cn } from '@/lib/utils';
 import { lineasDeLaSemana, totalizar, type IndicePiezas } from './calculo';
 import { FASES, type DefinicionFase, type Fase, type Plan, type PiezaVista } from './datos';
 import { Reparaciones } from './reparaciones';
 import { numeroSemana, rangoSemana } from './semanas';
-import { Barra, Pastilla, Tarjeta } from './ui';
 
 type ResumenFase = {
     programadas: number;

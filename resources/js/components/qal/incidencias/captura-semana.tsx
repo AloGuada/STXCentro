@@ -16,6 +16,7 @@
 import { router, useForm } from '@inertiajs/react';
 import { CheckCircle2Icon, PlusIcon } from 'lucide-react';
 import { useEffect, type FormEvent } from 'react';
+import { Nota, Tarjeta } from '@/components/qal/ui';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectItem } from '@/components/ui/select';
@@ -118,21 +119,21 @@ export function CapturaSemana({
     const tasa = montadas && montadas > 0 ? (defectoSemana * 100) / montadas : null;
 
     return (
-        <section className="rounded-box border-base-300 bg-base-100 border">
-            <header className="border-base-300 flex flex-wrap items-baseline justify-between gap-2 border-b px-4 py-3">
-                <h2 className="font-semibold">
-                    Captura de la semana {semana}
-                    <span className="text-base-content/50 ml-2 text-sm font-normal">{rango}</span>
-                </h2>
-                {esSemanaActual && <span className="badge badge-sm badge-primary badge-outline">esta semana</span>}
-            </header>
-
+        <Tarjeta
+            titulo={`Captura de la semana ${semana}`}
+            nota={rango}
+            acciones={
+                esSemanaActual ? (
+                    <span className="badge badge-sm badge-primary badge-outline">esta semana</span>
+                ) : undefined
+            }
+        >
             <div className="space-y-4 p-4">
-                <p className="rounded-box bg-info/10 text-base-content/80 px-3 py-2 text-sm">
+                <Nota>
                     <b>Son dos cosas separadas.</b> Las <b>piezas montadas</b> son una cifra de la semana: se escribe
                     una vez. Las <b>incidencias</b> son ninguna, una o veinte: se van añadiendo sin tocar las
                     anteriores.
-                </p>
+                </Nota>
 
                 <form onSubmit={guardarAvance} className="flex flex-wrap items-end gap-3">
                     <div className="w-44">
@@ -278,6 +279,6 @@ export function CapturaSemana({
                     </p>
                 </div>
             </div>
-        </section>
+        </Tarjeta>
     );
 }

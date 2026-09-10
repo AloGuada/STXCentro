@@ -12,15 +12,18 @@
  *    limpia.
  *  - **Borrar el avance no borra las incidencias.** Son hechos distintos, y el
  *    diálogo lo dice antes de que alguien lo descubra por las malas.
+ *
+ * La presentación es la del kit del módulo (`components/qal/ui`), igual que la
+ * portada y el avance de producción. Los datos y el cálculo no cambian.
  */
 
 import { Head, Link, router } from '@inertiajs/react';
 import { ArrowLeftIcon, EyeIcon, Trash2Icon } from 'lucide-react';
 import { DeleteDialog } from '@/components/delete-dialog';
-import { Etiqueta, FilaKpis, Panel, Rejilla2, TarjetaGrafica, TarjetaKpi } from '@/components/qal/dashboard/ui';
 import { BarrasRanking } from '@/components/qal/graficas';
 import { CapturaSemana } from '@/components/qal/incidencias/captura-semana';
 import { num, pct } from '@/components/qal/paleta';
+import { Kpi, Leyenda, Pastilla, Tarjeta } from '@/components/qal/ui';
 import { Select, SelectItem } from '@/components/ui/select';
 import { useCan } from '@/hooks/use-can';
 import AppLayout from '@/layouts/app-layout';
@@ -138,35 +141,30 @@ export default function IncidenciasShow({
                     </div>
                 </div>
 
-                <FilaKpis>
-                    <TarjetaKpi kpi={{ etiqueta: 'Incidencias', valor: num(incidencias.length), nota: `en ${anio}` }} />
-                    <TarjetaKpi
-                        kpi={{
-                            etiqueta: 'Piezas con defecto',
-                            valor: num(pzDefecto),
-                            nota: `${pct(tasa, 2)} de lo montado`,
-                            tono: pzDefecto > 0 ? 'malo' : 'bueno',
-                        }}
+                <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+                    <Kpi titulo="Incidencias" valor={num(incidencias.length)} pie={`en ${anio}`} />
+                    <Kpi
+                        titulo="Piezas con defecto"
+                        valor={num(pzDefecto)}
+                        pie={`${pct(tasa, 2)} de lo montado`}
+                        tono={pzDefecto > 0 ? 'error' : 'ok'}
                     />
-                    <TarjetaKpi
-                        kpi={{
-                            etiqueta: 'Piezas montadas',
-                            valor: num(pzMontadas),
-                            nota:
-                                obra.pz_total !== null
-                                    ? `${pct((pzMontadas * 100) / obra.pz_total, 0)} de ${num(obra.pz_total)} del proyecto`
-                                    : 'sin piezas totales en la ficha de la obra',
-                        }}
+                    <Kpi
+                        titulo="Piezas montadas"
+                        valor={num(pzMontadas)}
+                        pie={
+                            obra.pz_total !== null
+                                ? `${pct((pzMontadas * 100) / obra.pz_total, 0)} de ${num(obra.pz_total)} del proyecto`
+                                : 'sin piezas totales en la ficha de la obra'
+                        }
                     />
-                    <TarjetaKpi
-                        kpi={{
-                            etiqueta: 'Sin cerrar',
-                            valor: num(abiertas),
-                            nota: abiertas > 0 ? 'pendientes' : 'todo cerrado',
-                            tono: abiertas > 0 ? 'pendiente' : 'bueno',
-                        }}
+                    <Kpi
+                        titulo="Sin cerrar"
+                        valor={num(abiertas)}
+                        pie={abiertas > 0 ? 'pendientes' : 'todo cerrado'}
+                        tono={abiertas > 0 ? 'warn' : 'ok'}
                     />
-                </FilaKpis>
+                </div>
 
                 <CapturaSemana
                     obraId={obra.id}
@@ -182,29 +180,29 @@ export default function IncidenciasShow({
                     puedeCapturar={puedeCapturar}
                 />
 
-                <Panel titulo="Historial de incidencias" apunte={`${incidencias.length} en ${anio}`}>
+                <Tarjeta titulo="Historial de incidencias" nota={`${incidencias.length} en ${anio}`}>
                     {incidencias.length === 0 ? (
-                        <p className="text-base-content/60 py-6 text-center text-sm">
+                        <p className="text-base-content/60 px-4 py-10 text-center text-sm">
                             Sin incidencias registradas este año.
                         </p>
                     ) : (
                         <div className="overflow-x-auto">
-                            <table className="table table-sm">
+                            <table className="table-sm table w-full">
                                 <thead>
                                     <tr>
-                                        <th>Semana</th>
-                                        <th>Área</th>
-                                        <th>Departamento</th>
-                                        <th className="text-right">Pz</th>
-                                        <th>Folio</th>
-                                        <th>Descripción</th>
-                                        <th>Estado</th>
-                                        <th />
+                                        <th className="bg-base-200">Semana</th>
+                                        <th className="bg-base-200">Área</th>
+                                        <th className="bg-base-200">Departamento</th>
+                                        <th className="bg-base-200 text-right">Pz</th>
+                                        <th className="bg-base-200">Folio</th>
+                                        <th className="bg-base-200">Descripción</th>
+                                        <th className="bg-base-200">Estado</th>
+                                        <th className="bg-base-200" />
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {incidencias.map((i) => (
-                                        <tr key={i.id} className={i.semana === semana ? 'bg-primary/5' : undefined}>
+                                        <tr key={i.id} className={i.semana === semana ? 'bg-primary/5' : 'hover:bg-base-200/50'}>
                                             <td className="font-medium whitespace-nowrap">Sem {i.semana}</td>
                                             <td>{etiquetaDe(areas, i.area)}</td>
                                             <td className="font-mono text-xs">
@@ -214,10 +212,9 @@ export default function IncidenciasShow({
                                             <td className="font-mono text-xs">{i.folio ?? '—'}</td>
                                             <td className="max-w-96 text-xs">{i.descripcion ?? '—'}</td>
                                             <td>
-                                                <Etiqueta
-                                                    texto={i.abierta ? 'Abierta' : 'Cerrada'}
-                                                    tono={i.abierta ? 'alerta' : 'ok'}
-                                                />
+                                                <Pastilla tono={i.abierta ? 'warn' : 'ok'}>
+                                                    {i.abierta ? 'Abierta' : 'Cerrada'}
+                                                </Pastilla>
                                                 {i.capturista && (
                                                     <div className="text-base-content/50 text-[11px]">
                                                         {i.capturista.name}
@@ -262,35 +259,35 @@ export default function IncidenciasShow({
                             </table>
                         </div>
                     )}
-                </Panel>
+                </Tarjeta>
 
-                <Panel titulo="Avance de montaje por semana">
+                <Tarjeta titulo="Avance de montaje por semana">
                     {historial.length === 0 ? (
-                        <p className="text-base-content/60 py-6 text-center text-sm">Sin avance capturado.</p>
+                        <p className="text-base-content/60 px-4 py-10 text-center text-sm">Sin avance capturado.</p>
                     ) : (
                         <div className="overflow-x-auto">
-                            <table className="table table-sm">
+                            <table className="table-sm table w-full">
                                 <thead>
                                     <tr>
-                                        <th>Semana</th>
-                                        <th className="text-right">Pz montadas</th>
-                                        <th className="text-right">Incidencias</th>
-                                        <th className="text-right">Pz con defecto</th>
-                                        <th className="text-right">%</th>
-                                        <th>Nota</th>
-                                        <th />
+                                        <th className="bg-base-200">Semana</th>
+                                        <th className="bg-base-200 text-right">Pz montadas</th>
+                                        <th className="bg-base-200 text-right">Incidencias</th>
+                                        <th className="bg-base-200 text-right">Pz con defecto</th>
+                                        <th className="bg-base-200 text-right">%</th>
+                                        <th className="bg-base-200">Nota</th>
+                                        <th className="bg-base-200" />
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {historial.map((f) => (
-                                        <tr key={f.semana} className={f.semana === semana ? 'bg-primary/5' : undefined}>
+                                        <tr key={f.semana} className={f.semana === semana ? 'bg-primary/5' : 'hover:bg-base-200/50'}>
                                             <td className="whitespace-nowrap">
                                                 <span className="font-medium">Sem {f.semana}</span>{' '}
                                                 <span className="text-base-content/50 text-xs">{f.rango}</span>
                                             </td>
                                             <td className="text-right font-mono">
                                                 {f.pz_montadas === null ? (
-                                                    <Etiqueta texto="falta" tono="alerta" />
+                                                    <Pastilla tono="warn">falta</Pastilla>
                                                 ) : (
                                                     num(f.pz_montadas)
                                                 )}
@@ -301,14 +298,14 @@ export default function IncidenciasShow({
                                                 {/* Con defectos y sin denominador no hay porcentaje que dar:
                                                     un «0 %» aquí se leería como que la semana salió limpia. */}
                                                 {f.pz_defecto > 0 && f.tasa === null ? (
-                                                    <Etiqueta texto="sin base" tono="malo" />
+                                                    <Pastilla tono="error">sin base</Pastilla>
                                                 ) : (
                                                     pct(f.tasa, 2)
                                                 )}
                                             </td>
                                             <td className="text-xs">
                                                 {f.sin_incidencias && f.incidencias === 0 && (
-                                                    <Etiqueta texto="revisada, sin incidencias" tono="ok" />
+                                                    <Pastilla tono="ok">revisada, sin incidencias</Pastilla>
                                                 )}
                                                 {f.notas && <div className="text-base-content/60">{f.notas}</div>}
                                             </td>
@@ -345,7 +342,7 @@ export default function IncidenciasShow({
                                     ))}
                                 </tbody>
                                 <tfoot>
-                                    <tr className="font-semibold">
+                                    <tr className="bg-base-200 font-semibold">
                                         <td>TOTAL</td>
                                         <td className="text-right font-mono">{num(pzMontadas)}</td>
                                         <td className="text-right font-mono">{incidencias.length}</td>
@@ -357,28 +354,31 @@ export default function IncidenciasShow({
                             </table>
                         </div>
                     )}
-                </Panel>
+                </Tarjeta>
 
-                <Rejilla2>
-                    <TarjetaGrafica
-                        titulo="Piezas con defecto por semana"
-                        pie="Se cuentan piezas, no incidencias: un solo hallazgo puede afectar a diez."
-                    >
-                        <BarrasRanking
-                            datos={graficas.porSemana.map((f) => ({ nombre: `Sem ${f.semana}`, valor: f.pz }))}
-                            decimales={0}
-                        />
-                    </TarjetaGrafica>
-                    <TarjetaGrafica
-                        titulo="Por departamento responsable"
-                        pie="Es el corte que decide a quién se le manda la acción correctiva."
-                    >
-                        <BarrasRanking
-                            datos={graficas.porDepartamento.map((f) => ({ nombre: f.etiqueta, valor: f.pz }))}
-                            decimales={0}
-                        />
-                    </TarjetaGrafica>
-                </Rejilla2>
+                <div className="grid gap-4 lg:grid-cols-2">
+                    <Tarjeta titulo="Piezas con defecto por semana">
+                        <div className="p-4">
+                            <BarrasRanking
+                                datos={graficas.porSemana.map((f) => ({ nombre: `Sem ${f.semana}`, valor: f.pz }))}
+                                decimales={0}
+                            />
+                        </div>
+                        <Leyenda>
+                            Se cuentan piezas, no incidencias: un solo hallazgo puede afectar a diez.
+                        </Leyenda>
+                    </Tarjeta>
+
+                    <Tarjeta titulo="Por departamento responsable">
+                        <div className="p-4">
+                            <BarrasRanking
+                                datos={graficas.porDepartamento.map((f) => ({ nombre: f.etiqueta, valor: f.pz }))}
+                                decimales={0}
+                            />
+                        </div>
+                        <Leyenda>Es el corte que decide a quién se le manda la acción correctiva.</Leyenda>
+                    </Tarjeta>
+                </div>
             </div>
         </AppLayout>
     );

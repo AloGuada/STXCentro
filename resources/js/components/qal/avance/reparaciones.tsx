@@ -9,9 +9,9 @@
  * reparación que se mueve no frena a nadie, y una pieza parada veinte días sí.
  */
 
+import { Kpi, Pastilla, Tarjeta } from '@/components/qal/ui';
 import type { Fase, PiezaVista } from './datos';
 import { diasDesde } from './semanas';
-import { Kpi, Pastilla, Tarjeta } from './ui';
 
 /** A partir de aquí una pieza parada deja de ser normal y empieza a estorbar. */
 const DIAS_VIEJA = 14;

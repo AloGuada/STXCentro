@@ -1,5 +1,9 @@
 /**
- * Piezas de interfaz del avance de producción.
+ * El kit de interfaz del módulo de Calidad.
+ *
+ * Nació con el avance de producción y lo comparten ya las pantallas de
+ * incidencias, así que vive fuera de la carpeta de una sola: un kit compartido
+ * dentro del cajón de una pantalla se acaba duplicando.
  *
  * El color aquí significa una sola cosa, como en el resto del módulo: verde va
  * bien, ámbar vigilar, rojo actuar. Nada decorativo — quien mira esta pantalla
