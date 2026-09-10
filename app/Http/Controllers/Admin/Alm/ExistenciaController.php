@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin\Alm;
 
 use App\Enums\Alm\ActivoEstatus;
+use App\Exports\Alm\ExistenciasExport;
 use App\Http\Controllers\Controller;
 use App\Models\Alm\Activo;
 use App\Models\Alm\Almacen;
@@ -12,11 +13,14 @@ use App\Models\Alm\Ubicacion;
 use App\Models\Obra;
 use App\Services\Alm\SaldoEnTransito;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 use Inertia\Inertia;
 use Inertia\Response;
+use Maatwebsite\Excel\Facades\Excel;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 /**
  * La pantalla de diario: qué hay y cuánto en cada almacén.
@@ -146,6 +150,24 @@ class ExistenciaController extends Controller
             // «Rack A-1» de AG no es el de FAK.
             'ubicaciones' => $almacenId === null ? [] : $this->ubicacionesDe($almacenId),
         ]);
+    }
+
+    /**
+     * Lo filtrado, entero, a Excel.
+     *
+     * Misma pregunta que la pantalla —mismos filtros, misma visibilidad— sin
+     * paginar. Sin filtro no hay reporte, igual que no hay tabla: el
+     * inventario completo de la empresa no es lo que nadie quiere en un archivo.
+     */
+    public function exportar(Request $request): BinaryFileResponse|RedirectResponse
+    {
+        if (! $this->hayFiltro($request)) {
+            return back()->withErrors(['filtros' => 'Filtra primero: el reporte es de lo que está en pantalla.']);
+        }
+
+        $consulta = $this->consultaFiltrada($request, $this->almacenesVisibles($request));
+
+        return Excel::download(new ExistenciasExport($consulta), 'existencias-'.now()->format('Ymd-Hi').'.xlsx');
     }
 
     /**

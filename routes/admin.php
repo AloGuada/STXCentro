@@ -285,6 +285,11 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::get('existencias', [AlmExistenciaController::class, 'index'])
             ->middleware('permission:alm.existencias.ver')
             ->name('existencias.index');
+        // El mismo inventario filtrado, a Excel. Va antes de las rutas con
+        // {existencia} para que «exportar» no se lea como un id.
+        Route::get('existencias/exportar', [AlmExistenciaController::class, 'exportar'])
+            ->middleware('permission:alm.existencias.ver')
+            ->name('existencias.exportar');
         Route::get('kardex', [AlmKardexController::class, 'index'])
             ->middleware('permission:alm.kardex.ver')
             ->name('kardex.index');

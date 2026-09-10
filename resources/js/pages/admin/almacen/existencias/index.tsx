@@ -1,19 +1,20 @@
-import { Input } from '@/components/ui/input';
-import { Select, SelectItem } from '@/components/ui/select';
-import AppLayout from '@/layouts/app-layout';
-import { etiquetaDeAlmacen } from '@/lib/alm/almacenes';
-import type { BreadcrumbItem } from '@/types';
-import type { AlmAlmacenOpcion, PaginatedData } from '@/types/models';
 import { Head, Link, router, useForm } from '@inertiajs/react';
 import {
     ArrowLeftRightIcon,
     ChevronDownIcon,
+    DownloadIcon,
     HistoryIcon,
     MapPinOffIcon,
     SearchIcon,
     TriangleAlertIcon,
 } from 'lucide-react';
 import { useRef, useState } from 'react';
+import { Input } from '@/components/ui/input';
+import { Select, SelectItem } from '@/components/ui/select';
+import AppLayout from '@/layouts/app-layout';
+import { etiquetaDeAlmacen } from '@/lib/alm/almacenes';
+import type { BreadcrumbItem } from '@/types';
+import type { AlmAlmacenOpcion, PaginatedData } from '@/types/models';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
@@ -122,6 +123,19 @@ export default function ExistenciasIndex({
     /** El servidor sólo consulta cuando ya hay una pregunta que contestar. */
     const consultado = totales !== null;
 
+    /** El Excel es de lo filtrado entero: lleva los mismos filtros que la pantalla. */
+    const exportar = () => {
+        const params = new URLSearchParams();
+
+        Object.entries(filters).forEach(([clave, valor]) => {
+            if (valor !== undefined && valor !== '' && valor !== false) {
+                params.set(clave, String(valor));
+            }
+        });
+
+        window.location.href = `/admin/almacen/existencias/exportar?${params.toString()}`;
+    };
+
     const filtrar = (cambio: Record<string, string | undefined>) =>
         router.get('/admin/almacen/existencias', { ...filters, ...cambio, page: undefined }, { preserveState: true });
 
@@ -150,12 +164,23 @@ export default function ExistenciasIndex({
             <Head title="Existencias" />
 
             <div className="p-6">
-                <div className="mb-6">
-                    <h1 className="text-2xl font-semibold">Existencias</h1>
-                    <p className="text-base-content/60 mt-1 text-sm">
-                        Lo que hay hoy en cada almacén, valuado a costo promedio. Es sólo lectura: el saldo se mueve con
-                        documentos, nunca a mano.
-                    </p>
+                <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                        <h1 className="text-2xl font-semibold">Existencias</h1>
+                        <p className="text-base-content/60 mt-1 text-sm">
+                            Lo que hay hoy en cada almacén, valuado a costo promedio. Es sólo lectura: el saldo se
+                            mueve con documentos, nunca a mano.
+                        </p>
+                    </div>
+                    <button
+                        type="button"
+                        className="btn btn-outline btn-sm"
+                        onClick={exportar}
+                        disabled={!consultado}
+                        title={consultado ? 'Descarga lo filtrado, completo' : 'Filtra primero: el reporte es de lo que está en pantalla'}
+                    >
+                        <DownloadIcon className="size-4" /> Exportar Excel
+                    </button>
                 </div>
 
                 <form
