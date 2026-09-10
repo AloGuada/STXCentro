@@ -2,7 +2,9 @@
 
 namespace App\Http\Requests\Admin\Alm;
 
+use App\Enums\Alm\ProductoTipo;
 use App\Models\Alm\Almacen;
+use App\Models\Alm\Articulo;
 use App\Models\Alm\Pedido;
 use App\Models\Alm\PedidoDetalle;
 use App\Services\Alm\AlmacenLedger;
@@ -58,10 +60,41 @@ class SalidaStoreRequest extends FormRequest
     public function withValidator(Validator $validator): void
     {
         $validator->after(function (Validator $validator): void {
+            $this->validarQueNoSeaHerramienta($validator);
             $this->validarExistencia($validator);
             $this->validarPedido($validator);
             $this->validarDepartamento($validator);
         });
+    }
+
+    /**
+     * La herramienta no se consume: sale bajo resguardo, con un préstamo. Una
+     * salida la descargaría del kardex como si se hubiera gastado y nadie
+     * quedaría como responsable. Es la puerta por la que se pierde.
+     */
+    private function validarQueNoSeaHerramienta(Validator $validator): void
+    {
+        $ids = array_filter(array_map(fn ($d) => (int) ($d['articulo_id'] ?? 0), (array) $this->input('detalles', [])));
+
+        if ($ids === []) {
+            return;
+        }
+
+        $herramienta = Articulo::query()
+            ->whereIn('id', $ids)
+            ->where('tipo', ProductoTipo::Activo)
+            ->pluck('descripcion', 'id');
+
+        foreach ((array) $this->input('detalles', []) as $i => $detalle) {
+            $id = (int) ($detalle['articulo_id'] ?? 0);
+
+            if ($herramienta->has($id)) {
+                $validator->errors()->add(
+                    "detalles.{$i}.articulo_id",
+                    "{$herramienta[$id]} es herramienta: no sale por salida, se presta bajo resguardo.",
+                );
+            }
+        }
     }
 
     /**

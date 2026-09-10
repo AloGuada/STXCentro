@@ -1,4 +1,4 @@
-import { Head, Link, useForm } from '@inertiajs/react';
+import { Head, Link, router, useForm } from '@inertiajs/react';
 import { InfoIcon, PlusIcon, Trash2Icon, TriangleAlertIcon } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { FormField } from '@/components/form';
@@ -59,6 +59,8 @@ type Renglon = {
     cantidad: string;
     condicion_salida: string;
     observaciones: string;
+    /** Amarre al renglón del pedido que surte; vacío en el préstamo directo. */
+    pedido_detalle_id: string;
 };
 
 const RENGLON_VACIO: Renglon = {
@@ -68,15 +70,62 @@ const RENGLON_VACIO: Renglon = {
     cantidad: '',
     condicion_salida: '',
     observaciones: '',
+    pedido_detalle_id: '',
+};
+
+/** Un pedido que debe herramienta, con lo que le falta de cada activo. */
+type PedidoSurtible = {
+    id: number;
+    folio: string | null;
+    almacen_id: number;
+    departamento: string | null;
+    obra_id: number | null;
+    grupo_trabajo_id: number | null;
+    solicitante_id: string | null;
+    recibe: string | null;
+    fecha_requerida: string | null;
+    detalles: {
+        id: number;
+        articulo_id: number;
+        codigo: string | null;
+        descripcion: string | null;
+        unidad: string | null;
+        por_pieza: boolean;
+        pendiente: number;
+    }[];
 };
 
 type Destino = 'obra' | 'grupo' | 'planta';
+
+/** El destino que dice el pedido, o el que se elige a mano. */
+function destinoDe(pedido: PedidoSurtible | undefined): Destino {
+    if (pedido?.obra_id) return 'obra';
+    if (pedido?.grupo_trabajo_id) return 'grupo';
+    return pedido ? 'planta' : 'obra';
+}
+
+/**
+ * Los renglones con que arranca un préstamo que surte un pedido. El activo por
+ * cantidad ya viene elegido con lo que falta; la pieza con serie viene
+ * amarrada al artículo y espera a que se elija cuál.
+ */
+function renglonesDe(pedido: PedidoSurtible): Renglon[] {
+    return pedido.detalles.map((d) => ({
+        ...RENGLON_VACIO,
+        clave: d.por_pieza ? '' : `c:${d.articulo_id}`,
+        articulo_id: String(d.articulo_id),
+        cantidad: d.por_pieza ? '1' : String(d.pendiente),
+        pedido_detalle_id: String(d.id),
+    }));
+}
 
 type Props = {
     almacenes: AlmAlmacenOpcion[];
     usuarios: { id: string; name: string }[];
     obras: { id: number; no: string; descripcion: string | null }[];
     gruposTrabajo: { id: number; descripcion: string }[];
+    pedidosSurtibles: PedidoSurtible[];
+    pedidoSeleccionado: number | null;
 };
 
 /**
@@ -86,20 +135,33 @@ type Props = {
  * Nada de esto baja la existencia: lo prestado sigue siendo del almacén y sólo
  * deja de estar disponible.
  */
-export default function PrestamoCreate({ almacenes, usuarios, obras, gruposTrabajo }: Props) {
+export default function PrestamoCreate({
+    almacenes,
+    usuarios,
+    obras,
+    gruposTrabajo,
+    pedidosSurtibles,
+    pedidoSeleccionado,
+}: Props) {
+    // Si llegan desde el pedido, el almacén viene en la URL y el pedido se
+    // precarga en cuanto la pantalla lo tiene.
+    const params = new URLSearchParams(typeof window === 'undefined' ? '' : window.location.search);
+    const pedidoInicial = pedidoSeleccionado === null ? undefined : pedidosSurtibles.find((p) => p.id === pedidoSeleccionado);
+
     const form = useForm({
-        almacen_id: '',
-        responsable_id: '',
+        almacen_id: pedidoInicial ? String(pedidoInicial.almacen_id) : (params.get('almacen_id') ?? ''),
+        pedido_id: pedidoInicial ? String(pedidoInicial.id) : '',
+        responsable_id: pedidoInicial?.solicitante_id ?? '',
         obra_id: '',
         grupo_trabajo_id: '',
         fecha_salida: hoy(),
         fecha_retorno_esperada: '',
         autorizado_por: '',
         observaciones: '',
-        renglones: [{ ...RENGLON_VACIO }] as Renglon[],
+        renglones: (pedidoInicial ? renglonesDe(pedidoInicial) : [{ ...RENGLON_VACIO }]) as Renglon[],
     });
 
-    const [destino, setDestino] = useState<Destino>('obra');
+    const [destino, setDestino] = useState<Destino>(destinoDe(pedidoInicial));
     const [sinRetorno, setSinRetorno] = useState(false);
     const [prestables, setPrestables] = useState<Prestables>({ piezas: [], por_cantidad: [] });
 
@@ -128,8 +190,40 @@ export default function PrestamoCreate({ almacenes, usuarios, obras, gruposTraba
 
     const elegirAlmacen = (valor: string) => {
         setPrestables({ piezas: [], por_cantidad: [] });
-        form.setData((d) => ({ ...d, almacen_id: valor, renglones: [{ ...RENGLON_VACIO }] }));
+        form.setData((d) => ({ ...d, almacen_id: valor, pedido_id: '', renglones: [{ ...RENGLON_VACIO }] }));
+        // Los pedidos surtibles son de un almacén: se vuelven a pedir al servidor.
+        router.get('/admin/almacen/prestamos/create', { almacen_id: valor }, { preserveState: true, replace: true, only: ['pedidosSurtibles'] });
     };
+
+    /**
+     * Al elegir un pedido, el préstamo arranca con lo que le falta de
+     * herramienta: responsable, destino y renglones. Las piezas con serie
+     * quedan amarradas al artículo pero sin serie: eso lo elige el almacenista,
+     * que es quien sabe cuál pulidora se va.
+     */
+    const cargarPedido = (id: string) => {
+        const elegido = pedidosSurtibles.find((p) => String(p.id) === id);
+
+        if (elegido === undefined) {
+            form.setData((d) => ({ ...d, pedido_id: '', responsable_id: '', obra_id: '', grupo_trabajo_id: '', renglones: [{ ...RENGLON_VACIO }] }));
+            setDestino('obra');
+
+            return;
+        }
+
+        setDestino(destinoDe(elegido));
+        form.setData((d) => ({
+            ...d,
+            pedido_id: id,
+            responsable_id: elegido.solicitante_id ?? d.responsable_id,
+            obra_id: elegido.obra_id === null ? '' : String(elegido.obra_id),
+            grupo_trabajo_id: elegido.grupo_trabajo_id === null ? '' : String(elegido.grupo_trabajo_id),
+            observaciones: d.observaciones || (elegido.recibe ? `Recibe ${elegido.recibe}` : ''),
+            renglones: renglonesDe(elegido),
+        }));
+    };
+
+    const pedido = pedidosSurtibles.find((p) => String(p.id) === form.data.pedido_id);
 
     /** El destino que se descarta no deja su valor puesto. */
     const elegirDestino = (valor: Destino) => {
@@ -147,15 +241,21 @@ export default function PrestamoCreate({ almacenes, usuarios, obras, gruposTraba
 
     const yaElegidas = new Set(form.data.renglones.map((r) => r.clave).filter(Boolean));
 
-    /** Todo lo prestable, en una sola lista para buscar por descripción o serie. */
+    /**
+     * Todo lo prestable, en una sola lista para buscar por descripción o serie.
+     * Un renglón que viene del pedido sólo ofrece lo de su artículo: el pedido
+     * dijo qué, el almacenista dice cuál.
+     */
     const opcionesPara = (renglon: Renglon) => [
         ...prestables.piezas
+            .filter((p) => renglon.pedido_detalle_id === '' || String(p.articulo_id) === renglon.articulo_id)
             .filter((p) => !yaElegidas.has(`p:${p.id}`) || renglon.clave === `p:${p.id}`)
             .map((p) => ({
                 value: `p:${p.id}`,
                 label: `${p.no_serie} · ${p.descripcion ?? ''}${p.marca || p.modelo ? ` (${[p.marca, p.modelo].filter(Boolean).join(' ')})` : ''}`,
             })),
         ...prestables.por_cantidad
+            .filter((c) => renglon.pedido_detalle_id === '' || String(c.articulo_id) === renglon.articulo_id)
             .filter((c) => !yaElegidas.has(`c:${c.articulo_id}`) || renglon.clave === `c:${c.articulo_id}`)
             .map((c) => ({
                 value: `c:${c.articulo_id}`,
@@ -177,11 +277,14 @@ export default function PrestamoCreate({ almacenes, usuarios, obras, gruposTraba
         const pieza = piezaDe(clave);
         const porCantidad = cantidadDe(clave);
 
+        const actual = form.data.renglones[i];
+
         editar(i, {
             clave,
-            articulo_id: pieza ? String(pieza.articulo_id) : porCantidad ? String(porCantidad.articulo_id) : '',
+            articulo_id: pieza ? String(pieza.articulo_id) : porCantidad ? String(porCantidad.articulo_id) : actual.articulo_id,
             activo_id: pieza ? String(pieza.id) : '',
-            cantidad: pieza ? '1' : '',
+            // Del pedido ya trae la cantidad que falta; en directo se teclea.
+            cantidad: pieza ? '1' : actual.pedido_detalle_id !== '' ? actual.cantidad : '',
             condicion_salida: pieza?.condicion ?? '',
         });
     };
@@ -218,7 +321,9 @@ export default function PrestamoCreate({ almacenes, usuarios, obras, gruposTraba
                     cantidad: r.activo_id ? 1 : r.cantidad,
                     condicion_salida: r.condicion_salida || null,
                     observaciones: r.observaciones || null,
+                    pedido_detalle_id: r.pedido_detalle_id || null,
                 })),
+            pedido_id: d.pedido_id || null,
         }));
 
         form.post('/admin/almacen/prestamos');
@@ -250,6 +355,28 @@ export default function PrestamoCreate({ almacenes, usuarios, obras, gruposTraba
                                     {almacenes.map((a) => (
                                         <SelectItem key={a.id} value={String(a.id)}>
                                             {etiquetaDeAlmacen(a)} — {a.nombre}
+                                        </SelectItem>
+                                    ))}
+                                </Select>
+                            </FormField>
+
+                            <FormField
+                                label="Surte el pedido"
+                                htmlFor="pedido_id"
+                                error={form.errors.pedido_id}
+                                description="Opcional: sólo salen los pedidos que piden herramienta."
+                            >
+                                <Select
+                                    id="pedido_id"
+                                    value={form.data.pedido_id}
+                                    onValueChange={cargarPedido}
+                                    disabled={form.data.almacen_id === ''}
+                                    placeholder="Préstamo directo, sin pedido"
+                                >
+                                    <SelectItem value="">Préstamo directo, sin pedido</SelectItem>
+                                    {pedidosSurtibles.map((p) => (
+                                        <SelectItem key={p.id} value={String(p.id)}>
+                                            {p.folio} — {p.departamento}
                                         </SelectItem>
                                     ))}
                                 </Select>
@@ -424,6 +551,16 @@ export default function PrestamoCreate({ almacenes, usuarios, obras, gruposTraba
                                 Elige el almacén para ver qué se puede prestar.
                             </p>
                         )}
+                        {pedido && (
+                            <div className="alert alert-info mb-3">
+                                <InfoIcon className="size-5" />
+                                <span>
+                                    Se cargó la herramienta que le falta a {pedido.folio}: {pedido.detalles.length}{' '}
+                                    renglón(es), se necesitaba el {pedido.fecha_requerida}. En las piezas con serie
+                                    elige cuál se va; puedes prestar menos, no más de lo pedido.
+                                </span>
+                            </div>
+                        )}
                         {nadaPrestable && (
                             <div className="alert alert-warning mb-3">
                                 <TriangleAlertIcon className="size-5" />
@@ -466,6 +603,11 @@ export default function PrestamoCreate({ almacenes, usuarios, obras, gruposTraba
                                                         maxOptions={25}
                                                         disabled={form.data.almacen_id === ''}
                                                     />
+                                                    {r.pedido_detalle_id !== '' && r.clave === '' && (
+                                                        <span className="text-base-content/50 block text-xs">
+                                                            Pide {pedido?.detalles.find((d) => String(d.id) === r.pedido_detalle_id)?.descripcion}: elige cuál se va.
+                                                        </span>
+                                                    )}
                                                     {pieza?.ubicacion && (
                                                         <span className="text-base-content/50 block text-xs">
                                                             En {pieza.ubicacion}

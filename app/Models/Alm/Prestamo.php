@@ -36,6 +36,7 @@ class Prestamo extends Model
     protected $fillable = [
         'folio',
         'almacen_id',
+        'pedido_id',
         'responsable_id',
         'obra_id',
         'grupo_trabajo_id',
@@ -67,6 +68,16 @@ class Prestamo extends Model
     public function almacen(): BelongsTo
     {
         return $this->belongsTo(Almacen::class);
+    }
+
+    /**
+     * El pedido que surte, si nació de uno.
+     *
+     * @return BelongsTo<Pedido, $this>
+     */
+    public function pedido(): BelongsTo
+    {
+        return $this->belongsTo(Pedido::class);
     }
 
     /**

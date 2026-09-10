@@ -22,6 +22,7 @@ class PrestamoDetalle extends Model
         'prestamo_id',
         'articulo_id',
         'activo_id',
+        'pedido_detalle_id',
         'cantidad',
         'cantidad_devuelta',
         'condicion_salida',
@@ -65,6 +66,16 @@ class PrestamoDetalle extends Model
     public function activo(): BelongsTo
     {
         return $this->belongsTo(Activo::class);
+    }
+
+    /**
+     * El renglón del pedido que surte, si viene de uno.
+     *
+     * @return BelongsTo<PedidoDetalle, $this>
+     */
+    public function pedidoDetalle(): BelongsTo
+    {
+        return $this->belongsTo(PedidoDetalle::class, 'pedido_detalle_id');
     }
 
     /**

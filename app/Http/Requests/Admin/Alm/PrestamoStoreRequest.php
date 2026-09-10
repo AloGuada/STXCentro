@@ -2,6 +2,8 @@
 
 namespace App\Http\Requests\Admin\Alm;
 
+use App\Models\Alm\Pedido;
+use App\Models\Alm\PedidoDetalle;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Validator;
 
@@ -23,6 +25,7 @@ class PrestamoStoreRequest extends FormRequest
     {
         return [
             'almacen_id' => ['required', 'integer', 'exists:alm_almacenes,id'],
+            'pedido_id' => ['nullable', 'integer', 'exists:alm_pedidos,id'],
             'responsable_id' => ['required', 'uuid', 'exists:usuarios,id'],
             'obra_id' => ['nullable', 'integer', 'exists:obras,id'],
             'grupo_trabajo_id' => ['nullable', 'integer', 'exists:prod_grupos_trabajo,id'],
@@ -33,6 +36,7 @@ class PrestamoStoreRequest extends FormRequest
             'renglones' => ['required', 'array', 'min:1'],
             'renglones.*.articulo_id' => ['required', 'integer', 'exists:alm_articulos,id'],
             'renglones.*.activo_id' => ['nullable', 'integer', 'exists:alm_activos,id'],
+            'renglones.*.pedido_detalle_id' => ['nullable', 'integer', 'exists:alm_pedido_detalle,id'],
             'renglones.*.cantidad' => ['nullable', 'numeric', 'gt:0'],
             'renglones.*.condicion_salida' => ['nullable', 'string', 'max:255'],
             'renglones.*.observaciones' => ['nullable', 'string', 'max:500'],
@@ -64,7 +68,69 @@ class PrestamoStoreRequest extends FormRequest
             if ($this->filled('obra_id') && $this->filled('grupo_trabajo_id')) {
                 $validator->errors()->add('obra_id', 'El destino es una obra o un grupo de trabajo, no los dos.');
             }
+
+            $this->validarPedido($validator);
         });
+    }
+
+    /**
+     * Si surte un pedido, el pedido tiene que ser de este almacén y seguir
+     * surtible, y cada renglón amarrado tiene que ser de ese pedido, de ese
+     * artículo, y no entregar más de lo que le falta. Prestar de más contra un
+     * pedido lo dejaría «surtido» con herramienta que nadie pidió.
+     */
+    private function validarPedido(Validator $validator): void
+    {
+        if (! $this->filled('pedido_id')) {
+            return;
+        }
+
+        $pedido = Pedido::with('detalles.articulo')->find($this->integer('pedido_id'));
+
+        if ($pedido === null) {
+            return;
+        }
+
+        if ((int) $pedido->almacen_id !== $this->integer('almacen_id')) {
+            $validator->errors()->add('pedido_id', 'Ese pedido es de otro almacén.');
+        }
+
+        if (! $pedido->estatus->admiteSurtido()) {
+            $validator->errors()->add('pedido_id', 'Ese pedido ya no se puede surtir: está '.$pedido->estatus->etiqueta().'.');
+        }
+
+        $porRenglon = [];
+
+        foreach ((array) $this->input('renglones', []) as $i => $renglon) {
+            $detalleId = (int) ($renglon['pedido_detalle_id'] ?? 0);
+
+            if ($detalleId === 0) {
+                continue;
+            }
+
+            /** @var PedidoDetalle|null $detalle */
+            $detalle = $pedido->detalles->firstWhere('id', $detalleId);
+
+            if ($detalle === null) {
+                $validator->errors()->add("renglones.{$i}.pedido_detalle_id", 'Ese renglón no es de este pedido.');
+
+                continue;
+            }
+
+            if ((int) $detalle->articulo_id !== (int) ($renglon['articulo_id'] ?? 0)) {
+                $validator->errors()->add("renglones.{$i}.articulo_id", 'El artículo no coincide con el renglón del pedido.');
+            }
+
+            $cantidad = ! empty($renglon['activo_id']) ? 1.0 : (float) ($renglon['cantidad'] ?? 0);
+            $porRenglon[$detalleId] = ($porRenglon[$detalleId] ?? 0.0) + $cantidad;
+
+            if ($porRenglon[$detalleId] > $detalle->pendiente() + (float) config('costos.epsilon_cantidad')) {
+                $validator->errors()->add(
+                    "renglones.{$i}.cantidad",
+                    "Al pedido sólo le faltan {$detalle->pendiente()} de este artículo.",
+                );
+            }
+        }
     }
 
     /**

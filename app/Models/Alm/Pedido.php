@@ -3,6 +3,7 @@
 namespace App\Models\Alm;
 
 use App\Enums\Alm\PedidoEstatus;
+use App\Enums\Alm\ProductoTipo;
 use App\Models\Concerns\HasMonthlyFolio;
 use App\Models\Departamento;
 use App\Models\Obra;
@@ -174,6 +175,30 @@ class Pedido extends Model
     public function scopeSurtiblesConSalida(Builder $query, ?int $almacenId = null): Builder
     {
         return $query->surtibles($almacenId)->whereNull('obra_id');
+    }
+
+    /**
+     * Los que puede surtir un préstamo: los que piden herramienta (activos,
+     * con o sin serie) y todavía la deben. Vaya a obra o se quede en planta:
+     * la herramienta no se consume, se presta.
+     *
+     * @param  Builder<self>  $query
+     * @return Builder<self>
+     */
+    public function scopeSurtiblesConPrestamo(Builder $query, ?int $almacenId = null): Builder
+    {
+        return $query
+            ->where('estatus', PedidoEstatus::Aprobado)
+            ->when($almacenId, fn (Builder $q, int $id) => $q->where('almacen_id', $id))
+            ->whereHas('detalles', fn (Builder $d) => $d
+                ->whereColumn('cantidad_surtida', '<', 'cantidad_solicitada')
+                ->whereHas('articulo', fn (Builder $a) => $a->where('tipo', ProductoTipo::Activo)));
+    }
+
+    /** Si entre lo que debe hay herramienta: eso se surte prestando, no sacando. */
+    public function pideHerramienta(): bool
+    {
+        return $this->detalles->contains(fn (PedidoDetalle $d): bool => $d->esHerramienta() && $d->pendiente() > 0);
     }
 
     /**

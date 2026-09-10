@@ -2,6 +2,7 @@
 
 use App\Enums\Alm\ActivoEstatus;
 use App\Enums\Alm\MovimientoTipo;
+use App\Enums\Alm\PedidoEstatus;
 use App\Enums\Alm\PrestamoEstatus;
 use App\Exceptions\Alm\ExistenciaInsuficienteException;
 use App\Models\Alm\Activo;
@@ -9,6 +10,7 @@ use App\Models\Alm\Almacen;
 use App\Models\Alm\Articulo;
 use App\Models\Alm\Existencia;
 use App\Models\Alm\Movimiento;
+use App\Models\Alm\Pedido;
 use App\Models\Alm\Prestamo;
 use App\Models\Alm\PrestamoDetalle;
 use App\Models\User;
@@ -180,6 +182,135 @@ describe('prestar', function () {
                 ['articulo_id' => $extension->id, 'cantidad' => 1],
             ]))
             ->assertForbidden();
+    });
+});
+
+/**
+ * Un pedido aprobado del almacén que pide herramienta (y opcionalmente un
+ * insumo), con lo que cada renglón necesita para crearse.
+ *
+ * @param  list<array{articulo: Articulo, cantidad: float|int}>  $renglones
+ */
+function pedidoDeHerramienta(Almacen $almacen, User $solicitante, array $renglones): Pedido
+{
+    $pedido = Pedido::factory()->create([
+        'almacen_id' => $almacen->id,
+        'solicitante_id' => $solicitante->id,
+        'obra_id' => null,
+        'estatus' => PedidoEstatus::Aprobado,
+    ]);
+
+    foreach ($renglones as $r) {
+        $pedido->detalles()->create([
+            'articulo_id' => $r['articulo']->id,
+            'producto_id' => $r['articulo']->producto_id,
+            'cantidad_solicitada' => $r['cantidad'],
+        ]);
+    }
+
+    return $pedido->load('detalles.articulo');
+}
+
+describe('el pedido de herramienta se surte prestando', function () {
+    it('el préstamo contra el pedido cuenta como surtido y lo cierra', function () {
+        ['almacen' => $almacen, 'pulidora' => $pulidora, 'extension' => $extension] = almacenConActivos();
+        $user = usuarioDePrestamos();
+        $pedido = pedidoDeHerramienta($almacen, $user, [
+            ['articulo' => $pulidora->articulo, 'cantidad' => 1],
+            ['articulo' => $extension, 'cantidad' => 3],
+        ]);
+        [$renglonPulidora, $renglonExtension] = $pedido->detalles->all();
+
+        $this->actingAs($user)
+            ->post(route('admin.alm.prestamos.store'), [
+                ...prestamoValido($almacen, $user, [
+                    ['articulo_id' => $pulidora->articulo_id, 'activo_id' => $pulidora->id, 'pedido_detalle_id' => $renglonPulidora->id],
+                    ['articulo_id' => $extension->id, 'cantidad' => 3, 'pedido_detalle_id' => $renglonExtension->id],
+                ]),
+                'pedido_id' => $pedido->id,
+            ])
+            ->assertRedirect()
+            ->assertSessionHasNoErrors();
+
+        $pedido->refresh();
+
+        expect($pedido->estatus)->toBe(PedidoEstatus::Surtido)
+            ->and((float) $renglonPulidora->refresh()->cantidad_surtida)->toBe(1.0)
+            ->and((float) $renglonExtension->refresh()->cantidad_surtida)->toBe(3.0)
+            ->and(Prestamo::firstOrFail()->pedido_id)->toBe($pedido->id);
+    });
+
+    it('no presta más de lo que el pedido debe, ni contra un pedido de otro almacén', function () {
+        ['almacen' => $almacen, 'extension' => $extension] = almacenConActivos();
+        $user = usuarioDePrestamos();
+        $pedido = pedidoDeHerramienta($almacen, $user, [['articulo' => $extension, 'cantidad' => 2]]);
+        $renglon = $pedido->detalles->first();
+
+        $this->actingAs($user)
+            ->post(route('admin.alm.prestamos.store'), [
+                ...prestamoValido($almacen, $user, [
+                    ['articulo_id' => $extension->id, 'cantidad' => 5, 'pedido_detalle_id' => $renglon->id],
+                ]),
+                'pedido_id' => $pedido->id,
+            ])
+            ->assertSessionHasErrors('renglones.0.cantidad');
+
+        $otro = Almacen::factory()->create();
+
+        $this->actingAs($user)
+            ->post(route('admin.alm.prestamos.store'), [
+                ...prestamoValido($otro, $user, [['articulo_id' => $extension->id, 'cantidad' => 1]]),
+                'pedido_id' => $pedido->id,
+            ])
+            ->assertSessionHasErrors('pedido_id');
+
+        expect(Prestamo::count())->toBe(0)
+            ->and($pedido->refresh()->estatus)->toBe(PedidoEstatus::Aprobado);
+    });
+
+    it('la pantalla de préstamo ofrece los pedidos con herramienta pendiente, sólo con sus renglones de activo', function () {
+        ['almacen' => $almacen, 'extension' => $extension] = almacenConActivos();
+        $user = usuarioDePrestamos();
+        $tornillo = Articulo::factory()->create();
+        $pedido = pedidoDeHerramienta($almacen, $user, [
+            ['articulo' => $extension, 'cantidad' => 2],
+            ['articulo' => $tornillo, 'cantidad' => 100],
+        ]);
+        // Uno sin herramienta: no aparece.
+        pedidoDeHerramienta($almacen, $user, [['articulo' => $tornillo, 'cantidad' => 5]]);
+
+        $this->actingAs($user)
+            ->get(route('admin.alm.prestamos.create', ['almacen_id' => $almacen->id, 'pedido_id' => $pedido->id]))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->component('admin/almacen/prestamos/create')
+                ->has('pedidosSurtibles', 1)
+                ->where('pedidosSurtibles.0.id', $pedido->id)
+                ->has('pedidosSurtibles.0.detalles', 1)
+                ->where('pedidosSurtibles.0.detalles.0.articulo_id', $extension->id)
+                ->where('pedidosSurtibles.0.detalles.0.por_pieza', false)
+                ->where('pedidoSeleccionado', $pedido->id));
+
+        $this->actingAs(usuarioDePrestamos([...['alm.prestamos.ver', 'alm.prestamos.crear'], 'alm.pedidos.ver']))
+            ->get(route('admin.alm.pedidos.show', $pedido))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page->where('pedido.pide_herramienta', true));
+    });
+
+    it('la herramienta no sale por salida', function () {
+        ['almacen' => $almacen, 'extension' => $extension] = almacenConActivos();
+        $user = usuarioDePrestamos(['alm.salidas.crear', 'alm.salidas.ver']);
+
+        $this->actingAs($user)
+            ->post(route('admin.alm.salidas.store'), [
+                'almacen_id' => $almacen->id,
+                'fecha' => today()->toDateString(),
+                'recibe_nombre' => 'Cuadrilla 3',
+                'detalles' => [['articulo_id' => $extension->id, 'cantidad' => 1]],
+            ])
+            ->assertSessionHasErrors('detalles.0.articulo_id');
+
+        expect(Movimiento::where('tipo', MovimientoTipo::Salida)->count())->toBe(0);
     });
 });
 

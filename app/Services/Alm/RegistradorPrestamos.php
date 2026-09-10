@@ -8,6 +8,7 @@ use App\Models\Alm\Activo;
 use App\Models\Alm\Almacen;
 use App\Models\Alm\Articulo;
 use App\Models\Alm\Existencia;
+use App\Models\Alm\Pedido;
 use App\Models\Alm\Prestamo;
 use App\Models\Alm\PrestamoDetalle;
 use Carbon\CarbonInterface;
@@ -27,7 +28,12 @@ use Illuminate\Validation\ValidationException;
  */
 class RegistradorPrestamos
 {
+    public function __construct(private readonly SurtidoPedido $surtido) {}
+
     /**
+     * Si surte un pedido, al terminar lo recalcula: lo prestado cuenta como
+     * entregado y el pedido puede quedar surtido con este mismo documento.
+     *
      * @param  array<string, mixed>  $cabecera
      * @param  list<array{articulo_id: int, activo_id?: int|null, cantidad?: float|int|string|null, condicion_salida?: string|null, observaciones?: string|null}>  $renglones
      */
@@ -49,6 +55,14 @@ class RegistradorPrestamos
                 $activoId !== null
                     ? $this->prestarPieza($prestamo, $almacen, $activoId, $renglon, $i)
                     : $this->prestarCantidad($prestamo, $almacen, (int) $renglon['articulo_id'], $renglon, $i);
+            }
+
+            if ($prestamo->pedido_id !== null) {
+                $pedido = Pedido::with('detalles')->find($prestamo->pedido_id);
+
+                if ($pedido !== null) {
+                    $this->surtido->recalcular($pedido);
+                }
             }
 
             return $prestamo->load('detalles');
@@ -199,6 +213,7 @@ class RegistradorPrestamos
         $prestamo->detalles()->create([
             'articulo_id' => $activo->articulo_id,
             'activo_id' => $activo->id,
+            'pedido_detalle_id' => $renglon['pedido_detalle_id'] ?? null,
             'cantidad' => 1,
             'condicion_salida' => $renglon['condicion_salida'] ?? $activo->condicion,
             'observaciones' => $renglon['observaciones'] ?? null,
@@ -245,6 +260,7 @@ class RegistradorPrestamos
         $prestamo->detalles()->create([
             'articulo_id' => $articulo->id,
             'activo_id' => null,
+            'pedido_detalle_id' => $renglon['pedido_detalle_id'] ?? null,
             'cantidad' => $cantidad,
             'condicion_salida' => $renglon['condicion_salida'] ?? null,
             'observaciones' => $renglon['observaciones'] ?? null,

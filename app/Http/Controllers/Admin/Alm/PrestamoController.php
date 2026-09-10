@@ -5,6 +5,8 @@ namespace App\Http\Controllers\Admin\Alm;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\Alm\PrestamoStoreRequest;
 use App\Models\Alm\Almacen;
+use App\Models\Alm\Pedido;
+use App\Models\Alm\PedidoDetalle;
 use App\Models\Alm\Prestamo;
 use App\Models\Alm\PrestamoDetalle;
 use App\Models\Obra;
@@ -84,6 +86,8 @@ class PrestamoController extends Controller
     {
         return Inertia::render('admin/almacen/prestamos/create', [
             'almacenes' => $this->opcionesAlmacen($request),
+            'pedidosSurtibles' => $this->pedidosSurtibles($request, $request->integer('almacen_id') ?: null),
+            'pedidoSeleccionado' => $request->integer('pedido_id') ?: null,
             'usuarios' => Usuario::query()->orderBy('name')->get(['id', 'name']),
             'obras' => Obra::query()->orderBy('no')->get(['id', 'no', 'descripcion']),
             'gruposTrabajo' => GrupoTrabajo::query()->orderBy('descripcion')->get(['id', 'descripcion']),
@@ -110,7 +114,7 @@ class PrestamoController extends Controller
         $prestamo = $this->registrador->prestar(
             almacen: $almacen,
             cabecera: $request->safe()->only([
-                'responsable_id', 'obra_id', 'grupo_trabajo_id', 'fecha_salida',
+                'pedido_id', 'responsable_id', 'obra_id', 'grupo_trabajo_id', 'fecha_salida',
                 'fecha_retorno_esperada', 'autorizado_por', 'observaciones',
             ]),
             renglones: $request->validated('renglones'),
@@ -127,6 +131,7 @@ class PrestamoController extends Controller
 
         $prestamo->load([
             'almacen:id,clave,nombre',
+            'pedido:id,folio',
             'responsable:id,name',
             'autorizador:id,name',
             'creador:id,name',
@@ -143,6 +148,8 @@ class PrestamoController extends Controller
                 'folio' => $prestamo->folio,
                 'almacen' => $prestamo->almacen?->clave,
                 'almacen_nombre' => $prestamo->almacen?->nombre,
+                'pedido_id' => $prestamo->pedido_id,
+                'pedido_folio' => $prestamo->pedido?->folio,
                 'responsable' => $prestamo->responsable?->name,
                 'destino' => $prestamo->destino(),
                 'obra' => $prestamo->obra?->descripcion,
@@ -203,6 +210,49 @@ class PrestamoController extends Controller
             ->setPaper('letter', 'portrait');
 
         return $pdf->stream("resguardo-{$prestamo->folio}.pdf");
+    }
+
+    /**
+     * Los pedidos que este préstamo puede surtir: los que piden herramienta y
+     * todavía la deben, con lo que le falta a cada renglón de activo. Es lo que
+     * la pantalla precarga al elegir «surtir».
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function pedidosSurtibles(Request $request, ?int $almacenId): array
+    {
+        return Pedido::query()
+            ->surtiblesConPrestamo($almacenId)
+            ->whereIn('almacen_id', $this->almacenesVisibles($request))
+            ->with(['departamento:id,descripcion', 'detalles.articulo:id,codigo,descripcion,unidad,tipo,se_controla_por_pieza'])
+            ->orderBy('fecha_requerida')
+            ->get()
+            ->map(fn (Pedido $p): array => [
+                'id' => $p->id,
+                'folio' => $p->folio,
+                'almacen_id' => $p->almacen_id,
+                'departamento' => $p->departamento?->descripcion,
+                'obra_id' => $p->obra_id,
+                'grupo_trabajo_id' => $p->grupo_trabajo_id,
+                'solicitante_id' => $p->solicitante_id,
+                'recibe' => $p->recibe_nombre,
+                'fecha_requerida' => $p->fecha_requerida?->toDateString(),
+                'detalles' => $p->detalles
+                    ->filter(fn (PedidoDetalle $d): bool => $d->esHerramienta() && $d->pendiente() > 0)
+                    ->map(fn (PedidoDetalle $d): array => [
+                        'id' => $d->id,
+                        'articulo_id' => $d->articulo_id,
+                        'codigo' => $d->articulo?->codigo,
+                        'descripcion' => $d->articulo?->descripcion,
+                        'unidad' => $d->articulo?->unidad,
+                        'por_pieza' => (bool) $d->articulo?->se_controla_por_pieza,
+                        'pendiente' => $d->pendiente(),
+                    ])
+                    ->values()
+                    ->all(),
+            ])
+            ->values()
+            ->all();
     }
 
     /**

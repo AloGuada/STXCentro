@@ -46,8 +46,8 @@ class SurtidoPedido
     }
 
     /**
-     * Cuánto se ha entregado de cada renglón, sumando los dos documentos que lo
-     * pueden surtir.
+     * Cuánto se ha entregado de cada renglón, sumando los tres documentos que lo
+     * pueden surtir: salida, transferencia y, para la herramienta, préstamo.
      *
      * En una transferencia cuenta **lo enviado**, no lo confirmado: el almacén
      * origen ya cumplió y no tiene el material para volver a surtirlo. Si contara
@@ -87,11 +87,23 @@ class SurtidoPedido
             ->get()
             ->keyBy('pedido_detalle_id');
 
+        // La herramienta se surte prestando. Cuenta lo prestado, no lo que
+        // sigue afuera: el pedido quedó atendido cuando la herramienta salió,
+        // y que vuelva o no es asunto del resguardo, no del pedido.
+        $porPrestamo = DB::table('alm_prestamo_detalle')
+            ->whereIn('pedido_detalle_id', $renglones)
+            ->groupBy('pedido_detalle_id')
+            ->select('pedido_detalle_id')
+            ->selectRaw('SUM(cantidad) as entregado')
+            ->get()
+            ->keyBy('pedido_detalle_id');
+
         $total = [];
 
         foreach ($renglones as $id) {
             $total[$id] = (float) ($porSalida[$id]->entregado ?? 0)
-                + (float) ($porTransferencia[$id]->entregado ?? 0);
+                + (float) ($porTransferencia[$id]->entregado ?? 0)
+                + (float) ($porPrestamo[$id]->entregado ?? 0);
         }
 
         return $total;
