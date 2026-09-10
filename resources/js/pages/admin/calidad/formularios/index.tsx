@@ -1017,7 +1017,7 @@ export default function CapturaCalidad({ obras, obraId, marcas, lotes, catalogos
                                             onJuntas={setJuntas}
                                             soldadores={soldadores}
                                             subetapaFija={piezaFija}
-                                            modeloMarcaId={pieza?.modelo_marca_id ?? null}
+                                            modelo3d={pieza ? { marcaId: pieza.modelo_marca_id, estado: pieza.modelo_3d } : null}
                                             onAviso={avisar}
                                             onRechazar={() => campos.set('status', 'Rechazado')}
                                         />

@@ -11,7 +11,7 @@
  * mapeo: el visor también la escribe.
  */
 
-import type { Dispatch, SetStateAction } from 'react';
+import type { Dispatch, ReactNode, SetStateAction } from 'react';
 import { PUNTOS_MAPEO } from './datos';
 import type { Junta } from './estado';
 import { evaluarFilete, PUNTO_PERFIL } from './reglas';
@@ -42,6 +42,7 @@ export function Mapeo({
     onBorrador,
     soldadores,
     onAviso,
+    modelo3d,
 }: {
     juntas: Junta[];
     onJuntas: (juntas: Junta[]) => void;
@@ -51,6 +52,8 @@ export function Mapeo({
     /** [id, «NOMBRE (CLAVE)»] del padrón. */
     soldadores: [string, string][];
     onAviso: (mensaje: string, tono?: 'ok' | 'error') => void;
+    /** El visor de la pieza con sus cordones, o por qué no lo hay. Va arriba de la junta. */
+    modelo3d?: ReactNode;
 }) {
     const punto = (clave: string) => borrador.puntos[clave] ?? '';
     const setPunto = (clave: string, valor: string) =>
@@ -134,6 +137,8 @@ export function Mapeo({
                 Subapartado de la pieza. Añade cada junta a la lista; <b>todas se guardan al pulsar Guardar</b> abajo
                 (con el resto de la pieza).
             </Pista>
+
+            {modelo3d && <div className="mb-4">{modelo3d}</div>}
 
             {borrador.cordonId !== null && (
                 <div className="mb-3 flex flex-wrap items-center gap-2 rounded-[9px] bg-info/10 px-3 py-2 text-xs">

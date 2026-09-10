@@ -21,6 +21,9 @@ export type InspeccionPrevia = {
     fecha: string;
 };
 
+/** Si la marca tiene modelo 3D convertido y, si no, qué le falta a la obra. */
+export type Estado3d = 'listo' | 'convirtiendo' | 'sin_marca' | 'error' | 'sin_modelo';
+
 export type PiezaResuelta = {
     id: number;
     qr: string;
@@ -37,6 +40,7 @@ export type PiezaResuelta = {
     tipo_pieza_id: number | null;
     /** La marca en el modelo 3D ya convertido de la obra: con ella se monta el visor en soldado. */
     modelo_marca_id: number | null;
+    modelo_3d: Estado3d;
     inspecciones: InspeccionPrevia[];
 };
 

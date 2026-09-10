@@ -108,9 +108,32 @@ test('al escanear la pieza se sabe que marca del modelo convertido le toca', fun
 
     $this->actingAs(inspectorDelVisor())
         ->getJson(route('admin.qal.piezas.resolver', ['codigo' => $pieza->qr]))
-        ->assertJsonPath('modelo_marca_id', $marca->id);
+        ->assertJsonPath('modelo_marca_id', $marca->id)
+        ->assertJsonPath('modelo_3d', 'listo');
 
     expect($enProceso->estatus)->toBe(EstatusModelo::Pendiente);
+});
+
+test('sin visor, la pieza dice que le falta a la obra', function () {
+    $concepto = Concepto::factory()->create(['marca' => 'SX-CM2-11']);
+    $pieza = Pieza::factory()->create(['concepto_id' => $concepto->id]);
+    $usuario = inspectorDelVisor();
+    $estado = fn () => $this->actingAs($usuario)
+        ->getJson(route('admin.qal.piezas.resolver', ['codigo' => $pieza->qr]))
+        ->assertJsonPath('modelo_marca_id', null)
+        ->json('modelo_3d');
+
+    expect($estado())->toBe('sin_modelo');
+
+    $modelo = Modelo::factory()->create(['obra_id' => $concepto->obra_id, 'estatus' => EstatusModelo::Error]);
+    expect($estado())->toBe('error');
+
+    $modelo->update(['estatus' => EstatusModelo::Listo]);
+    ModeloMarca::factory()->create(['modelo_id' => $modelo->id, 'marca' => 'SX-TP1-1']);
+    expect($estado())->toBe('sin_marca');
+
+    Modelo::factory()->pendiente()->create(['obra_id' => $concepto->obra_id, 'version' => 2]);
+    expect($estado())->toBe('convirtiendo');
 });
 
 test('el cordon se pinta con la ultima junta de cada pieza', function () {
