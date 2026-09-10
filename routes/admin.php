@@ -801,15 +801,16 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::get('dashboard', [QalVistasController::class, 'dashboard'])
             ->middleware('permission:qal.dashboard.ver')
             ->name('dashboard');
-        Route::get('obras', [QalVistasController::class, 'obras'])
-            ->middleware('permission:qal.obras.ver')
-            ->name('obras.index');
-        Route::get('piezas', [QalVistasController::class, 'piezas'])
-            ->middleware('permission:qal.piezas.ver')
-            ->name('piezas.index');
         Route::get('reportes', [QalVistasController::class, 'reportes'])
             ->middleware('permission:qal.reportes.ver')
             ->name('reportes.index');
+        // La base en crudo de lo que se captura en Formularios, asi que de
+        // momento cuelga del mismo permiso. Es pantalla de auditoria —quien la
+        // abre ve lo que capturo cualquier inspector— y cuando lea de la base
+        // va a pedir su propio qal.registros.ver, con exportar aparte (RF-18.3).
+        Route::get('registros', [QalVistasController::class, 'registros'])
+            ->middleware('permission:qal.reportes.ver')
+            ->name('registros.index');
 
         // Pruebas no destructivas. Es recurso aparte de reportes: aqui se
         // cuentan juntas soldadas evaluadas por un laboratorio externo, alla

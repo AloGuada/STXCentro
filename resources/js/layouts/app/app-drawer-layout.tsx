@@ -44,6 +44,7 @@ import {
     Shield,
     ShieldCheck,
     ShoppingCart,
+    Table2,
     Tag,
     Ticket,
     TrendingDown,
@@ -226,27 +227,23 @@ const navGroups: NavGroup[] = [
             {
                 // Va primero: es la pantalla con la que se entra a mirar como
                 // va la obra, no una mas del modulo.
-                title: 'Tablero',
+                title: 'Dashboard',
                 href: '/admin/calidad/dashboard',
                 icon: LayoutDashboard,
                 permission: 'qal.dashboard.ver',
             },
             {
-                title: 'Obras',
-                href: '/admin/calidad/obras',
-                icon: Briefcase,
-                permission: 'qal.obras.ver',
-            },
-            {
-                title: 'Piezas y Planos',
-                href: '/admin/calidad/piezas',
-                icon: Puzzle,
-                permission: 'qal.piezas.ver',
-            },
-            {
-                title: 'Reportes',
+                title: 'Formularios',
                 href: '/admin/calidad/reportes',
                 icon: FileCheck,
+                permission: 'qal.reportes.ver',
+            },
+            {
+                // La base en crudo de lo que se captura en Formularios: aqui se
+                // consulta y se audita, alla se llena. Mismo permiso por ahora.
+                title: 'Registros',
+                href: '/admin/calidad/registros',
+                icon: Table2,
                 permission: 'qal.reportes.ver',
             },
             {

@@ -14,23 +14,15 @@ use Inertia\Response;
  * es su versión en el mono, sobre `qal_*`: la anterior se apagará y sus tablas
  * se van con ella, así que aquí no se reusa nada de allá.
  *
- * Estas vistas fijan la estructura mientras se acuerda qué hace cada una. Cada
- * pantalla corresponde a una tabla que ya existe en `qal_`. Se van reemplazando
- * por su controlador de verdad conforme se construyan, y este archivo
- * desaparece cuando no quede ninguna.
+ * Estas vistas fijan la estructura mientras se acuerda qué hace cada una. Se
+ * van reemplazando por su controlador de verdad conforme se construyan, y este
+ * archivo desaparece cuando no quede ninguna.
+ *
+ * Obras y Piezas y Planos vivían aquí y se retiraron: Calidad no administra su
+ * propio padrón, va a leer el catálogo de Producción.
  */
 class VistasController extends Controller
 {
-    public function obras(): Response
-    {
-        return Inertia::render('admin/calidad/obras/index');
-    }
-
-    public function piezas(): Response
-    {
-        return Inertia::render('admin/calidad/piezas/index');
-    }
-
     /**
      * Captura de inspección: el `captura.html` de la aplicación anterior.
      *
@@ -41,6 +33,22 @@ class VistasController extends Controller
     public function reportes(): Response
     {
         return Inertia::render('admin/calidad/reportes/index');
+    }
+
+    /**
+     * Registros: el `Registros_Steelex.html` de la aplicación anterior.
+     *
+     * Es la tabla de auditoría del módulo —lo capturado en crudo, sin resumir—,
+     * no un reporte. Comparte pantalla con los lotes de accesorios porque son
+     * dos conjuntos de la misma base, aunque no compartan columnas.
+     *
+     * Tampoco recibe nada todavía: sus filas salen de un módulo del front
+     * marcado como falso, porque `qal_inspecciones` y las tablas de accesorios
+     * no existen.
+     */
+    public function registros(): Response
+    {
+        return Inertia::render('admin/calidad/registros/index');
     }
 
     /**
