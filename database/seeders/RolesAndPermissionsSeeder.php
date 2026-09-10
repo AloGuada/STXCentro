@@ -257,6 +257,7 @@ class RolesAndPermissionsSeeder extends Seeder
             'alm.articulos.ver',
             'alm.articulos.crear',
             'alm.articulos.editar',
+            'alm.articulos.desactivar',
             // Hoja de codigos de barras para escaneo
             'alm.etiquetas.ver',
             // Lugares fisicos dentro de un almacen: pasillo, rack, nivel

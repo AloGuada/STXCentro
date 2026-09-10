@@ -1,3 +1,6 @@
+import { Head, Link, router, useForm } from '@inertiajs/react';
+import { PencilIcon, PlusIcon, Trash2Icon } from 'lucide-react';
+import { useState } from 'react';
 import { ButtonLink } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectItem } from '@/components/ui/select';
@@ -5,9 +8,6 @@ import AppLayout from '@/layouts/app-layout';
 import { etiquetaDeAlmacen } from '@/lib/alm/almacenes';
 import type { BreadcrumbItem } from '@/types';
 import type { AlmActivoEstatus, AlmAlmacenOpcion, AlmOpcion, AlmProductoOpcion, PaginatedData } from '@/types/models';
-import { Head, Link, router, useForm } from '@inertiajs/react';
-import { PencilIcon, PlusIcon, Trash2Icon } from 'lucide-react';
-import { useState } from 'react';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
@@ -22,6 +22,7 @@ const CLASE_ESTATUS: Record<AlmActivoEstatus, string> = {
 };
 
 const moneda = (n: number) => n.toLocaleString('es-MX', { style: 'currency', currency: 'MXN' });
+const cantidad = (n: number) => n.toLocaleString('es-MX', { maximumFractionDigits: 3 });
 
 type ActivoFila = {
     id: number;
@@ -44,10 +45,32 @@ type ActivoFila = {
     condicion: string | null;
 };
 
+/**
+ * Un activo sin serie: su registro es el renglón de existencia, uno por
+ * almacén y artículo. No tiene estado ni condición todavía: sin serie no hay
+ * «esta pieza» de la que decirlo.
+ */
+type PorCantidadFila = {
+    id: number;
+    articulo_id: number;
+    codigo: string | null;
+    descripcion: string | null;
+    unidad: string | null;
+    almacen_id: number;
+    almacen: string | null;
+    obra: string | null;
+    ubicacion: string | null;
+    cantidad: number;
+    prestado: number;
+    disponible: number;
+    costo_promedio: number;
+    valor: number;
+};
+
 type Props = {
     activos: PaginatedData<ActivoFila>;
+    porCantidad: PorCantidadFila[];
     filters: { almacen_id?: string; articulo_id?: string; estatus?: string; search?: string };
-    resumen: { vigentes: number; disponibles: number; prestadas: number; en_reparacion: number; baja: number };
     ubicacionesPorAlmacen: Record<number, { id: number; ruta: string }[]>;
     almacenes: AlmAlmacenOpcion[];
     articulos: AlmProductoOpcion[];
@@ -55,16 +78,18 @@ type Props = {
 };
 
 /**
- * El padrón de piezas: una fila por número de serie.
+ * El padrón de activos.
  *
- * No es un inventario aparte — cada pieza suma 1 a la existencia de su artículo.
- * Lo que responde esta pantalla es cuál es cuál y en qué anda, que es justo lo
- * que el saldo por cantidad no puede decir.
+ * Las piezas con serie van una por fila: no es un inventario aparte —cada una
+ * suma 1 a la existencia de su artículo—, lo que responde esta pantalla es cuál
+ * es cuál y en qué anda. Los activos sin serie (los que el catálogo no marca
+ * «por pieza») van aparte, un renglón por cantidad, para que Activos sea la
+ * lista completa de lo que sale y regresa.
  */
 export default function ActivosIndex({
     activos,
+    porCantidad,
     filters,
-    resumen,
     ubicacionesPorAlmacen,
     almacenes,
     articulos,
@@ -72,6 +97,7 @@ export default function ActivosIndex({
 }: Props) {
     const [editando, setEditando] = useState<ActivoFila | null>(null);
     const [dandoBaja, setDandoBaja] = useState<ActivoFila | null>(null);
+    const [retirando, setRetirando] = useState<PorCantidadFila | null>(null);
 
     const filtrar = (cambio: Record<string, string | undefined>) =>
         router.get('/admin/almacen/activos', { ...filters, ...cambio, page: undefined }, { preserveState: true });
@@ -85,33 +111,14 @@ export default function ActivosIndex({
                     <div>
                         <h1 className="text-2xl font-semibold">Activos</h1>
                         <p className="text-base-content/60 mt-1 text-sm">
-                            Una fila por número de serie. La marca, el modelo y el id de mantenimiento son de la pieza:
-                            el catálogo dice qué es, y esto con qué se cumplió.
+                            Con serie, una fila por pieza: la marca, el modelo y el id de mantenimiento son de la pieza.
+                            Sin serie, un solo registro por cantidad. Lo decide el catálogo.
                         </p>
                     </div>
                     <ButtonLink href="/admin/almacen/activos/create" variant="primary">
                         <PlusIcon className="size-4" />
-                        Dar de alta piezas
+                        Dar de alta
                     </ButtonLink>
-                </div>
-
-                <div className="mb-4 grid grid-cols-2 gap-3 md:grid-cols-4">
-                    <div className="rounded-box border-base-300 border p-3">
-                        <p className="text-base-content/60 text-xs">En el almacén</p>
-                        <p className="font-mono text-xl">{resumen.vigentes}</p>
-                    </div>
-                    <div className="rounded-box border-base-300 border p-3">
-                        <p className="text-base-content/60 text-xs">Se pueden entregar</p>
-                        <p className="text-success font-mono text-xl">{resumen.disponibles}</p>
-                    </div>
-                    <div className="rounded-box border-base-300 border p-3">
-                        <p className="text-base-content/60 text-xs">Afuera</p>
-                        <p className="text-warning font-mono text-xl">{resumen.prestadas}</p>
-                    </div>
-                    <div className="rounded-box border-base-300 border p-3">
-                        <p className="text-base-content/60 text-xs">En reparación</p>
-                        <p className="font-mono text-xl">{resumen.en_reparacion}</p>
-                    </div>
                 </div>
 
                 <div className="mb-4 flex flex-wrap items-end gap-3">
@@ -174,12 +181,13 @@ export default function ActivosIndex({
                     <table className="table table-sm">
                         <thead className="bg-base-200">
                             <tr>
-                                <th>No. de serie</th>
                                 <th>Artículo</th>
+                                <th>No. de serie</th>
                                 <th>Marca y modelo</th>
                                 <th>Id de mto.</th>
                                 <th>Almacén</th>
                                 <th>Ubicación</th>
+                                <th className="text-right">Cantidad</th>
                                 <th className="text-right">Costo</th>
                                 <th>Estado</th>
                                 <th>Condición</th>
@@ -187,16 +195,83 @@ export default function ActivosIndex({
                             </tr>
                         </thead>
                         <tbody>
-                            {activos.data.length === 0 ? (
+                            {activos.data.length === 0 && porCantidad.length === 0 ? (
                                 <tr>
-                                    <td colSpan={10} className="text-base-content/50 py-6 text-center">
-                                        No hay piezas con esos filtros.
+                                    <td colSpan={11} className="text-base-content/50 py-6 text-center">
+                                        No hay activos con esos filtros.
                                     </td>
                                 </tr>
                             ) : (
-                                activos.data.map((a) => (
+                                <>
+                                    {/* Sin serie: un renglón por almacén, que es su existencia. Van
+                                        primero y fuera de la paginación de las piezas. */}
+                                    {filters.estatus === undefined &&
+                                        porCantidad.map((r) => (
+                                            <tr key={`c-${r.id}`} className="hover">
+                                                <td>
+                                                    <Link
+                                                        href={`/admin/almacen/articulos/${r.articulo_id}`}
+                                                        className="link link-hover font-mono text-xs"
+                                                    >
+                                                        {r.codigo}
+                                                    </Link>
+                                                    <span className="block text-sm">{r.descripcion}</span>
+                                                </td>
+                                                <td>
+                                                    <span className="badge badge-xs badge-ghost">por cantidad</span>
+                                                </td>
+                                                <td className="text-base-content/40">—</td>
+                                                <td className="text-base-content/40">—</td>
+                                                <td>
+                                                    <span className="badge badge-sm badge-ghost font-mono">{r.almacen}</span>
+                                                    {r.obra && (
+                                                        <span className="text-base-content/60 ml-1 text-xs">{r.obra}</span>
+                                                    )}
+                                                </td>
+                                                <td className="text-base-content/60 text-sm">
+                                                    {r.ubicacion ?? <span className="text-base-content/40">—</span>}
+                                                </td>
+                                                <td className="text-right font-mono">
+                                                    {cantidad(r.cantidad)}{' '}
+                                                    <span className="text-base-content/40 text-xs">{r.unidad}</span>
+                                                    {r.prestado > 0 && (
+                                                        <span className="text-warning block text-xs">
+                                                            {cantidad(r.prestado)} en resguardo
+                                                        </span>
+                                                    )}
+                                                </td>
+                                                <td className="text-right font-mono">
+                                                    {moneda(r.costo_promedio)}
+                                                    <span className="text-base-content/50 block text-xs">
+                                                        {moneda(r.valor)} total
+                                                    </span>
+                                                </td>
+                                                <td>
+                                                    {r.disponible > 0 ? (
+                                                        <span className="badge badge-sm badge-success">
+                                                            {cantidad(r.disponible)} disponible(s)
+                                                        </span>
+                                                    ) : (
+                                                        <span className="badge badge-sm badge-warning">Todo afuera</span>
+                                                    )}
+                                                </td>
+                                                <td className="text-base-content/40">—</td>
+                                                <td>
+                                                    {r.cantidad > 0 && (
+                                                        <button
+                                                            type="button"
+                                                            className="btn btn-ghost btn-xs"
+                                                            title="Retirar unidades"
+                                                            onClick={() => setRetirando(r)}
+                                                        >
+                                                            <Trash2Icon className="size-3.5" />
+                                                        </button>
+                                                    )}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    {activos.data.map((a) => (
                                     <tr key={a.id} className={a.estatus === 'baja' ? 'hover opacity-50' : 'hover'}>
-                                        <td className="font-mono font-medium">{a.no_serie}</td>
                                         <td>
                                             <Link
                                                 href={`/admin/almacen/articulos/${a.articulo_id}`}
@@ -206,6 +281,7 @@ export default function ActivosIndex({
                                             </Link>
                                             <span className="block text-sm">{a.descripcion}</span>
                                         </td>
+                                        <td className="font-mono font-medium">{a.no_serie}</td>
                                         <td className="text-sm">
                                             {[a.marca, a.modelo].filter(Boolean).join(' · ') || (
                                                 <span className="text-base-content/40">—</span>
@@ -223,6 +299,7 @@ export default function ActivosIndex({
                                         <td className="text-base-content/60 text-sm">
                                             {a.ubicacion ?? <span className="text-base-content/40">—</span>}
                                         </td>
+                                        <td className="text-right font-mono">1</td>
                                         <td className="text-right font-mono">{moneda(a.costo)}</td>
                                         <td>
                                             <span className={`badge badge-sm ${CLASE_ESTATUS[a.estatus]}`}>
@@ -253,7 +330,8 @@ export default function ActivosIndex({
                                             )}
                                         </td>
                                     </tr>
-                                ))
+                                    ))}
+                                </>
                             )}
                         </tbody>
                     </table>
@@ -291,7 +369,71 @@ export default function ActivosIndex({
             )}
 
             {dandoBaja && <ModalBaja activo={dandoBaja} onCerrar={() => setDandoBaja(null)} />}
+
+            {retirando && <ModalRetirarCantidad renglon={retirando} onCerrar={() => setRetirando(null)} />}
         </AppLayout>
+    );
+}
+
+/** Sin serie no hay pieza que retirar: se retiran N del renglón, con su porqué. */
+function ModalRetirarCantidad({ renglon, onCerrar }: { renglon: PorCantidadFila; onCerrar: () => void }) {
+    const form = useForm({ cantidad: '', motivo: '' });
+
+    return (
+        <dialog className="modal modal-open">
+            <div className="modal-box">
+                <h3 className="text-lg font-semibold">Retirar {renglon.descripcion}</h3>
+                <p className="text-base-content/60 mb-4 text-sm">
+                    Hay {cantidad(renglon.cantidad)} {renglon.unidad} en {renglon.almacen}. La baja resta lo que digas a
+                    la existencia y deja su asiento en el kardex.
+                </p>
+
+                <form
+                    onSubmit={(e) => {
+                        e.preventDefault();
+                        form.patch(`/admin/almacen/activos/por-cantidad/${renglon.id}/baja`, {
+                            preserveScroll: true,
+                            onSuccess: onCerrar,
+                        });
+                    }}
+                    className="space-y-3"
+                >
+                    <label className="form-control">
+                        <span className="label label-text">¿Cuántas se retiran?</span>
+                        <Input
+                            type="number"
+                            min="0"
+                            max={renglon.cantidad}
+                            step="1"
+                            value={form.data.cantidad}
+                            onChange={(e) => form.setData('cantidad', e.target.value)}
+                            autoFocus
+                        />
+                        {form.errors.cantidad && <span className="text-error text-xs">{form.errors.cantidad}</span>}
+                    </label>
+
+                    <label className="form-control">
+                        <span className="label label-text">¿Por qué se retiran?</span>
+                        <Input
+                            value={form.data.motivo}
+                            onChange={(e) => form.setData('motivo', e.target.value)}
+                            placeholder="Se quemaron, se perdieron en obra..."
+                        />
+                        {form.errors.motivo && <span className="text-error text-xs">{form.errors.motivo}</span>}
+                    </label>
+
+                    <div className="modal-action">
+                        <button type="button" className="btn btn-ghost" onClick={onCerrar}>
+                            Cancelar
+                        </button>
+                        <button type="submit" className="btn btn-error" disabled={form.processing}>
+                            Retirar
+                        </button>
+                    </div>
+                </form>
+            </div>
+            <div className="modal-backdrop" onClick={onCerrar} />
+        </dialog>
     );
 }
 

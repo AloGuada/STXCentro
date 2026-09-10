@@ -112,6 +112,9 @@ class ExistenciaController extends Controller
                 ? null
                 : (float) $e->articulo->stock_minimo,
             'cantidad' => (float) $e->cantidad,
+            // Lo que anda afuera en resguardo sin haber salido del saldo. Sólo
+            // suma en los activos por cantidad; las piezas lo dicen por estatus.
+            'prestado' => (float) $e->prestado,
             // Lo que cualquiera puede llevarse sin pedirle permiso a nadie, y de
             // quién es el resto. `libre` no se guarda: sobra de repartir.
             'libre' => $e->libre(),

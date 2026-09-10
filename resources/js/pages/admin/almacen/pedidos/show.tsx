@@ -1,12 +1,12 @@
+import { Head, useForm } from '@inertiajs/react';
+import { ArrowLeftIcon, NetworkIcon, PackageIcon, WrenchIcon } from 'lucide-react';
+import { useState } from 'react';
 import { BotonFormato } from '@/components/alm/boton-formato';
 import { ButtonLink } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import type { AlmPedidoEstatus } from '@/types/models';
-import { Head, useForm } from '@inertiajs/react';
-import { ArrowLeftIcon, NetworkIcon, PackageIcon } from 'lucide-react';
-import { useState } from 'react';
 
 const numero = (n: number) => n.toLocaleString('es-MX', { maximumFractionDigits: 3 });
 
@@ -35,6 +35,8 @@ type Props = {
         estatus_etiqueta: string;
         renglones: number;
         se_surte_con: 'salida' | 'transferencia';
+        /** Debe herramienta (activos): eso se surte con un préstamo, no sacándola. */
+        pide_herramienta: boolean;
         avance: { solicitado: number; surtido: number; renglones_pendientes: number };
         motivo: string | null;
         observaciones: string | null;
@@ -117,6 +119,16 @@ export default function PedidoShow({ pedido, detalles }: Props) {
                                 </ButtonLink>
                             ))}
 
+                        {puedeSurtirse && pedido.pide_herramienta && (
+                            <ButtonLink
+                                href={`/admin/almacen/prestamos/create?pedido_id=${pedido.id}&almacen_id=${pedido.almacen_id}`}
+                                variant="primary"
+                            >
+                                <WrenchIcon className="size-4" />
+                                Surtir con préstamo
+                            </ButtonLink>
+                        )}
+
                         {!['surtido', 'cancelado', 'rechazado'].includes(pedido.estatus) && (
                             <button type="button" className="btn btn-outline" onClick={() => setCancelando(true)}>
                                 Cancelar pedido
@@ -124,6 +136,15 @@ export default function PedidoShow({ pedido, detalles }: Props) {
                         )}
                     </div>
                 </div>
+
+                {pedido.pide_herramienta && (
+                    <div className="alert alert-info mb-4">
+                        <span>
+                            Este pedido trae herramienta. La herramienta no se surte sacándola del almacén: se presta
+                            bajo resguardo y el pedido queda surtido cuando sale.
+                        </span>
+                    </div>
+                )}
 
                 <div className="alert mb-4">
                     {pedido.se_surte_con === 'transferencia' ? (

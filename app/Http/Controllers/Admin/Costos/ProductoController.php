@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\Admin\Costos;
 
 use App\Http\Controllers\Controller;
-use App\Http\Requests\Admin\Costos\ProductoStoreRequest;
 use App\Http\Requests\Admin\Costos\ProductoUpdateRequest;
 use App\Models\Costos\Producto;
 use Illuminate\Http\JsonResponse;
@@ -65,23 +64,6 @@ class ProductoController extends Controller
             ->get(['id', 'codigo', 'descripcion', 'unidad']);
 
         return response()->json($productos);
-    }
-
-    public function create(): Response
-    {
-        Gate::authorize('costos.productos.crear');
-
-        return Inertia::render('admin/costos/productos/create');
-    }
-
-    public function store(ProductoStoreRequest $request): RedirectResponse
-    {
-        $producto = Producto::create([
-            ...$request->validated(),
-            'creado_por' => $request->user()->id,
-        ]);
-
-        return to_route('admin.costos.productos.edit', $producto)->with('success', 'Producto creado.');
     }
 
     public function edit(Producto $producto): Response

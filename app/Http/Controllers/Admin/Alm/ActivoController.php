@@ -3,12 +3,14 @@
 namespace App\Http\Controllers\Admin\Alm;
 
 use App\Enums\Alm\ActivoEstatus;
+use App\Enums\Alm\ProductoTipo;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\Alm\ActivoStoreRequest;
 use App\Http\Requests\Admin\Alm\ActivoUpdateRequest;
 use App\Models\Alm\Activo;
 use App\Models\Alm\Almacen;
 use App\Models\Alm\Articulo;
+use App\Models\Alm\Existencia;
 use App\Models\Alm\Ubicacion;
 use App\Services\Alm\RegistradorPiezas;
 use Illuminate\Http\RedirectResponse;
@@ -18,11 +20,15 @@ use Inertia\Inertia;
 use Inertia\Response;
 
 /**
- * El padrón de piezas: una fila por número de serie.
+ * El padrón de activos.
  *
- * No es un inventario aparte del kardex. Cada pieza suma 1 a la existencia de su
- * artículo, y quien mantiene ese uno a uno es `RegistradorPiezas` — por eso el
- * alta y la baja pasan por él y no por el modelo directo.
+ * Los que llevan serie son una fila por pieza: cada una suma 1 a la existencia
+ * de su artículo, y quien mantiene ese uno a uno es `RegistradorPiezas` — por
+ * eso el alta y la baja pasan por él y no por el modelo directo. Los que el
+ * catálogo marca como activo **sin** control por pieza —extensiones, arneses—
+ * son un solo renglón por cantidad: su registro es la existencia misma, y aquí
+ * se enseñan al lado de las piezas para que Activos sea la lista completa de lo
+ * que sale y regresa.
  *
  * Sin `show`: la pieza se corrige desde el modal de lápiz de su renglón, porque
  * son seis campos y una ficha propia sólo agregaría un clic.
@@ -71,8 +77,8 @@ class ActivoController extends Controller
 
         return Inertia::render('admin/almacen/activos/index', [
             'activos' => $activos,
+            'porCantidad' => $this->porCantidad($request, $visibles),
             'filters' => $request->only(['almacen_id', 'articulo_id', 'estatus', 'search']),
-            'resumen' => $this->resumen($request, $visibles),
             'ubicacionesPorAlmacen' => $this->ubicacionesPorAlmacen($visibles),
             ...$this->opciones($request),
         ]);
@@ -86,21 +92,71 @@ class ActivoController extends Controller
         ]);
     }
 
+    /**
+     * El alta decide su forma por el catálogo: con serie, una pieza por renglón;
+     * sin serie, un solo asiento por la cantidad que entra.
+     */
     public function store(ActivoStoreRequest $request): RedirectResponse
     {
         $almacen = Almacen::findOrFail($request->integer('almacen_id'));
 
         abort_unless($almacen->esVisiblePara($request->user()), 403);
 
-        $this->registrador->alta(
-            articulo: Articulo::findOrFail($request->integer('articulo_id')),
-            almacen: $almacen,
-            piezas: $request->validated('piezas'),
-            ubicacionId: $request->integer('ubicacion_id') ?: null,
-            userId: $request->user()->getAuthIdentifier(),
-        );
+        $articulo = Articulo::findOrFail($request->integer('articulo_id'));
+
+        if ($request->esPorCantidad()) {
+            $this->registrador->altaPorCantidad(
+                articulo: $articulo,
+                almacen: $almacen,
+                cantidad: (float) $request->validated('cantidad'),
+                costo: $request->filled('costo') ? (float) $request->validated('costo') : null,
+                ubicacionId: $request->integer('ubicacion_id') ?: null,
+                userId: $request->user()->getAuthIdentifier(),
+                observaciones: $request->validated('observaciones'),
+            );
+        } else {
+            $this->registrador->alta(
+                articulo: $articulo,
+                almacen: $almacen,
+                piezas: $request->validated('piezas'),
+                ubicacionId: $request->integer('ubicacion_id') ?: null,
+                userId: $request->user()->getAuthIdentifier(),
+            );
+        }
 
         return to_route('admin.alm.activos.index', ['almacen_id' => $almacen->id]);
+    }
+
+    /**
+     * Retira N unidades de un activo por cantidad. Como la baja de una pieza,
+     * descarga existencia y deja su asiento; sin serie, lo que se dice es
+     * cuántas y por qué.
+     */
+    public function bajaPorCantidad(Request $request, Existencia $existencia): RedirectResponse
+    {
+        abort_unless($existencia->almacen->esVisiblePara($request->user()), 403);
+        abort_unless($existencia->articulo?->esActivoPorCantidad(), 404);
+
+        $validado = $request->validate(
+            [
+                'cantidad' => ['required', 'numeric', 'gt:0', 'lte:'.(float) $existencia->cantidad],
+                'motivo' => ['required', 'string', 'max:255'],
+            ],
+            [
+                'cantidad.required' => 'Di cuántas se retiran.',
+                'cantidad.lte' => 'No se pueden retirar más de las que hay.',
+                'motivo.required' => 'Escribe por qué se retiran: queda en el kardex.',
+            ],
+        );
+
+        $this->registrador->bajaPorCantidad(
+            $existencia,
+            (float) $validado['cantidad'],
+            $validado['motivo'],
+            $request->user()->getAuthIdentifier(),
+        );
+
+        return back();
     }
 
     public function update(ActivoUpdateRequest $request, Activo $activo): RedirectResponse
@@ -131,25 +187,56 @@ class ActivoController extends Controller
     }
 
     /**
-     * Cuántas hay y cuántas se pueden prometer hoy. Prestada y en reparación
-     * siguen siendo de la empresa; lo que no son es *disponibles*.
+     * Los activos sin serie: un renglón por almacén y artículo, que es su
+     * existencia. Responden a los mismos filtros que las piezas menos el
+     * estado, que sin serie no existe todavía.
      *
      * @param  Collection<int, int>  $visibles
-     * @return array<string, int>
+     * @return list<array<string, mixed>>
      */
-    private function resumen(Request $request, Collection $visibles): array
+    private function porCantidad(Request $request, Collection $visibles): array
     {
-        $base = fn () => Activo::query()
-            ->whereIn('almacen_id', $visibles)
-            ->when($request->integer('almacen_id') ?: null, fn ($q, int $id) => $q->where('almacen_id', $id));
+        $busqueda = $request->string('search')->trim()->value();
 
-        return [
-            'vigentes' => $base()->vigentes()->count(),
-            'disponibles' => $base()->where('estatus', ActivoEstatus::Disponible)->count(),
-            'prestadas' => $base()->where('estatus', ActivoEstatus::Prestado)->count(),
-            'en_reparacion' => $base()->where('estatus', ActivoEstatus::EnReparacion)->count(),
-            'baja' => $base()->where('estatus', ActivoEstatus::Baja)->count(),
-        ];
+        return Existencia::query()
+            ->whereIn('alm_existencias.almacen_id', $visibles)
+            ->whereHas('articulo', fn ($q) => $q->activosPorCantidad()->where('activo', true))
+            ->when($request->integer('almacen_id') ?: null, fn ($q, int $id) => $q->where('alm_existencias.almacen_id', $id))
+            ->when($request->integer('articulo_id') ?: null, fn ($q, int $id) => $q->where('alm_existencias.articulo_id', $id))
+            ->when($busqueda !== '', fn ($q) => $q->whereHas('articulo', fn ($a) => $a
+                ->where(fn ($w) => $w
+                    ->whereLike('codigo', "%{$busqueda}%")
+                    ->orWhereLike('descripcion', "%{$busqueda}%"))))
+            ->with([
+                'articulo:id,codigo,descripcion,unidad',
+                'almacen:id,clave,nombre,obra_id',
+                'almacen.obra:id,no',
+                'ubicacion.padre',
+            ])
+            ->join('alm_articulos', 'alm_articulos.id', '=', 'alm_existencias.articulo_id')
+            ->orderBy('alm_articulos.descripcion')
+            ->orderBy('alm_existencias.almacen_id')
+            ->select('alm_existencias.*')
+            ->limit(300)
+            ->get()
+            ->map(fn (Existencia $e): array => [
+                'id' => $e->id,
+                'articulo_id' => $e->articulo_id,
+                'codigo' => $e->articulo?->codigo,
+                'descripcion' => $e->articulo?->descripcion,
+                'unidad' => $e->articulo?->unidad,
+                'almacen_id' => $e->almacen_id,
+                'almacen' => $e->almacen?->clave,
+                'obra' => $e->almacen?->obra?->no,
+                'ubicacion' => $e->ubicacion?->ruta(),
+                'cantidad' => (float) $e->cantidad,
+                'prestado' => (float) $e->prestado,
+                'disponible' => $e->disponibleParaPrestar(),
+                'costo_promedio' => (float) $e->costo_promedio,
+                'valor' => (float) $e->valor,
+            ])
+            ->values()
+            ->all();
     }
 
     /**
@@ -196,14 +283,14 @@ class ActivoController extends Controller
                 ->orderBy('obra_id')
                 ->orderBy('clave')
                 ->get(['id', 'clave', 'nombre', 'obra_id', 'tipo']),
-            // Sólo lo marcado «por pieza»: darle número de serie a un tornillo
-            // no significa nada. Del catálogo de Almacén, que es donde vive esa
-            // bandera desde que el catálogo se mudó.
+            // Todos los activos, con o sin serie: el alta decide su forma por
+            // esa bandera. Un insumo no entra: darle número de serie a un
+            // tornillo no significa nada, y tampoco se «da de alta» aquí.
             'articulos' => Articulo::query()
-                ->porPieza()
+                ->where('tipo', ProductoTipo::Activo)
                 ->where('activo', true)
                 ->orderBy('descripcion')
-                ->get(['id', 'codigo', 'descripcion', 'unidad', 'requiere_verificacion']),
+                ->get(['id', 'codigo', 'descripcion', 'unidad', 'requiere_verificacion', 'se_controla_por_pieza']),
             'estatuses' => array_map(
                 fn (ActivoEstatus $e): array => ['value' => $e->value, 'label' => $e->etiqueta()],
                 ActivoEstatus::cases(),

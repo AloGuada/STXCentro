@@ -19,7 +19,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * mueve sin dejar asiento, el kardex deja de poder explicar de dónde salió.
  *
  * `ubicacion_id` sí se escribe desde fuera: dónde está guardado no es un hecho
- * contable, es acomodo.
+ * contable, es acomodo. `prestado` la escribe sólo `RegistradorPrestamos`:
+ * cuánto del renglón anda afuera en resguardo, sin haber salido del saldo.
  *
  * @use HasFactory<\Database\Factories\Alm\ExistenciaFactory>
  */
@@ -51,6 +52,7 @@ class Existencia extends Model
             'cantidad' => 'decimal:4',
             'costo_promedio' => 'decimal:4',
             'valor' => 'decimal:4',
+            'prestado' => 'decimal:4',
             'ultimo_movimiento_at' => 'datetime',
         ];
     }
@@ -128,14 +130,25 @@ class Existencia extends Model
     }
 
     /**
-     * Lo que cualquiera puede llevarse sin pedirle permiso a nadie.
+     * Lo que cualquiera puede llevarse sin pedirle permiso a nadie: ni lo que
+     * tiene dueño (asignado a una obra) ni lo que anda afuera en resguardo.
      *
      * Puede quedar negativo si alguien dejó la existencia bajo cero con un
      * ajuste: es una señal, no un caso que haya que maquillar con un `max(0)`.
      */
     public function libre(): float
     {
-        return (float) $this->cantidad - $this->asignado();
+        return (float) $this->cantidad - $this->asignado() - (float) $this->prestado;
+    }
+
+    /**
+     * Lo que se puede prestar hoy de un activo por cantidad: el saldo menos lo
+     * que ya anda afuera en resguardo. Lo prestado sigue en `cantidad` —no
+     * salió del almacén—, por eso se resta aquí y no en el kardex.
+     */
+    public function disponibleParaPrestar(): float
+    {
+        return max(0.0, (float) $this->cantidad - (float) $this->prestado);
     }
 
     /**

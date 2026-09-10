@@ -15,26 +15,6 @@ use Inertia\Response;
  */
 class VistasController extends Controller
 {
-    public function devoluciones(): Response
-    {
-        return Inertia::render('admin/almacen/devoluciones/index');
-    }
-
-    public function devolucionCreate(): Response
-    {
-        return Inertia::render('admin/almacen/devoluciones/create');
-    }
-
-    public function prestamos(): Response
-    {
-        return Inertia::render('admin/almacen/prestamos/index');
-    }
-
-    public function prestamoCreate(): Response
-    {
-        return Inertia::render('admin/almacen/prestamos/create');
-    }
-
     public function etiquetas(): Response
     {
         return Inertia::render('admin/almacen/etiquetas/index');

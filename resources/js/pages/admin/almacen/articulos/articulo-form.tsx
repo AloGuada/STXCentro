@@ -340,12 +340,17 @@ export function ArticuloForm({ articulo, codigoSugerido, areas, unidades, tipos,
                                 disabled={form.data.tipo === 'insumo'}
                             />
                             <span>
-                                <span className="font-medium">Se controla por pieza</span>
+                                <span className="font-medium">Se controla por pieza (con número de serie)</span>
                                 <span className="text-base-content/60 block text-sm">
                                     Cada unidad se da de alta en Activos con su número de serie —y ahí mismo su marca,
                                     su modelo y su id de mantenimiento—, lleva su propia etiqueta y se presta bajo
-                                    resguardo. Sin esto el kardex sabe cuántas pulidoras salieron, pero no quién tiene
-                                    cuál. Sólo aplica a los activos: un insumo se gasta.
+                                    resguardo pieza por pieza. Sin esto el kardex sabe cuántas pulidoras salieron, pero
+                                    no quién tiene cuál.
+                                </span>
+                                <span className="text-base-content/60 block text-sm">
+                                    Sin palomear, el activo se lleva como <strong>un solo registro por cantidad</strong>{' '}
+                                    (extensiones, arneses, andamios): se da de alta, se presta y se devuelve por
+                                    cantidad contra su existencia. Sólo aplica a los activos: un insumo se gasta.
                                 </span>
                                 {form.errors.se_controla_por_pieza && (
                                     <span className="text-error block text-sm">{form.errors.se_controla_por_pieza}</span>

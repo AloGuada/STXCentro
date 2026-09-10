@@ -12,6 +12,7 @@ use App\Models\Alm\Articulo;
 use App\Models\Alm\Existencia;
 use App\Models\Alm\Ubicacion;
 use App\Models\Costos\Producto;
+use App\Services\Alm\DesactivadorArticulo;
 use App\Services\Alm\GeneradorCodigoArticulo;
 use App\Services\Catalogo\CatalogoMaestro;
 use Illuminate\Database\Eloquent\Builder;
@@ -57,6 +58,9 @@ class ArticuloController extends Controller
             ->when($request->string('area_id')->value(), fn (Builder $q, string $a) => $q->where('area_id', $a))
             ->when($request->string('clase')->value(), fn (Builder $q, string $c) => $q->where('clasificacion_abc', $c))
             ->when($request->boolean('sin_ligar'), fn (Builder $q) => $q->sinLigar())
+            // Lo inactivo se esconde por default: sigue en el kardex, pero ya
+            // no es algo que se compre, se cuente ni se preste.
+            ->when(! $request->boolean('inactivos'), fn (Builder $q) => $q->where('activo', true))
             ->orderBy('descripcion')
             ->paginate(25)
             ->withQueryString()
@@ -64,7 +68,7 @@ class ArticuloController extends Controller
 
         return Inertia::render('admin/almacen/articulos/index', [
             'articulos' => $articulos,
-            'filters' => $request->only(['search', 'tipo', 'area_id', 'clase', 'sin_ligar']),
+            'filters' => $request->only(['search', 'tipo', 'area_id', 'clase', 'sin_ligar', 'inactivos']),
             // La bandeja de entrada, ahora al revés: artículos que la bodega
             // guarda y que todavía no se emparejan con nada de Compras. Salen de
             // la carga inicial de un almacén. Va como cuenta y no como filtro por
@@ -155,6 +159,15 @@ class ArticuloController extends Controller
         ]);
     }
 
+    /**
+     * Apaga o prende el artículo. La regla vive en {@see DesactivadorArticulo}:
+     * aquí sólo se traduce a redirección y mensaje.
+     */
+    public function toggle(Articulo $articulo, DesactivadorArticulo $desactivador): RedirectResponse
+    {
+        return back()->with('success', $desactivador->alternar($articulo));
+    }
+
     public function edit(Articulo $articulo): Response
     {
         $articulo->load('producto:id,codigo,descripcion');
@@ -232,6 +245,7 @@ class ArticuloController extends Controller
             'area' => $articulo->area?->descripcion,
             'unidad' => $articulo->unidad,
             'tipo' => $articulo->tipo?->value,
+            'activo' => (bool) $articulo->activo,
             'clasificacion_abc' => $articulo->clasificacion_abc?->value,
             // Con qué lo compra Compras. Null es material sin identidad de
             // compra todavía, y la pantalla lo marca como pendiente de ligar.

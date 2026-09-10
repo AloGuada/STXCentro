@@ -2,7 +2,9 @@
 
 namespace App\Http\Requests\Admin\Alm;
 
+use App\Enums\Alm\ProductoTipo;
 use App\Models\Alm\Activo;
+use App\Models\Alm\Articulo;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
@@ -15,22 +17,36 @@ class ActivoStoreRequest extends FormRequest
     }
 
     /**
-     * Se dan de alta varias piezas del mismo artículo a la vez: así es como se
-     * carga el almacén el primer día, y renglón por renglón nadie lo termina.
+     * Qué se pide depende de cómo está configurado el artículo en el catálogo.
+     *
+     * Un activo **por pieza** se da de alta serie por serie: varias de un golpe,
+     * porque así se carga el almacén el primer día. Un activo **por cantidad**
+     * —extensiones, arneses, lo que no lleva serie— es un solo renglón: se dice
+     * cuántos entran y a qué costo, y el kardex recibe un solo asiento.
      *
      * @return array<string, mixed>
      */
     public function rules(): array
     {
-        return [
+        $reglas = [
             'articulo_id' => [
                 'required', 'integer',
-                // Sólo lo marcado «por pieza» se serializa: darle número de
-                // serie a un tornillo no significa nada.
-                Rule::exists('alm_articulos', 'id')->where('se_controla_por_pieza', true),
+                // Sólo los activos: un insumo se gasta, no se da de alta aquí.
+                Rule::exists('alm_articulos', 'id')->where('tipo', ProductoTipo::Activo->value),
             ],
             'almacen_id' => ['required', 'integer', 'exists:alm_almacenes,id'],
             'ubicacion_id' => ['nullable', 'integer', 'exists:alm_ubicaciones,id'],
+        ];
+
+        if ($this->esPorCantidad()) {
+            return $reglas + [
+                'cantidad' => ['required', 'numeric', 'gt:0'],
+                'costo' => ['nullable', 'numeric', 'min:0'],
+                'observaciones' => ['nullable', 'string', 'max:500'],
+            ];
+        }
+
+        return $reglas + [
             'piezas' => ['required', 'array', 'min:1'],
             'piezas.*.no_serie' => ['required', 'string', 'max:120'],
             'piezas.*.marca' => ['nullable', 'string', 'max:255'],
@@ -43,53 +59,78 @@ class ActivoStoreRequest extends FormRequest
     }
 
     /**
+     * El artículo que se está dando de alta, para saber en qué modo va. Nulo
+     * mientras el id no exista: de eso ya se encarga la regla `exists`.
+     */
+    public function articulo(): ?Articulo
+    {
+        return Articulo::query()->find($this->integer('articulo_id'));
+    }
+
+    /** Activo sin serie: un solo renglón por cantidad. */
+    public function esPorCantidad(): bool
+    {
+        $articulo = $this->articulo();
+
+        return $articulo !== null && $articulo->esActivoPorCantidad();
+    }
+
+    /**
      * La serie es lo que identifica la pieza, así que se comprueba dos veces:
      * contra lo que ya está dado de alta y contra el resto del mismo formulario
      * —pegar una lista de series repite la misma más seguido de lo que parece.
+     * Por cantidad no hay series que comprobar.
      */
     public function withValidator(Validator $validator): void
     {
         $validator->after(function (Validator $validator): void {
-            $productoId = $this->integer('articulo_id');
-            $piezas = (array) $this->input('piezas', []);
-
-            $vistas = [];
-
-            foreach ($piezas as $i => $pieza) {
-                $serie = trim((string) ($pieza['no_serie'] ?? ''));
-
-                if ($serie === '') {
-                    continue;
-                }
-
-                $clave = mb_strtolower($serie);
-
-                if (isset($vistas[$clave])) {
-                    $validator->errors()->add(
-                        "piezas.{$i}.no_serie",
-                        "La serie «{$serie}» viene dos veces en esta alta.",
-                    );
-
-                    continue;
-                }
-
-                $vistas[$clave] = true;
-
-                $existe = Activo::query()
-                    ->where('articulo_id', $productoId)
-                    ->where('no_serie', $serie)
-                    ->exists();
-
-                if ($existe) {
-                    $validator->errors()->add(
-                        "piezas.{$i}.no_serie",
-                        "Ya hay una pieza de este artículo con la serie «{$serie}».",
-                    );
-                }
+            if (! $this->esPorCantidad()) {
+                $this->validarSeries($validator);
             }
 
             $this->validarUbicacion($validator);
         });
+    }
+
+    private function validarSeries(Validator $validator): void
+    {
+        $productoId = $this->integer('articulo_id');
+        $piezas = (array) $this->input('piezas', []);
+
+        $vistas = [];
+
+        foreach ($piezas as $i => $pieza) {
+            $serie = trim((string) ($pieza['no_serie'] ?? ''));
+
+            if ($serie === '') {
+                continue;
+            }
+
+            $clave = mb_strtolower($serie);
+
+            if (isset($vistas[$clave])) {
+                $validator->errors()->add(
+                    "piezas.{$i}.no_serie",
+                    "La serie «{$serie}» viene dos veces en esta alta.",
+                );
+
+                continue;
+            }
+
+            $vistas[$clave] = true;
+
+            $existe = Activo::query()
+                ->where('articulo_id', $productoId)
+                ->where('no_serie', $serie)
+                ->exists();
+
+            if ($existe) {
+                $validator->errors()->add(
+                    "piezas.{$i}.no_serie",
+                    "Ya hay una pieza de este artículo con la serie «{$serie}».",
+                );
+            }
+        }
     }
 
     /**
@@ -119,9 +160,11 @@ class ActivoStoreRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'articulo_id.required' => 'Indica de qué artículo son las piezas.',
-            'articulo_id.exists' => 'Ese artículo no se controla por pieza: márcalo primero en el catálogo.',
-            'almacen_id.required' => 'Indica en qué almacén quedan.',
+            'articulo_id.required' => 'Indica de qué artículo es el alta.',
+            'articulo_id.exists' => 'Ese artículo no es un activo: márcalo primero en el catálogo.',
+            'almacen_id.required' => 'Indica en qué almacén queda.',
+            'cantidad.required' => 'Di cuántos entran: este activo se lleva por cantidad, no por serie.',
+            'cantidad.gt' => 'La cantidad tiene que ser mayor que cero.',
             'piezas.required' => 'Captura al menos una pieza con su número de serie.',
             'piezas.*.no_serie.required' => 'Cada pieza necesita su número de serie: es lo que la identifica.',
         ];

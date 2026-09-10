@@ -78,6 +78,12 @@ class PedidoDetalle extends Model
     }
 
     /** Lo que falta por entregar de este renglón. Nunca negativo. */
+    /** Un activo, con o sin serie: no se gasta, se presta bajo resguardo. */
+    public function esHerramienta(): bool
+    {
+        return $this->articulo?->tipo === \App\Enums\Alm\ProductoTipo::Activo;
+    }
+
     public function pendiente(): float
     {
         return max(0, (float) $this->cantidad_solicitada - (float) $this->cantidad_surtida);

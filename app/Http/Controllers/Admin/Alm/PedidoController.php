@@ -113,7 +113,7 @@ class PedidoController extends Controller
             'departamento:id,descripcion',
             'solicitante:id,name',
             'grupoTrabajo:id,descripcion',
-            'detalles.articulo:id,codigo,descripcion,unidad',
+            'detalles.articulo:id,codigo,descripcion,unidad,tipo',
         ]);
 
         return Inertia::render('admin/almacen/pedidos/show', [
@@ -190,6 +190,9 @@ class PedidoController extends Controller
             // Con obra hay que llevarlo a otro domicilio; sin obra se queda aquí.
             // De eso depende con qué documento se surte, y la pantalla lo dice.
             'se_surte_con' => $pedido->seSurteConTransferencia() ? 'transferencia' : 'salida',
+            // La herramienta no se surte sacándola: se presta. Un pedido puede
+            // traer de las dos cosas, y entonces ofrece los dos caminos.
+            'pide_herramienta' => $pedido->pideHerramienta(),
             'avance' => [
                 'solicitado' => (float) $detalles->sum('cantidad_solicitada'),
                 'surtido' => (float) $detalles->sum('cantidad_surtida'),
@@ -254,7 +257,7 @@ class PedidoController extends Controller
             'grupoTrabajo:id,descripcion',
             'solicitante:id,name',
             'aprobador:id,name',
-            'detalles.articulo:id,codigo,descripcion,unidad',
+            'detalles.articulo:id,codigo,descripcion,unidad,tipo',
         ]);
 
         $pdf = Pdf::loadView('pdf.alm.formato-pedido', ['pedido' => $pedido])

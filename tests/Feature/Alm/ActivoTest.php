@@ -121,6 +121,130 @@ describe('el alta emite al kardex', function () {
     });
 });
 
+describe('el activo sin serie es un solo renglón por cantidad', function () {
+    it('se da de alta por cantidad con un solo asiento y sin padrón de piezas', function () {
+        $almacen = Almacen::factory()->create();
+        $extension = Articulo::factory()->activoPorCantidad()->create(['descripcion' => 'Extensión 25 m']);
+
+        $this->actingAs(usuarioDeActivos())
+            ->post(route('admin.alm.activos.store'), [
+                'articulo_id' => $extension->id,
+                'almacen_id' => $almacen->id,
+                'cantidad' => 12,
+                'costo' => 1240,
+                'observaciones' => 'Compra de arranque',
+            ])
+            ->assertRedirect()
+            ->assertSessionHasNoErrors();
+
+        $existencia = Existencia::firstOrFail();
+        $movimiento = Movimiento::firstOrFail();
+
+        expect(Activo::count())->toBe(0)
+            ->and(Movimiento::count())->toBe(1)
+            ->and($movimiento->tipo)->toBe(MovimientoTipo::Entrada)
+            ->and((float) $movimiento->cantidad)->toBe(12.0)
+            ->and((float) $existencia->cantidad)->toBe(12.0)
+            ->and((float) $existencia->costo_promedio)->toBe(1240.0)
+            ->and($movimiento->observaciones)->toContain('Compra de arranque');
+    });
+
+    it('por cantidad no pide series, y por pieza no acepta cantidad', function () {
+        $almacen = Almacen::factory()->create();
+        $extension = Articulo::factory()->activoPorCantidad()->create();
+        $pulidora = Articulo::factory()->porPieza()->create();
+
+        $this->actingAs(usuarioDeActivos())
+            ->post(route('admin.alm.activos.store'), [
+                'articulo_id' => $extension->id,
+                'almacen_id' => $almacen->id,
+                'piezas' => [['no_serie' => 'EXT-1']],
+            ])
+            ->assertSessionHasErrors('cantidad')
+            ->assertSessionDoesntHaveErrors('piezas');
+
+        $this->actingAs(usuarioDeActivos())
+            ->post(route('admin.alm.activos.store'), [
+                'articulo_id' => $pulidora->id,
+                'almacen_id' => $almacen->id,
+                'cantidad' => 3,
+            ])
+            ->assertSessionHasErrors('piezas');
+
+        expect(Movimiento::count())->toBe(0)->and(Activo::count())->toBe(0);
+    });
+
+    it('la segunda alta se suma al mismo renglón, no abre otro', function () {
+        $almacen = Almacen::factory()->create();
+        $extension = Articulo::factory()->activoPorCantidad()->create();
+        $registrador = app(RegistradorPiezas::class);
+
+        $registrador->altaPorCantidad($extension, $almacen, 10, 100);
+        $registrador->altaPorCantidad($extension, $almacen, 5, 130);
+
+        expect(Existencia::count())->toBe(1)
+            ->and((float) Existencia::firstOrFail()->cantidad)->toBe(15.0)
+            ->and((float) Existencia::firstOrFail()->costo_promedio)->toBe(110.0);
+    });
+
+    it('se retiran N contra el renglón y no más de las que hay', function () {
+        $almacen = Almacen::factory()->create();
+        $extension = Articulo::factory()->activoPorCantidad()->create();
+        app(RegistradorPiezas::class)->altaPorCantidad($extension, $almacen, 10, 100);
+        $existencia = Existencia::firstOrFail();
+
+        $this->actingAs(usuarioDeActivos())
+            ->patch(route('admin.alm.activos.por-cantidad.baja', $existencia), ['cantidad' => 11, 'motivo' => 'x'])
+            ->assertSessionHasErrors('cantidad');
+
+        $this->actingAs(usuarioDeActivos())
+            ->patch(route('admin.alm.activos.por-cantidad.baja', $existencia), ['cantidad' => 4, 'motivo' => 'Se quemaron'])
+            ->assertRedirect()
+            ->assertSessionHasNoErrors();
+
+        expect((float) $existencia->refresh()->cantidad)->toBe(6.0)
+            ->and(Movimiento::where('tipo', MovimientoTipo::Salida)->count())->toBe(1)
+            ->and(Movimiento::where('tipo', MovimientoTipo::Salida)->firstOrFail()->observaciones)->toContain('Se quemaron');
+    });
+
+    it('la baja por cantidad no aplica a un renglón de insumo ni a uno serializado', function () {
+        $almacen = Almacen::factory()->create();
+        $tornillo = Articulo::factory()->create();
+        $insumo = Existencia::factory()->conSaldo(50)->create([
+            'almacen_id' => $almacen->id,
+            'articulo_id' => $tornillo->id,
+            'producto_id' => $tornillo->producto_id,
+        ]);
+
+        $this->actingAs(usuarioDeActivos())
+            ->patch(route('admin.alm.activos.por-cantidad.baja', $insumo), ['cantidad' => 1, 'motivo' => 'x'])
+            ->assertNotFound();
+
+        expect((float) $insumo->refresh()->cantidad)->toBe(50.0);
+    });
+
+    it('el padrón enseña los activos por cantidad junto a las piezas', function () {
+        $almacen = Almacen::factory()->create();
+        $extension = Articulo::factory()->activoPorCantidad()->create(['descripcion' => 'Extensión 25 m']);
+        $pulidora = Articulo::factory()->porPieza()->create();
+        $registrador = app(RegistradorPiezas::class);
+
+        $registrador->altaPorCantidad($extension, $almacen, 9, 100);
+        $registrador->alta($pulidora, $almacen, [['no_serie' => 'PUL-1']]);
+
+        $this->actingAs(usuarioDeActivos(['ver']))
+            ->get(route('admin.alm.activos.index'))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->component('admin/almacen/activos/index')
+                ->has('activos.data', 1)
+                ->has('porCantidad', 1)
+                ->where('porCantidad.0.descripcion', 'Extensión 25 m')
+                ->where('porCantidad.0.cantidad', 9)
+                ->has('articulos', 2));
+    });
+});
+
 describe('la baja descarga', function () {
     it('resta 1 al saldo y al costo de esa pieza, no al promedio', function () {
         $almacen = Almacen::factory()->create();

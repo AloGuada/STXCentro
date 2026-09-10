@@ -199,4 +199,25 @@ class Articulo extends Model
     {
         return $query->where('se_controla_por_pieza', true);
     }
+
+    /**
+     * Los activos que **no** llevan serie: extensiones, arneses, lo que sale y
+     * regresa pero nadie distingue una de otra. Se llevan como un solo renglón
+     * por cantidad, y se prestan y devuelven contra la existencia.
+     *
+     * @param  Builder<self>  $query
+     * @return Builder<self>
+     */
+    public function scopeActivosPorCantidad(Builder $query): Builder
+    {
+        return $query
+            ->where('tipo', ProductoTipo::Activo)
+            ->where('se_controla_por_pieza', false);
+    }
+
+    /** Activo sin serie: un solo renglón por cantidad. Lo decide el catálogo. */
+    public function esActivoPorCantidad(): bool
+    {
+        return $this->tipo === ProductoTipo::Activo && ! $this->se_controla_por_pieza;
+    }
 }

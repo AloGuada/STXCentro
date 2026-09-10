@@ -71,11 +71,16 @@ class AlmacenLedger
 
         $epsilon = (float) config('costos.epsilon_cantidad');
 
-        if ($cantidad < 0 && (float) $existencia->cantidad + $cantidad < -$epsilon && ! $permitirNegativo) {
+        // Lo que anda afuera en resguardo sigue en el saldo, pero no está en
+        // el anaquel: una salida o una transferencia no lo pueden sacar. Sólo
+        // el ajuste y los reversos (`permitirNegativo`) pasan por encima.
+        $enAnaquel = (float) $existencia->cantidad - (float) $existencia->prestado;
+
+        if ($cantidad < 0 && $enAnaquel + $cantidad < -$epsilon && ! $permitirNegativo) {
             throw new ExistenciaInsuficienteException(
                 almacenId: (int) $existencia->almacen_id,
                 productoId: (int) ($existencia->producto_id ?? 0),
-                disponible: (float) $existencia->cantidad,
+                disponible: $enAnaquel,
                 solicitado: abs($cantidad),
                 descripcionProducto: (string) ($existencia->articulo?->descripcion ?? $existencia->producto?->descripcion ?? ''),
             );
@@ -254,7 +259,8 @@ class AlmacenLedger
             ->get();
 
         $asignado = (float) $asignaciones->sum('cantidad');
-        $libre = (float) $existencia->cantidad - $asignado;
+        // Lo prestado tampoco está libre: anda afuera en resguardo.
+        $libre = (float) $existencia->cantidad - $asignado - (float) $existencia->prestado;
 
         $tramos = [];
         $resto = $cantidad;
