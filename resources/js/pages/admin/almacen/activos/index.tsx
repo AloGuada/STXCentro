@@ -1,3 +1,6 @@
+import { Head, Link, router, useForm } from '@inertiajs/react';
+import { PencilIcon, PlusIcon, Trash2Icon } from 'lucide-react';
+import { useState } from 'react';
 import { ButtonLink } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectItem } from '@/components/ui/select';
@@ -5,9 +8,6 @@ import AppLayout from '@/layouts/app-layout';
 import { etiquetaDeAlmacen } from '@/lib/alm/almacenes';
 import type { BreadcrumbItem } from '@/types';
 import type { AlmActivoEstatus, AlmAlmacenOpcion, AlmOpcion, AlmProductoOpcion, PaginatedData } from '@/types/models';
-import { Head, Link, router, useForm } from '@inertiajs/react';
-import { PencilIcon, PlusIcon, Trash2Icon } from 'lucide-react';
-import { useState } from 'react';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
@@ -61,6 +61,8 @@ type PorCantidadFila = {
     obra: string | null;
     ubicacion: string | null;
     cantidad: number;
+    prestado: number;
+    disponible: number;
     costo_promedio: number;
     valor: number;
 };
@@ -69,7 +71,6 @@ type Props = {
     activos: PaginatedData<ActivoFila>;
     porCantidad: PorCantidadFila[];
     filters: { almacen_id?: string; articulo_id?: string; estatus?: string; search?: string };
-    resumen: { vigentes: number; disponibles: number; prestadas: number; en_reparacion: number; baja: number };
     ubicacionesPorAlmacen: Record<number, { id: number; ruta: string }[]>;
     almacenes: AlmAlmacenOpcion[];
     articulos: AlmProductoOpcion[];
@@ -89,7 +90,6 @@ export default function ActivosIndex({
     activos,
     porCantidad,
     filters,
-    resumen,
     ubicacionesPorAlmacen,
     almacenes,
     articulos,
@@ -119,25 +119,6 @@ export default function ActivosIndex({
                         <PlusIcon className="size-4" />
                         Dar de alta
                     </ButtonLink>
-                </div>
-
-                <div className="mb-4 grid grid-cols-2 gap-3 md:grid-cols-4">
-                    <div className="rounded-box border-base-300 border p-3">
-                        <p className="text-base-content/60 text-xs">En el almacén</p>
-                        <p className="font-mono text-xl">{resumen.vigentes}</p>
-                    </div>
-                    <div className="rounded-box border-base-300 border p-3">
-                        <p className="text-base-content/60 text-xs">Se pueden entregar</p>
-                        <p className="text-success font-mono text-xl">{resumen.disponibles}</p>
-                    </div>
-                    <div className="rounded-box border-base-300 border p-3">
-                        <p className="text-base-content/60 text-xs">Afuera</p>
-                        <p className="text-warning font-mono text-xl">{resumen.prestadas}</p>
-                    </div>
-                    <div className="rounded-box border-base-300 border p-3">
-                        <p className="text-base-content/60 text-xs">En reparación</p>
-                        <p className="font-mono text-xl">{resumen.en_reparacion}</p>
-                    </div>
                 </div>
 
                 <div className="mb-4 flex flex-wrap items-end gap-3">
@@ -196,96 +177,17 @@ export default function ActivosIndex({
                     </div>
                 </div>
 
-                {(porCantidad.length > 0 || filters.estatus === undefined) && (
-                    <div className="rounded-box border-base-300 mb-6 overflow-x-auto border">
-                        <div className="border-base-300 flex flex-wrap items-center justify-between gap-2 border-b px-4 py-3">
-                            <div>
-                                <h2 className="font-medium">Por cantidad</h2>
-                                <p className="text-base-content/60 text-xs">
-                                    Activos sin número de serie: un renglón por almacén, que es su existencia.
-                                </p>
-                            </div>
-                            <span className="text-base-content/60 text-sm">
-                                {cantidad(porCantidad.reduce((suma, r) => suma + r.cantidad, 0))} unidad(es) en{' '}
-                                {porCantidad.length} renglón(es)
-                            </span>
-                        </div>
-                        <table className="table table-sm">
-                            <thead className="bg-base-200">
-                                <tr>
-                                    <th>Artículo</th>
-                                    <th>Almacén</th>
-                                    <th>Ubicación</th>
-                                    <th className="text-right">Cantidad</th>
-                                    <th className="text-right">Costo prom.</th>
-                                    <th className="text-right">Valor</th>
-                                    <th className="w-20"></th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {porCantidad.length === 0 ? (
-                                    <tr>
-                                        <td colSpan={7} className="text-base-content/50 py-4 text-center">
-                                            Ningún activo por cantidad con esos filtros.
-                                        </td>
-                                    </tr>
-                                ) : (
-                                    porCantidad.map((r) => (
-                                        <tr key={r.id} className="hover">
-                                            <td>
-                                                <Link
-                                                    href={`/admin/almacen/articulos/${r.articulo_id}`}
-                                                    className="link link-hover font-mono text-xs"
-                                                >
-                                                    {r.codigo}
-                                                </Link>
-                                                <span className="block text-sm">{r.descripcion}</span>
-                                            </td>
-                                            <td>
-                                                <span className="badge badge-sm badge-ghost font-mono">{r.almacen}</span>
-                                                {r.obra && (
-                                                    <span className="text-base-content/60 ml-1 text-xs">{r.obra}</span>
-                                                )}
-                                            </td>
-                                            <td className="text-base-content/60 text-sm">
-                                                {r.ubicacion ?? <span className="text-base-content/40">—</span>}
-                                            </td>
-                                            <td className="text-right font-mono">
-                                                {cantidad(r.cantidad)}{' '}
-                                                <span className="text-base-content/40 text-xs">{r.unidad}</span>
-                                            </td>
-                                            <td className="text-right font-mono">{moneda(r.costo_promedio)}</td>
-                                            <td className="text-right font-mono">{moneda(r.valor)}</td>
-                                            <td>
-                                                {r.cantidad > 0 && (
-                                                    <button
-                                                        type="button"
-                                                        className="btn btn-ghost btn-xs"
-                                                        title="Retirar unidades"
-                                                        onClick={() => setRetirando(r)}
-                                                    >
-                                                        <Trash2Icon className="size-3.5" />
-                                                    </button>
-                                                )}
-                                            </td>
-                                        </tr>
-                                    ))
-                                )}
-                            </tbody>
-                        </table>
-                    </div>
-                )}
-
                 <div className="rounded-box border-base-300 overflow-x-auto border">
                     <table className="table table-sm">
                         <thead className="bg-base-200">
                             <tr>
-                                <th>No. de serie</th>
                                 <th>Artículo</th>
+                                <th>No. de serie</th>
                                 <th>Marca y modelo</th>
                                 <th>Id de mto.</th>
                                 <th>Almacén</th>
                                 <th>Ubicación</th>
+                                <th className="text-right">Cantidad</th>
                                 <th className="text-right">Costo</th>
                                 <th>Estado</th>
                                 <th>Condición</th>
@@ -293,16 +195,83 @@ export default function ActivosIndex({
                             </tr>
                         </thead>
                         <tbody>
-                            {activos.data.length === 0 ? (
+                            {activos.data.length === 0 && porCantidad.length === 0 ? (
                                 <tr>
-                                    <td colSpan={10} className="text-base-content/50 py-6 text-center">
-                                        No hay piezas con esos filtros.
+                                    <td colSpan={11} className="text-base-content/50 py-6 text-center">
+                                        No hay activos con esos filtros.
                                     </td>
                                 </tr>
                             ) : (
-                                activos.data.map((a) => (
+                                <>
+                                    {/* Sin serie: un renglón por almacén, que es su existencia. Van
+                                        primero y fuera de la paginación de las piezas. */}
+                                    {filters.estatus === undefined &&
+                                        porCantidad.map((r) => (
+                                            <tr key={`c-${r.id}`} className="hover">
+                                                <td>
+                                                    <Link
+                                                        href={`/admin/almacen/articulos/${r.articulo_id}`}
+                                                        className="link link-hover font-mono text-xs"
+                                                    >
+                                                        {r.codigo}
+                                                    </Link>
+                                                    <span className="block text-sm">{r.descripcion}</span>
+                                                </td>
+                                                <td>
+                                                    <span className="badge badge-xs badge-ghost">por cantidad</span>
+                                                </td>
+                                                <td className="text-base-content/40">—</td>
+                                                <td className="text-base-content/40">—</td>
+                                                <td>
+                                                    <span className="badge badge-sm badge-ghost font-mono">{r.almacen}</span>
+                                                    {r.obra && (
+                                                        <span className="text-base-content/60 ml-1 text-xs">{r.obra}</span>
+                                                    )}
+                                                </td>
+                                                <td className="text-base-content/60 text-sm">
+                                                    {r.ubicacion ?? <span className="text-base-content/40">—</span>}
+                                                </td>
+                                                <td className="text-right font-mono">
+                                                    {cantidad(r.cantidad)}{' '}
+                                                    <span className="text-base-content/40 text-xs">{r.unidad}</span>
+                                                    {r.prestado > 0 && (
+                                                        <span className="text-warning block text-xs">
+                                                            {cantidad(r.prestado)} en resguardo
+                                                        </span>
+                                                    )}
+                                                </td>
+                                                <td className="text-right font-mono">
+                                                    {moneda(r.costo_promedio)}
+                                                    <span className="text-base-content/50 block text-xs">
+                                                        {moneda(r.valor)} total
+                                                    </span>
+                                                </td>
+                                                <td>
+                                                    {r.disponible > 0 ? (
+                                                        <span className="badge badge-sm badge-success">
+                                                            {cantidad(r.disponible)} disponible(s)
+                                                        </span>
+                                                    ) : (
+                                                        <span className="badge badge-sm badge-warning">Todo afuera</span>
+                                                    )}
+                                                </td>
+                                                <td className="text-base-content/40">—</td>
+                                                <td>
+                                                    {r.cantidad > 0 && (
+                                                        <button
+                                                            type="button"
+                                                            className="btn btn-ghost btn-xs"
+                                                            title="Retirar unidades"
+                                                            onClick={() => setRetirando(r)}
+                                                        >
+                                                            <Trash2Icon className="size-3.5" />
+                                                        </button>
+                                                    )}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    {activos.data.map((a) => (
                                     <tr key={a.id} className={a.estatus === 'baja' ? 'hover opacity-50' : 'hover'}>
-                                        <td className="font-mono font-medium">{a.no_serie}</td>
                                         <td>
                                             <Link
                                                 href={`/admin/almacen/articulos/${a.articulo_id}`}
@@ -312,6 +281,7 @@ export default function ActivosIndex({
                                             </Link>
                                             <span className="block text-sm">{a.descripcion}</span>
                                         </td>
+                                        <td className="font-mono font-medium">{a.no_serie}</td>
                                         <td className="text-sm">
                                             {[a.marca, a.modelo].filter(Boolean).join(' · ') || (
                                                 <span className="text-base-content/40">—</span>
@@ -329,6 +299,7 @@ export default function ActivosIndex({
                                         <td className="text-base-content/60 text-sm">
                                             {a.ubicacion ?? <span className="text-base-content/40">—</span>}
                                         </td>
+                                        <td className="text-right font-mono">1</td>
                                         <td className="text-right font-mono">{moneda(a.costo)}</td>
                                         <td>
                                             <span className={`badge badge-sm ${CLASE_ESTATUS[a.estatus]}`}>
@@ -359,7 +330,8 @@ export default function ActivosIndex({
                                             )}
                                         </td>
                                     </tr>
-                                ))
+                                    ))}
+                                </>
                             )}
                         </tbody>
                     </table>

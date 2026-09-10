@@ -79,7 +79,6 @@ class ActivoController extends Controller
             'activos' => $activos,
             'porCantidad' => $this->porCantidad($request, $visibles),
             'filters' => $request->only(['almacen_id', 'articulo_id', 'estatus', 'search']),
-            'resumen' => $this->resumen($request, $visibles),
             'ubicacionesPorAlmacen' => $this->ubicacionesPorAlmacen($visibles),
             ...$this->opciones($request),
         ]);
@@ -185,28 +184,6 @@ class ActivoController extends Controller
         $this->registrador->baja($activo, $validado['motivo'], $request->user()->getAuthIdentifier());
 
         return back();
-    }
-
-    /**
-     * Cuántas hay y cuántas se pueden prometer hoy. Prestada y en reparación
-     * siguen siendo de la empresa; lo que no son es *disponibles*.
-     *
-     * @param  Collection<int, int>  $visibles
-     * @return array<string, int>
-     */
-    private function resumen(Request $request, Collection $visibles): array
-    {
-        $base = fn () => Activo::query()
-            ->whereIn('almacen_id', $visibles)
-            ->when($request->integer('almacen_id') ?: null, fn ($q, int $id) => $q->where('almacen_id', $id));
-
-        return [
-            'vigentes' => $base()->vigentes()->count(),
-            'disponibles' => $base()->where('estatus', ActivoEstatus::Disponible)->count(),
-            'prestadas' => $base()->where('estatus', ActivoEstatus::Prestado)->count(),
-            'en_reparacion' => $base()->where('estatus', ActivoEstatus::EnReparacion)->count(),
-            'baja' => $base()->where('estatus', ActivoEstatus::Baja)->count(),
-        ];
     }
 
     /**
