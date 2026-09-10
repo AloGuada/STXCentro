@@ -510,7 +510,10 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::resource('usos-cfdi', CostosUsoCfdiController::class)->parameters(['usos-cfdi' => 'usoCfdi'])->except(['show']);
         Route::resource('rubros', CostosRubroController::class)->parameters(['rubros' => 'rubro']);
         Route::get('productos/buscar', [CostosProductoController::class, 'buscar'])->name('productos.buscar');
-        Route::resource('productos', CostosProductoController::class)->only(['index', 'create', 'store', 'edit', 'update', 'destroy'])->parameters(['productos' => 'producto']);
+        // Sin create ni store: un producto nace solo desde Almacen > Articulos,
+        // que da de alta las dos caras del maestro a la vez. Compras lo consulta
+        // y lo edita.
+        Route::resource('productos', CostosProductoController::class)->only(['index', 'edit', 'update', 'destroy'])->parameters(['productos' => 'producto']);
         Route::resource('tipo-solicitudes', CostosTipoSolicitudController::class)->parameters(['tipo-solicitudes' => 'tipoSolicitud']);
         Route::resource('permisos', CostosPermisoController::class)->parameters(['permisos' => 'permiso']);
         Route::post('permisos/{permiso}/sync-departamentos', [CostosPermisoController::class, 'syncDepartamentos'])->name('permisos.sync-departamentos');

@@ -3,6 +3,7 @@
 use App\Models\Costos\ObraRubro;
 use App\Models\Costos\Presupuesto;
 use App\Models\Costos\Producto;
+use App\Models\Costos\Requisicion;
 use App\Models\Costos\RequisicionDetalle;
 use App\Models\Costos\UsoCfdi;
 use App\Models\Departamento;
@@ -10,15 +11,12 @@ use App\Models\User;
 use Spatie\Permission\Models\Permission;
 
 /**
- * El catálogo `costos_productos` lo comparten Compras y Almacén, y Compras lo
- * puede escribir tecleando una descripción libre. Esa libertad es deliberada
- * (ver `resolverProducto`: se probó deduplicar y se descartó), pero el kardex no
- * puede montarse encima de renglones que nadie clasificó: dos códigos para el
- * mismo tornillo son dos saldos que nunca cuadran.
- *
- * La frontera es el código. Con él, Compras dio de alta algo deliberado y entra
- * al inventario; sin él, el producto nace fuera y sólo entra cuando Almacén lo
- * clasifica desde la pantalla de Artículos.
+ * El catálogo `costos_productos` lo comparten Compras y Almacén, pero desde el
+ * 2026-09-09 **sólo se escribe desde Almacén > Artículos**. La partida tecleada
+ * al vuelo en la requisición ya no estrena productos: un producto nacido ahí
+ * no decía si era insumo o activo, y la herramienta terminaba en el kardex
+ * como consumible. Lo que no está en el catálogo se rechaza con un mensaje que
+ * manda a darlo de alta donde sí se decide qué es.
  */
 beforeEach(function () {
     foreach (['costos.requisiciones.ver', 'costos.requisiciones.crear'] as $permName) {
@@ -34,96 +32,63 @@ beforeEach(function () {
     $this->uso = UsoCfdi::factory()->create();
 });
 
-function crearRequisicionCon(array $detalle): void
+/**
+ * @param  list<array<string, mixed>>  $detalles
+ */
+function requisicionCon(array $detalles): \Illuminate\Testing\TestResponse
 {
-    test()->actingAs(test()->user)
+    return test()->actingAs(test()->user)
         ->post('/admin/costos/requisiciones', [
             'departamento_id' => test()->depto->id,
             'presupuesto_id' => test()->presupuesto->id,
-            'detalles' => [[
+            'detalles' => array_map(fn (array $d): array => [
                 'cantidad' => 10,
                 'obra_rubro_id' => test()->rubro->id,
                 'uso_cfdi_id' => test()->uso->id,
-                ...$detalle,
-            ]],
-        ])
-        ->assertRedirect();
+                ...$d,
+            ], $detalles),
+        ]);
 }
 
-test('un producto tecleado sin codigo nace fuera del inventario', function () {
-    crearRequisicionCon(['descripcion' => 'Tornillo que nadie clasifico', 'unidad' => 'pza']);
+test('una partida tecleada al vuelo ya no estrena producto: se rechaza', function () {
+    requisicionCon([['descripcion' => 'Tornillo que nadie clasifico', 'unidad' => 'pza']])
+        ->assertSessionHasErrors(['detalles.0.producto_id']);
 
-    $producto = Producto::firstWhere('descripcion', 'Tornillo que nadie clasifico');
-
-    expect($producto)->not->toBeNull()
-        ->and($producto->codigo)->toBeNull()
-        ->and($producto->controla_inventario)->toBeFalse();
-
-    expect(Producto::sinClasificar()->pluck('id'))->toContain($producto->id);
-    expect(Producto::deInventario()->pluck('id'))->not->toContain($producto->id);
+    expect(Producto::where('descripcion', 'Tornillo que nadie clasifico')->exists())->toBeFalse()
+        ->and(Requisicion::count())->toBe(0);
 });
 
-test('un producto tecleado con codigo entra al inventario', function () {
-    crearRequisicionCon([
-        'descripcion' => 'Tornillo A325 3/4"',
-        'unidad' => 'pza',
-        'codigo_producto' => 'TOR-0012',
-    ]);
+test('ni con código: el código no es puerta de alta', function () {
+    requisicionCon([['descripcion' => 'Tornillo A325 3/4"', 'unidad' => 'pza', 'codigo_producto' => 'TOR-0012']])
+        ->assertSessionHasErrors(['detalles.0.producto_id']);
 
-    $producto = Producto::firstWhere('codigo', 'TOR-0012');
-
-    expect($producto)->not->toBeNull()
-        ->and($producto->controla_inventario)->toBeTrue();
-
-    expect(Producto::deInventario()->pluck('id'))->toContain($producto->id);
+    expect(Producto::where('codigo', 'TOR-0012')->exists())->toBeFalse();
 });
 
-test('un codigo en blanco cuenta como sin codigo', function () {
-    crearRequisicionCon([
-        'descripcion' => 'Material con codigo vacio',
-        'unidad' => 'pza',
-        'codigo_producto' => '   ',
-    ]);
+test('la partida del catálogo entra con los datos del producto, no con los tecleados', function () {
+    $producto = Producto::factory()->create(['descripcion' => 'Electrodo 7018', 'unidad' => 'kg', 'codigo' => 'ELE-7018']);
 
-    $producto = Producto::firstWhere('descripcion', 'Material con codigo vacio');
+    requisicionCon([['producto_id' => $producto->id, 'descripcion' => 'lo que sea', 'unidad' => 'pza']])
+        ->assertRedirect()
+        ->assertSessionHasNoErrors();
 
-    expect($producto->codigo)->toBeNull()
-        ->and($producto->controla_inventario)->toBeFalse();
+    $detalle = RequisicionDetalle::sole();
+
+    expect($detalle->producto_id)->toBe($producto->id)
+        ->and($detalle->descripcion)->toBe('Electrodo 7018')
+        ->and($detalle->unidad)->toBe('kg')
+        ->and($detalle->codigo_producto)->toBe('ELE-7018')
+        ->and(Producto::count())->toBe(1);
 });
 
-test('el tipo por defecto es insumo y no se controla por pieza', function () {
-    crearRequisicionCon(['descripcion' => 'Electrodo nuevo', 'unidad' => 'kg', 'codigo_producto' => 'ELE-7018']);
+test('el mismo producto en dos partidas lo comparten sin duplicarlo', function () {
+    $producto = Producto::factory()->create(['descripcion' => 'Mismo insumo', 'unidad' => 'pza']);
 
-    $producto = Producto::firstWhere('codigo', 'ELE-7018');
-
-    expect($producto->tipo)->toBe(App\Enums\Alm\ProductoTipo::Insumo)
-        ->and($producto->se_controla_por_pieza)->toBeFalse()
-        ->and($producto->requiere_verificacion)->toBeFalse()
-        ->and($producto->stock_minimo)->toBeNull();
-});
-
-/**
- * Capturar el mismo insumo nuevo en dos partidas crea UN producto y las dos
- * partidas lo comparten. Revierte la decisión de 2026-07-28 de no deduplicar:
- * con el catálogo maestro (2026-09-07) la requisición reutiliza por descripción
- * normalizada, igual que ya hacía el combobox de la pantalla con la coincidencia
- * exacta. Este test fija la regla nueva para que un refactor no la revierta.
- */
-test('se reutiliza el producto que ya se llama igual', function () {
-    test()->actingAs(test()->user)
-        ->post('/admin/costos/requisiciones', [
-            'departamento_id' => test()->depto->id,
-            'presupuesto_id' => test()->presupuesto->id,
-            'detalles' => [
-                ['descripcion' => 'Mismo insumo', 'unidad' => 'pza', 'cantidad' => 5, 'obra_rubro_id' => test()->rubro->id, 'uso_cfdi_id' => test()->uso->id],
-                ['descripcion' => 'mismo  INSUMO ', 'unidad' => 'kg', 'cantidad' => 3, 'obra_rubro_id' => test()->rubro->id, 'uso_cfdi_id' => test()->uso->id],
-            ],
-        ])
-        ->assertRedirect();
-
-    $producto = Producto::where('descripcion', 'Mismo insumo')->sole();
+    requisicionCon([
+        ['producto_id' => $producto->id, 'descripcion' => 'Mismo insumo', 'unidad' => 'pza', 'cantidad' => 5],
+        ['producto_id' => $producto->id, 'descripcion' => 'Mismo insumo', 'unidad' => 'pza', 'cantidad' => 3],
+    ])->assertRedirect();
 
     expect(Producto::count())->toBe(1)
-        ->and($producto->unidad)->toBe('pza')
         ->and(RequisicionDetalle::where('producto_id', $producto->id)->count())->toBe(2);
 });

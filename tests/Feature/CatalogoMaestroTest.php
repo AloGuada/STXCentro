@@ -153,14 +153,15 @@ describe('las altas manuales', function () {
         return $user;
     }
 
-    test('Compras no puede dar de alta un producto que ya existe', function () {
-        Producto::factory()->create(['codigo' => 'ART-00010', 'descripcion' => 'Cinta teflón']);
+    test('Compras ya no da de alta productos: la única puerta es Almacén > Artículos', function () {
+        expect(\Illuminate\Support\Facades\Route::has('admin.costos.productos.store'))->toBeFalse()
+            ->and(\Illuminate\Support\Facades\Route::has('admin.costos.productos.create'))->toBeFalse();
 
         $this->actingAs(usuarioDeCatalogo())
-            ->post(route('admin.costos.productos.store'), ['descripcion' => 'cinta teflon', 'unidad' => 'PZA'])
-            ->assertSessionHasErrors(['descripcion']);
+            ->post('/admin/costos/productos', ['descripcion' => 'cinta teflon', 'unidad' => 'PZA'])
+            ->assertStatus(405);
 
-        expect(Producto::count())->toBe(1);
+        expect(Producto::count())->toBe(0);
     });
 
     test('Almacén no puede dar de alta un artículo que ya existe', function () {
