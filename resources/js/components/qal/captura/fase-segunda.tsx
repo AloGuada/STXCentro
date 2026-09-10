@@ -7,9 +7,12 @@
  * proceso se inspeccionó es lo que permite decir dónde nacen los errores.
  */
 
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { PanelCordon } from '../juntas3d/panel-cordon';
+import { cargarMarca, type CordonVisor, type EstadoCordon, type MarcaVisor } from '../juntas3d/tipos';
+import { Visor } from '../juntas3d/visor';
 import type { Campos, Junta } from './estado';
-import { Mapeo } from './mapeo';
+import { estadoJunta, JUNTA_VACIA, Mapeo } from './mapeo';
 import { calcularDimensional } from './reglas';
 import {
     Boton,
@@ -37,6 +40,7 @@ export function FaseSegunda({
     onJuntas,
     soldadores,
     subetapaFija = false,
+    modeloMarcaId = null,
     onAviso,
     onRechazar,
 }: {
@@ -51,10 +55,16 @@ export function FaseSegunda({
     soldadores: [string, string][];
     /** Al corregir o reinspeccionar, la sub-etapa es parte de la identidad: no cambia. */
     subetapaFija?: boolean;
+    /** La marca de la pieza en el modelo 3D ya convertido de la obra; nula si no tiene. */
+    modeloMarcaId?: number | null;
     onAviso: (mensaje: string, tono?: 'ok' | 'error') => void;
     onRechazar: () => void;
 }) {
     const [mapeoAbierto, setMapeoAbierto] = useState(false);
+    const [borrador, setBorrador] = useState<Junta>(JUNTA_VACIA);
+    const [marca3d, setMarca3d] = useState<MarcaVisor | null>(null);
+    const [error3d, setError3d] = useState<{ id: number; mensaje: string } | null>(null);
+    const [cordonSel, setCordonSel] = useState<number | null>(null);
 
     const subetapa = campos.v('p2_subetapa');
     const soldado = subetapa === 'Soldado';
@@ -64,6 +74,67 @@ export function FaseSegunda({
     const totalDefectos = Object.values(defectos).reduce((suma, cantidad) => suma + cantidad, 0);
     const dimensional = campos.v('p2_dimok') || calcularDimensional(campos.v('p2_long'), campos.v('p2_placas'));
     const faltaVestido = parseInt(campos.v('p2_faltavest'), 10) || 0;
+
+    // El modelo de la marca se pide sólo en soldado, que es donde hay cordones.
+    useEffect(() => {
+        if (!soldado || !modeloMarcaId) {
+            return;
+        }
+        let vivo = true;
+        cargarMarca(modeloMarcaId)
+            .then((marca) => {
+                if (vivo) {
+                    setMarca3d(marca);
+                }
+            })
+            .catch((error: Error) => {
+                if (vivo) {
+                    setError3d({ id: modeloMarcaId, mensaje: error.message });
+                }
+            });
+        return () => {
+            vivo = false;
+        };
+    }, [soldado, modeloMarcaId]);
+
+    const marcaVisible = marca3d && marca3d.id === modeloMarcaId ? marca3d : null;
+    const falla3d = error3d && error3d.id === modeloMarcaId ? error3d.mensaje : null;
+
+    /** En la captura, cada cordón se pinta con la junta que lleva en esta inspección. */
+    const cordonesCaptura = useMemo<CordonVisor[]>(() => {
+        if (!marcaVisible) {
+            return [];
+        }
+        const porCordon = new Map<number, EstadoCordon>();
+        [...juntas, borrador].forEach((junta) => {
+            if (junta.cordonId !== null && junta.junta) {
+                porCordon.set(junta.cordonId, estadoJunta(junta) === 'Con defecto' ? 'defecto' : 'correcta');
+            }
+        });
+        return marcaVisible.cordones.map((cordon) => ({ ...cordon, estado: porCordon.get(cordon.id) ?? 'sin' }));
+    }, [marcaVisible, juntas, borrador]);
+
+    const cordonElegido = cordonesCaptura.find((cordon) => cordon.id === cordonSel) ?? null;
+    const conJunta = juntas.filter((junta) => junta.cordonId !== null).length;
+
+    /** Abre la junta del cordón: la que ya estaba en la lista, o una nueva numerada como el cordón. */
+    const abrirCordon = (cordon: CordonVisor) => {
+        const existente = juntas.findIndex((junta) => junta.cordonId === cordon.id);
+        if (existente >= 0) {
+            setBorrador(juntas[existente]);
+            onJuntas(juntas.filter((_, i) => i !== existente));
+        } else {
+            const tipo = cordon.tipo === 'filete' ? 'Filete' : 'Ranura';
+            setBorrador({
+                ...JUNTA_VACIA,
+                junta: cordon.identificador,
+                tipo,
+                cordonId: cordon.id,
+                puntos: tipo === 'Filete' ? { m_prepranura: 'n/a' } : { m_prepfilete: 'n/a' },
+            });
+        }
+        setMapeoAbierto(true);
+    };
 
     return (
         <>
@@ -122,11 +193,49 @@ export function FaseSegunda({
                 )}
             </Tarjeta>
 
+            {soldado && modeloMarcaId && (
+                <Tarjeta titulo="Juntas sobre el modelo 3D">
+                    <Pista>
+                        Toca un cordón de la pieza para capturar su junta. Naranja: falta revisarlo; verde: correcta;
+                        rojo: con defecto.
+                    </Pista>
+                    {falla3d && <p className="text-sm text-error">{falla3d}</p>}
+                    {!marcaVisible && !falla3d && <Pista>Cargando el modelo de la marca…</Pista>}
+                    {marcaVisible && (
+                        <>
+                            <Visor
+                                key={marcaVisible.glb_url}
+                                glbUrl={marcaVisible.glb_url}
+                                cordones={cordonesCaptura}
+                                seleccionado={cordonSel}
+                                onSeleccionar={setCordonSel}
+                                className="h-[360px]"
+                            />
+                            <Pista className="mt-2 mb-0">
+                                {conJunta} de {marcaVisible.cordones.length} cordones con junta en esta inspección.
+                            </Pista>
+                            {cordonElegido && (
+                                <div className="mt-3">
+                                    <PanelCordon cordon={cordonElegido}>
+                                        <Boton tono="acero" onClick={() => abrirCordon(cordonElegido)}>
+                                            {juntas.some((junta) => junta.cordonId === cordonElegido.id)
+                                                ? `Editar la junta ${cordonElegido.identificador}`
+                                                : `Capturar la junta ${cordonElegido.identificador}`}
+                                        </Boton>
+                                    </PanelCordon>
+                                </div>
+                            )}
+                        </>
+                    )}
+                </Tarjeta>
+            )}
+
             {soldado && (
                 <Tarjeta titulo="Mapeo de soldaduras">
                     <Pista>
                         Inspección detallada <b>junta por junta</b> (formato de mapeo). Es opcional: ábrelo sólo cuando
                         toque mapear la pieza. El formulario normal de soldadura sigue disponible.
+                        {!modeloMarcaId && ' Esta marca no tiene modelo 3D convertido: las juntas se numeran a mano.'}
                     </Pista>
                     <Boton tono="acero" onClick={() => setMapeoAbierto(!mapeoAbierto)}>
                         {mapeoAbierto ? 'Cerrar mapeo de soldaduras' : '🔧 Abrir mapeo de soldaduras'}
@@ -135,7 +244,14 @@ export function FaseSegunda({
             )}
 
             {soldado && mapeoAbierto && (
-                <Mapeo juntas={juntas} onJuntas={onJuntas} soldadores={soldadores} onAviso={onAviso} />
+                <Mapeo
+                    juntas={juntas}
+                    onJuntas={onJuntas}
+                    borrador={borrador}
+                    onBorrador={setBorrador}
+                    soldadores={soldadores}
+                    onAviso={onAviso}
+                />
             )}
 
             <Tarjeta titulo="Inspección dimensional (2ª)">

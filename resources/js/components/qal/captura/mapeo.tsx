@@ -5,23 +5,26 @@
  * añadiendo a una lista y se guardan todas al registrar la pieza. Sólo aplica
  * en 2ª · Soldado, porque antes de soldar no hay junta que revisar.
  *
- * Ya no lleva plano: la junta cuelga de la pieza escaneada. Cuando la obra
- * tenga su modelo 3D, la junta se elegirá sobre el cordón en lugar de
- * teclearse; mientras tanto se identifica por su número.
+ * Cuando la marca tiene modelo 3D, la junta se abre desde su cordón en el
+ * visor y llega aquí ya numerada (S y el número del cordón). Sin modelo se
+ * numera a mano. Por eso la junta que se está llenando vive en quien usa el
+ * mapeo: el visor también la escribe.
  */
 
-import { useState } from 'react';
+import type { Dispatch, SetStateAction } from 'react';
 import { PUNTOS_MAPEO } from './datos';
 import type { Junta } from './estado';
 import { evaluarFilete, PUNTO_PERFIL } from './reglas';
 import { Boton, Campo, Pastilla, Pista, Rejilla, Selector, SiNo, Tarjeta, Texto } from './ui';
 
 const PUNTO_OPCIONES = ['OK', 'Defecto', 'n/a'];
-const JUNTA_VACIA: Junta = {
+
+export const JUNTA_VACIA: Junta = {
     junta: '',
     tipo: '',
     soldador: '',
     esEmpate: false,
+    cordonId: null,
     puntos: {},
     espesorRequerido: '',
     espesorMedido: '',
@@ -35,27 +38,30 @@ export function estadoJunta(junta: Junta): 'Con defecto' | 'Junta Correcta' {
 export function Mapeo({
     juntas,
     onJuntas,
+    borrador,
+    onBorrador,
     soldadores,
     onAviso,
 }: {
     juntas: Junta[];
     onJuntas: (juntas: Junta[]) => void;
+    /** La junta que se está llenando. */
+    borrador: Junta;
+    onBorrador: Dispatch<SetStateAction<Junta>>;
     /** [id, «NOMBRE (CLAVE)»] del padrón. */
     soldadores: [string, string][];
     onAviso: (mensaje: string, tono?: 'ok' | 'error') => void;
 }) {
-    const [borrador, setBorrador] = useState<Junta>(JUNTA_VACIA);
-
     const punto = (clave: string) => borrador.puntos[clave] ?? '';
     const setPunto = (clave: string, valor: string) =>
-        setBorrador((previo) => ({ ...previo, puntos: { ...previo.puntos, [clave]: valor } }));
+        onBorrador((previo) => ({ ...previo, puntos: { ...previo.puntos, [clave]: valor } }));
 
     const filete = evaluarFilete(borrador.espesorRequerido, borrador.espesorMedido);
     const esFilete = borrador.tipo === 'Filete';
     const nombreSoldador = (id: string) => soldadores.find(([clave]) => clave === id)?.[1] ?? '—';
 
     const cambiarTipo = (tipo: string) => {
-        setBorrador((previo) => ({
+        onBorrador((previo) => ({
             ...previo,
             tipo,
             puntos: {
@@ -70,7 +76,7 @@ export function Mapeo({
     };
 
     const medirFilete = (campo: 'espesorRequerido' | 'espesorMedido', valor: string) => {
-        setBorrador((previo) => {
+        onBorrador((previo) => {
             const siguiente = { ...previo, [campo]: valor };
             const resultado = evaluarFilete(siguiente.espesorRequerido, siguiente.espesorMedido);
             // Un filete por debajo del nominal es un defecto de perfil, y se marca solo.
@@ -84,7 +90,7 @@ export function Mapeo({
     const marcarCorrecta = () => {
         const puntos: Record<string, string> = {};
         PUNTOS_MAPEO.forEach(([clave]) => (puntos[clave] = 'OK'));
-        setBorrador((previo) => ({
+        onBorrador((previo) => ({
             ...previo,
             puntos: {
                 ...puntos,
@@ -110,13 +116,13 @@ export function Mapeo({
             return;
         }
         onJuntas([...juntas, { ...borrador, junta: identificador }]);
-        setBorrador(JUNTA_VACIA);
+        onBorrador(JUNTA_VACIA);
         onAviso(`Junta ${identificador} añadida a la lista`, 'ok');
     };
 
     /** Editar saca la junta de la lista y la devuelve al formulario. */
     const editar = (indice: number) => {
-        setBorrador(juntas[indice]);
+        onBorrador(juntas[indice]);
         onJuntas(juntas.filter((_, i) => i !== indice));
     };
 
@@ -129,11 +135,27 @@ export function Mapeo({
                 (con el resto de la pieza).
             </Pista>
 
+            {borrador.cordonId !== null && (
+                <div className="mb-3 flex flex-wrap items-center gap-2 rounded-[9px] bg-info/10 px-3 py-2 text-xs">
+                    <span>
+                        Junta sobre el cordón <b>{borrador.junta}</b> del modelo 3D.
+                    </span>
+                    <button
+                        type="button"
+                        onClick={() => onBorrador((previo) => ({ ...previo, cordonId: null }))}
+                        className="link"
+                    >
+                        Numerarla a mano
+                    </button>
+                </div>
+            )}
+
             <Rejilla>
                 <Campo label="Junta N.º">
                     <Texto
                         value={borrador.junta}
-                        onChange={(valor) => setBorrador((previo) => ({ ...previo, junta: valor }))}
+                        onChange={(valor) => onBorrador((previo) => ({ ...previo, junta: valor }))}
+                        readOnly={borrador.cordonId !== null}
                         placeholder="Ej. J1"
                         mayusculas
                     />
@@ -148,14 +170,14 @@ export function Mapeo({
                     <Campo label="Soldador de la Junta">
                         <Selector
                             value={borrador.soldador}
-                            onChange={(valor) => setBorrador((previo) => ({ ...previo, soldador: valor }))}
+                            onChange={(valor) => onBorrador((previo) => ({ ...previo, soldador: valor }))}
                             opciones={soldadores}
                         />
                     </Campo>
                     <Campo label="¿Es empate?" ayuda="Une dos tramos del mismo miembro.">
                         <SiNo
                             value={borrador.esEmpate ? 'si' : ''}
-                            onChange={(valor) => setBorrador((previo) => ({ ...previo, esEmpate: valor === 'si' }))}
+                            onChange={(valor) => onBorrador((previo) => ({ ...previo, esEmpate: valor === 'si' }))}
                             si={{ valor: 'si', texto: 'Empate' }}
                             no={{ valor: 'no', texto: 'No' }}
                         />
@@ -248,6 +270,7 @@ export function Mapeo({
                                             <tr key={`${junta.junta}-${indice}`}>
                                                 <td className="border-b border-base-300 px-[6px] py-2">
                                                     {junta.junta}
+                                                    {junta.cordonId !== null && <span className="ml-1 text-xs text-info">3D</span>}
                                                     {junta.esEmpate && <span className="ml-1 text-xs text-base-content/60">(empate)</span>}
                                                 </td>
                                                 <td className="border-b border-base-300 px-[6px] py-2">{junta.tipo}</td>

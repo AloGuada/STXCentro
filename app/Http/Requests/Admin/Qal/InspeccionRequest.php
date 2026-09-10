@@ -13,6 +13,7 @@ use App\Enums\Qal\TipoJunta;
 use App\Models\Concepto;
 use App\Models\Prod\Pieza;
 use App\Models\Qal\Inspeccion;
+use App\Models\Qal\ModeloCordon;
 use App\Models\Qal\PuntoInspeccion;
 use App\Services\Qal\CalculadorAql;
 use App\Services\Qal\CalculadorEspesores;
@@ -137,6 +138,9 @@ class InspeccionRequest extends FormRequest
             'juntas.*.observaciones' => ['nullable', 'string', 'max:500'],
             'juntas.*.puntos' => ['nullable', 'array'],
             'juntas.*.puntos.*' => ['nullable', 'string', 'max:20'],
+            // La junta elegida sobre un cordón del modelo 3D. Un cordón lleva
+            // una sola junta por inspección.
+            'juntas.*.cordon_id' => ['nullable', 'integer', 'distinct', 'exists:qal_modelo_cordones,id'],
         ];
     }
 
@@ -357,6 +361,40 @@ class InspeccionRequest extends FormRequest
                 if ($punto === null || ! $punto->admite(trim((string) $valor))) {
                     $validator->errors()->add("juntas.{$indice}.puntos.{$clave}", "La junta {$junta['identificador']} trae una respuesta que no existe en el mapeo.");
                 }
+            }
+        }
+
+        $this->validarCordones($validator, $juntas);
+    }
+
+    /**
+     * Un cordón sólo vale para las piezas de su marca en su obra: la plantilla
+     * de otra marca tiene otras soldaduras, aunque el número coincida.
+     *
+     * @param  array<int, array<string, mixed>>  $juntas
+     */
+    private function validarCordones(Validator $validator, array $juntas): void
+    {
+        $ids = collect($juntas)->pluck('cordon_id')->filter()->map(fn (mixed $id): int => (int) $id)->all();
+
+        if ($ids === []) {
+            return;
+        }
+
+        $cordones = ModeloCordon::query()->with('marca.modelo:id,obra_id')->whereIn('id', $ids)->get()->keyBy('id');
+        $marcaDeLaPieza = mb_strtoupper(trim((string) Pieza::query()->with('marca')->find($this->integer('prod_pieza_id'))?->marca?->marca));
+
+        foreach ($juntas as $indice => $junta) {
+            if (blank($junta['cordon_id'] ?? null)) {
+                continue;
+            }
+
+            $cordon = $cordones->get((int) $junta['cordon_id']);
+
+            if ($cordon === null
+                || $cordon->marca->modelo->obra_id !== $this->integer('obra_id')
+                || $cordon->marca->marca !== $marcaDeLaPieza) {
+                $validator->errors()->add("juntas.{$indice}.cordon_id", "La junta {$junta['identificador']} está sobre un cordón de otra marca: vuelve a elegirlo en el visor de esta pieza.");
             }
         }
     }

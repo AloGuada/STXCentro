@@ -47,6 +47,8 @@ export type Junta = {
     soldador: string;
     /** Une dos tramos del mismo miembro: el reporte de soldaduras lo separa. */
     esEmpate: boolean;
+    /** El cordón del modelo 3D sobre el que se capturó; nulo si se numeró a mano. */
+    cordonId: number | null;
     /** Resultado de cada punto de `PUNTOS_MAPEO`. */
     puntos: Record<string, string>;
     espesorRequerido: string;

@@ -81,4 +81,15 @@ class Junta extends Model
     {
         return $this->hasMany(JuntaPunto::class, 'junta_id');
     }
+
+    /**
+     * El cordón del modelo 3D sobre el que se capturó. Nulo en las juntas que
+     * se numeraron a mano, cuando la marca no tenía modelo.
+     *
+     * @return BelongsTo<ModeloCordon, $this>
+     */
+    public function cordon(): BelongsTo
+    {
+        return $this->belongsTo(ModeloCordon::class, 'cordon_id');
+    }
 }

@@ -105,6 +105,7 @@ class PrecargaDeFormulario
                 'tipo' => $junta->tipo->etiqueta(),
                 'soldador' => $this->texto($junta->soldador_id),
                 'esEmpate' => $junta->es_empate,
+                'cordonId' => $junta->cordon_id,
                 'puntos' => $junta->puntos->mapWithKeys(fn (JuntaPunto $punto): array => [
                     $punto->punto->clave => self::RESPUESTA_JUNTA[$punto->resultado->value],
                 ])->all(),

@@ -35,6 +35,8 @@ export type PiezaResuelta = {
         peso_unitario: string | null;
     };
     tipo_pieza_id: number | null;
+    /** La marca en el modelo 3D ya convertido de la obra: con ella se monta el visor en soldado. */
+    modelo_marca_id: number | null;
     inspecciones: InspeccionPrevia[];
 };
 

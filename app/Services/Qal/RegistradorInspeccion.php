@@ -388,6 +388,7 @@ class RegistradorInspeccion
             $conDefecto = $filas->contains(fn (array $fila): bool => $fila['resultado'] === ResultadoPunto::NoOk);
 
             $junta = $inspeccion->juntas()->create([
+                'cordon_id' => $datos['cordon_id'] ?? null,
                 'identificador' => $identificador,
                 'tipo' => $tipo,
                 'soldador_id' => $datos['soldador_id'] ?? null,

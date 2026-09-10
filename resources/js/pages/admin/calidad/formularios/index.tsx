@@ -460,6 +460,7 @@ export default function CapturaCalidad({ obras, obraId, marcas, lotes, catalogos
                       espesor_requerido_mm: vacioANulo(junta.espesorRequerido),
                       espesor_medido_mm: vacioANulo(junta.espesorMedido),
                       es_empate: junta.esEmpate,
+                      cordon_id: junta.cordonId ?? null,
                       puntos: junta.puntos,
                   }))
                 : [],
@@ -1016,6 +1017,7 @@ export default function CapturaCalidad({ obras, obraId, marcas, lotes, catalogos
                                             onJuntas={setJuntas}
                                             soldadores={soldadores}
                                             subetapaFija={piezaFija}
+                                            modeloMarcaId={pieza?.modelo_marca_id ?? null}
                                             onAviso={avisar}
                                             onRechazar={() => campos.set('status', 'Rechazado')}
                                         />
