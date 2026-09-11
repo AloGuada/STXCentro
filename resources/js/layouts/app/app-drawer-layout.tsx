@@ -283,6 +283,14 @@ const navGroups: NavGroup[] = [
                 permission: 'qal.reportes.ver',
             },
             {
+                // El repositorio de PDF por sección que se entrega al
+                // cliente, con su catálogo de plantillas.
+                title: 'Dosier',
+                href: '/admin/calidad/dosier',
+                icon: BookOpen,
+                permission: 'qal.dossier.ver',
+            },
+            {
                 title: 'Catálogos',
                 href: '/admin/calidad/catalogos',
                 icon: Folder,

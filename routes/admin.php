@@ -136,6 +136,8 @@ use App\Http\Controllers\Admin\Qal\AccesorioController as QalAccesorioController
 use App\Http\Controllers\Admin\Qal\CatalogoController as QalCatalogoController;
 use App\Http\Controllers\Admin\Qal\DashboardController as QalDashboardController;
 use App\Http\Controllers\Admin\Qal\DefectoController as QalDefectoController;
+use App\Http\Controllers\Admin\Qal\DosierController as QalDosierController;
+use App\Http\Controllers\Admin\Qal\DossierPlantillaController as QalDossierPlantillaController;
 use App\Http\Controllers\Admin\Qal\EquipoController as QalEquipoController;
 use App\Http\Controllers\Admin\Qal\FirmanteController as QalFirmanteController;
 use App\Http\Controllers\Admin\Qal\IncidenciasController as QalIncidenciasController;
@@ -1319,6 +1321,17 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
             ->whereIn('formato', Formatos::claves())
             ->middleware('permission:qal.reportes.ver')
             ->name('reportes.pdf');
+
+        // El dosier: los de cada obra y el catálogo de plantillas.
+        Route::get('dosier', [QalDosierController::class, 'index'])
+            ->middleware('permission:qal.dossier.ver')
+            ->name('dosier.index');
+        Route::middleware('permission:qal.dossier.editar')->prefix('dosier/plantillas')->name('dosier.plantillas.')->group(function () {
+            Route::post('/', [QalDossierPlantillaController::class, 'store'])->name('store');
+            Route::put('{plantilla}', [QalDossierPlantillaController::class, 'update'])->name('update');
+            Route::patch('{plantilla}/toggle', [QalDossierPlantillaController::class, 'toggle'])->name('toggle');
+            Route::put('{plantilla}/arbol', [QalDossierPlantillaController::class, 'arbol'])->name('arbol');
+        });
 
         // El plan comprometido es contrato, no captura: lo edita quien
         // administra la ficha de la obra.

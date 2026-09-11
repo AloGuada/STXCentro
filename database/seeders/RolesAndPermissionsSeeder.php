@@ -537,6 +537,9 @@ class RolesAndPermissionsSeeder extends Seeder
             'qal.reporte-semanal.ver',
             // Los formatos PDF F-STX-*, los del dosier y los internos.
             'qal.reportes.ver',
+            // El dosier de obra y su catálogo de plantillas.
+            'qal.dossier.ver',
+            'qal.dossier.editar',
             // Incidencias en obra: lo que falla durante el montaje. Es un
             // circuito aparte del taller y lo captura el residente, no el
             // inspector, por eso lleva sus propios permisos.
