@@ -14,6 +14,9 @@
 import { Link, router } from '@inertiajs/react';
 import { XIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
+import { generarHoja } from '@/components/qal/juntas3d/hoja';
+import { cordonesDeHoja, notasDeHoja, useHojaImpresa, type Nota } from '@/components/qal/juntas3d/hoja-impresa';
+import { cargarMarca, ETIQUETA_ESTADO, TINTA_ESTADO, type EstadoCordon } from '@/components/qal/juntas3d/tipos';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { useCan } from '@/hooks/use-can';
 import { cn } from '@/lib/utils';
@@ -42,8 +45,11 @@ export type FichaInspeccion = {
         disposicion: string | null;
         detalle_fallas: string | null;
     } | null;
+    /** La marca del modelo 3D sobre cuyos cordones se capturaron las juntas; nula si se numeraron a mano. */
+    modelo_marca_id: number | null;
     juntas: {
         identificador: string;
+        cordon_id: number | null;
         tipo: string;
         soldador: string | null;
         espesor_requerido_mm: string | null;
@@ -154,6 +160,95 @@ const TONO_RESULTADO: Record<string, string> = {
 
 function Acciones({ children }: { children: ReactNode }) {
     return <div className="mb-3 flex flex-wrap gap-2">{children}</div>;
+}
+
+/**
+ * La hoja del mapeo: las cuatro isométricas de la marca con cada cordón del
+ * color de su junta en ESTA inspección. Es el plano en papel con las juntas
+ * marcadas a mano, ahora sacado del modelo.
+ */
+function HojaDelMapeo({ ficha }: { ficha: FichaInspeccion }) {
+    const { generando, error, imprimir, hoja } = useHojaImpresa();
+    const modeloMarcaId = ficha.modelo_marca_id;
+
+    if (modeloMarcaId === null) {
+        return null;
+    }
+
+    const valor = (etiqueta: string) => ficha.cabecera.find((fila) => fila.etiqueta === etiqueta)?.valor;
+
+    const pedir = () =>
+        imprimir('mapeo', async () => {
+            const marca = await cargarMarca(modeloMarcaId);
+            const juntaDe = new Map(ficha.juntas.filter((junta) => junta.cordon_id !== null).map((junta) => [junta.cordon_id, junta]));
+            const estados = new Map<number, EstadoCordon>(
+                marca.cordones.map((cordon) => {
+                    const junta = juntaDe.get(cordon.id);
+                    return [cordon.numero, !junta ? 'sin' : junta.resultado === 'con_defecto' ? 'defecto' : 'correcta'];
+                }),
+            );
+            const generada = await generarHoja({
+                glbUrl: marca.glb_url,
+                cordones: cordonesDeHoja(marca),
+                modo: 'reparto',
+                colores: new Map([...estados].map(([numero, estado]) => [numero, TINTA_ESTADO[estado]])),
+            });
+            const cuantos = (estado: EstadoCordon) => [...estados.values()].filter((actual) => actual === estado).length;
+            const conDefecto = ficha.juntas.filter((junta) => junta.resultado === 'con_defecto');
+            const leyenda: Nota[] = (['correcta', 'defecto', 'sin'] as EstadoCordon[]).map((estado) => ({
+                texto: (
+                    <>
+                        <span className="llave" style={{ color: TINTA_ESTADO[estado] }} />
+                        {ETIQUETA_ESTADO[estado]} ({cuantos(estado)})
+                    </>
+                ),
+            }));
+
+            return {
+                hoja: generada,
+                cabecera: {
+                    titulo: `${marca.marca} · pieza ${valor('QR') ?? '—'}`,
+                    subtitulo: [ficha.folio, valor('Fecha'), valor('Obra'), valor('Sub-etapa'), valor('Inspector') && `inspector ${valor('Inspector')}`]
+                        .filter(Boolean)
+                        .join(' · '),
+                    resumen: (
+                        <>
+                            <b>
+                                {cuantos('defecto')} con defecto de {marca.cordones.length} cordones
+                            </b>
+                            <br />
+                            {cuantos('correcta')} correctos · {cuantos('sin')} sin junta en esta inspección
+                        </>
+                    ),
+                },
+                notas: notasDeHoja(
+                    generada,
+                    leyenda,
+                    'Cada cordón se numera UNA vez, en una vista que lo alcanza. Número, línea y cordón llevan el color del resultado de su junta en esta inspección.',
+                    conDefecto.length
+                        ? [
+                              {
+                                  texto: `Con defecto: ${conDefecto
+                                      .map((junta) => (junta.defectos.length ? `${junta.identificador} (${junta.defectos.join(', ')})` : junta.identificador))
+                                      .join(' · ')}`,
+                                  color: TINTA_ESTADO.defecto,
+                                  completa: true,
+                              },
+                          ]
+                        : [],
+                ),
+            };
+        });
+
+    return (
+        <div className="mb-2 flex flex-wrap items-center gap-2">
+            <button type="button" className="btn btn-xs btn-outline" disabled={generando !== null} onClick={pedir}>
+                {generando ? 'Generando…' : '🖨️ Hoja del mapeo (PDF)'}
+            </button>
+            {error && <span className="text-error text-xs">{error}</span>}
+            {hoja}
+        </div>
+    );
 }
 
 export function FichaPieza({
@@ -282,6 +377,7 @@ export function FichaPieza({
 
                 {ficha.juntas.length > 0 && (
                     <Seccion titulo={`Mapeo de soldaduras · ${ficha.juntas.length} juntas`}>
+                        <HojaDelMapeo ficha={ficha} />
                         <div className="overflow-x-auto">
                             <table className="table-xs table w-full">
                                 <thead>

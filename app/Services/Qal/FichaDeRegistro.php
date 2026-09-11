@@ -31,7 +31,7 @@ class FichaDeRegistro
         $inspeccion->load([
             'obra:id,no,descripcion', 'inspector.usuario:id,name', 'capturista:id,name', 'tipoPieza', 'equipo',
             'operador', 'responsable', 'supervisorPintura', 'soldador', 'puntos.punto', 'defectos.defecto',
-            'muestreo', 'juntas.soldador', 'juntas.puntos.punto', 'pintura.lecturas', 'adherencia.tiras',
+            'muestreo', 'juntas.soldador', 'juntas.puntos.punto', 'juntas.cordon:id,modelo_marca_id', 'pintura.lecturas', 'adherencia.tiras',
             'adherencia.fotos',
         ]);
 
@@ -105,8 +105,15 @@ class FichaDeRegistro
                 'disposicion' => $muestreo->disposicion,
                 'detalle_fallas' => $muestreo->detalle_fallas,
             ] : null,
+            // La marca del modelo sobre cuyos cordones se capturaron las juntas:
+            // con ella la ficha imprime la hoja del mapeo pintada con el
+            // resultado de cada una. Nula si las juntas se numeraron a mano.
+            'modelo_marca_id' => $inspeccion->juntas
+                ->first(fn (Junta $junta): bool => $junta->cordon_id !== null)
+                ?->cordon?->modelo_marca_id,
             'juntas' => $inspeccion->juntas->map(fn (Junta $junta): array => [
                 'identificador' => $junta->identificador,
+                'cordon_id' => $junta->cordon_id,
                 'tipo' => $junta->tipo->etiqueta(),
                 'soldador' => $junta->soldador ? "{$junta->soldador->nombre} ({$junta->soldador->clave})" : null,
                 'espesor_requerido_mm' => $this->numero($junta->espesor_requerido_mm),

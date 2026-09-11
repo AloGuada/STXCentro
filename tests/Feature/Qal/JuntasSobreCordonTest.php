@@ -4,12 +4,14 @@ use App\Enums\Qal\AmbitoPunto;
 use App\Enums\Qal\EstatusModelo;
 use App\Models\Concepto;
 use App\Models\Prod\Pieza;
+use App\Models\Qal\Inspeccion;
 use App\Models\Qal\Junta;
 use App\Models\Qal\Modelo;
 use App\Models\Qal\ModeloCordon;
 use App\Models\Qal\ModeloMarca;
 use App\Models\Qal\PuntoInspeccion;
 use App\Models\User;
+use App\Services\Qal\FichaDeRegistro;
 use Database\Seeders\QalPuntosInspeccionSeeder;
 use Spatie\Permission\Models\Permission;
 
@@ -155,5 +157,28 @@ test('el cordon se pinta con la ultima junta de cada pieza', function () {
         ->assertJsonPath('cordones.0.estado', 'correcta')
         ->assertJsonPath('cordones.0.correctas', 1)
         ->assertJsonPath('cordones.0.con_defecto', 0)
-        ->assertJsonPath('glb_url', $marca->glbUrl());
+        ->assertJsonPath('glb_url', $marca->glbUrl())
+        // Lo que lleva el encabezado de la hoja imprimible.
+        ->assertJsonPath('piezas', $marca->piezas)
+        ->assertJsonPath('ensambles', $marca->ensambles)
+        ->assertJsonPath('nombre', $marca->nombre);
+});
+
+test('la ficha del registro sabe sobre que marca del modelo se capturaron sus juntas', function () {
+    [$pieza, $marca, $cordon] = piezaConModelo();
+
+    $this->actingAs(inspectorDelVisor())
+        ->post(route('admin.qal.inspecciones.store'), soldadoSobreCordon($pieza, $cordon))
+        ->assertSessionHasNoErrors();
+
+    $ficha = app(FichaDeRegistro::class)->deInspeccion(Inspeccion::sole());
+
+    expect($ficha['modelo_marca_id'])->toBe($marca->id)
+        ->and($ficha['juntas'][0]['cordon_id'])->toBe($cordon->id);
+});
+
+test('sin juntas sobre cordones la ficha no ofrece la hoja del mapeo', function () {
+    $junta = Junta::factory()->create(['cordon_id' => null]);
+
+    expect(app(FichaDeRegistro::class)->deInspeccion($junta->inspeccion)['modelo_marca_id'])->toBeNull();
 });

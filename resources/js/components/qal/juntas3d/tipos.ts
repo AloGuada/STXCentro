@@ -41,6 +41,11 @@ export type MarcaVisor = {
     id: number;
     modelo_id: number;
     marca: string;
+    nombre: string | null;
+    piezas: number;
+    peso_kg: string;
+    ensambles: number;
+    bbox_mm: number[] | null;
     glb_url: string;
     ficha_url: string;
     cordones: CordonVisor[];
@@ -51,6 +56,13 @@ export const COLOR_ESTADO: Record<EstadoCordon, number> = {
     sin: 0xff8a1f,
     correcta: 0x22c55e,
     defecto: 0xef4444,
+};
+
+/** Los mismos estados en tinta para papel: más oscuros, para que impriman sobre blanco. */
+export const TINTA_ESTADO: Record<EstadoCordon, string> = {
+    sin: '#d97706',
+    correcta: '#15803d',
+    defecto: '#c0392b',
 };
 
 export const COLOR_SELECCION = 0x36e0ff;

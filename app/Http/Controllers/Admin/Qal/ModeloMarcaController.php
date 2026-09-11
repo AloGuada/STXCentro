@@ -12,9 +12,9 @@ use Illuminate\Http\JsonResponse;
  * Lo que necesita el visor de una marca: dónde está su geometría y sus
  * cordones, cada uno con cómo va según sus juntas.
  *
- * La pide la captura de soldado, que reporta cada junta sobre un cordón, y la
- * pantalla del modelo 3D en Producción. Por eso vive en Calidad y basta con
- * poder capturar para leerla.
+ * La pide la captura de soldado, que reporta cada junta sobre un cordón, la
+ * pantalla del modelo 3D en Producción y la hoja del mapeo de Registros. Por
+ * eso vive en Calidad y basta con poder capturar para leerla.
  */
 class ModeloMarcaController extends Controller
 {
@@ -27,6 +27,12 @@ class ModeloMarcaController extends Controller
             'id' => $modeloMarca->id,
             'modelo_id' => $modeloMarca->modelo_id,
             'marca' => $modeloMarca->marca,
+            // El encabezado de la hoja imprimible.
+            'nombre' => $modeloMarca->nombre,
+            'piezas' => $modeloMarca->piezas,
+            'peso_kg' => $modeloMarca->peso_kg,
+            'ensambles' => $modeloMarca->ensambles,
+            'bbox_mm' => $modeloMarca->bbox_mm,
             'glb_url' => $modeloMarca->glbUrl(),
             'ficha_url' => $modeloMarca->fichaUrl(),
             'cordones' => $cordones->map(fn (ModeloCordon $cordon): array => [

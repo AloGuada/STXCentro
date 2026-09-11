@@ -10,6 +10,7 @@
 
 import { Head, router, usePage } from '@inertiajs/react';
 import { useEffect, useMemo, useState } from 'react';
+import { BotonesHoja } from '@/components/qal/juntas3d/hoja-impresa';
 import { PanelCordon } from '@/components/qal/juntas3d/panel-cordon';
 import { cargarMarca, type MarcaVisor } from '@/components/qal/juntas3d/tipos';
 import { Visor } from '@/components/qal/juntas3d/visor';
@@ -195,8 +196,11 @@ export default function ModeloShow({ catalogo, modelo, marcas }: Props) {
                             )}
                             {marca && (
                                 <>
-                                    <div className="text-sm font-semibold">
-                                        {marca.marca} · {marca.cordones.length} cordones · toca uno para ver su ficha
+                                    <div className="flex flex-wrap items-center justify-between gap-2">
+                                        <div className="text-sm font-semibold">
+                                            {marca.marca} · {marca.cordones.length} cordones · toca uno para ver su ficha
+                                        </div>
+                                        <BotonesHoja marca={marca} />
                                     </div>
                                     <Visor
                                         key={marca.glb_url}
