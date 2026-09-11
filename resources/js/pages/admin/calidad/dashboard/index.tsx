@@ -7,7 +7,7 @@
  * otras tres. Aquí las dos primeras se aplanan en **una sola página**:
  *
  *     barra de filtros  →  resumen ejecutivo  →  resumen analítica
- *                       →  tabs: Operación · Estadística · Diagnóstico · Accesorios
+ *                       →  tabs: Operación · Estadística · Diagnóstico · Accesorios · Glosario
  *
  * PND ya es pantalla propia en el mono (`/admin/calidad/pnd`), así que no se
  * duplica aquí.
@@ -25,6 +25,7 @@ import { TabAccesorios, type DatosAccesorios } from '@/components/qal/dashboard/
 import { TabDiagnostico } from '@/components/qal/dashboard/diagnostico';
 import { TabEstadistica } from '@/components/qal/dashboard/estadistica';
 import { BarraFiltros, filtrosDeLaUrl, resumenFiltros, type FiltrosTablero } from '@/components/qal/dashboard/filtros';
+import { TabGlosario } from '@/components/qal/dashboard/glosario';
 import {
     alertas,
     hallazgos,
@@ -69,7 +70,7 @@ const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Tablero', href: '/admin/calidad/dashboard' },
 ];
 
-type TabTablero = 'op' | 'est' | 'diag' | 'acc';
+type TabTablero = 'op' | 'est' | 'diag' | 'acc' | 'glo';
 
 const TABS: Tab<TabTablero>[] = [
     { valor: 'op', titulo: '🏭 Operación', nota: 'dónde falla' },
@@ -78,6 +79,8 @@ const TABS: Tab<TabTablero>[] = [
 ];
 
 const TAB_ACCESORIOS: Tab<TabTablero> = { valor: 'acc', titulo: '📦 Accesorios', nota: '¿cuánto se liberó?' };
+
+const TAB_GLOSARIO: Tab<TabTablero> = { valor: 'glo', titulo: '📖 Glosario', nota: '¿qué significa?' };
 
 const ETIQUETA_FASE: Record<Fase, string> = {
     '1ª': '1ª · Corte',
@@ -105,7 +108,7 @@ export default function TableroCalidad({ tab: tabDeLaUrl, filtros: filtrosUrl, o
     const filtros = filtrosDeLaUrl(filtrosUrl);
     const [tab, setTab] = useState<TabTablero>(tabDeLaUrl === 'accesorios' ? 'acc' : 'op');
     const [cargando, setCargando] = useState(false);
-    const tabs = can('qal.accesorios.ver') ? [...TABS, TAB_ACCESORIOS] : TABS;
+    const tabs = [...TABS, ...(can('qal.accesorios.ver') ? [TAB_ACCESORIOS] : []), TAB_GLOSARIO];
 
     /**
      * Los filtros viajan en la URL: un tablero acotado se comparte con su
@@ -415,6 +418,8 @@ export default function TableroCalidad({ tab: tabDeLaUrl, filtros: filtrosUrl, o
                     {tab === 'est' && <TabEstadistica datos={tablero.estadistica} />}
 
                     {tab === 'diag' && <TabDiagnostico datos={tablero.diagnostico} />}
+
+                    {tab === 'glo' && <TabGlosario />}
 
                     {tab === 'acc' &&
                         (accesorios ? (
