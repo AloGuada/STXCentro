@@ -16,11 +16,12 @@ import { useMemo, type FormEvent } from 'react';
 import { Kpi, Leyenda, Nota, Pastilla, Tarjeta, tonoDeAvance } from '@/components/qal/ui';
 import { cn } from '@/lib/utils';
 import type { SharedData } from '@/types';
+import { AgregarAlPlan } from './agregar-al-plan';
 import { estadoDeFila, porcentaje } from './calculo';
-import { leerMarcas, tipoDeMarca } from './marcas';
+import { leerMarcas, textoDeMarcas, tipoDeMarca } from './marcas';
 import { Reparaciones } from './reparaciones';
 import { numeroSemana, rangoSemana, semanaMas } from './semanas';
-import { faseDe, FASES, type Fase, type VistaAvance } from './tipos';
+import { faseDe, FASES, type Fase, type ObraOpcion, type VistaAvance } from './tipos';
 
 /**
  * El contador en vivo debajo del área de texto.
@@ -73,21 +74,25 @@ function ResumenPegado({ texto }: { texto: string }) {
 export function VistaObra({
     obraId,
     obra,
+    obras,
     semana,
     fase,
     vista,
     puedeCapturar,
     onFase,
     onVolver,
+    onAbrirObra,
 }: {
     obraId: number;
     obra: string;
+    obras: ObraOpcion[];
     semana: string;
     fase: Fase;
     vista: VistaAvance;
     puedeCapturar: boolean;
     onFase: (fase: Fase) => void;
     onVolver: () => void;
+    onAbrirObra: (obraId: number) => void;
 }) {
     const F = faseDe(fase);
     const { props } = usePage<SharedData & { flash?: { success?: string | null } }>();
@@ -105,6 +110,33 @@ export function VistaObra({
     const guardar = (evento: FormEvent) => {
         evento.preventDefault();
         form.post('/admin/calidad/avance/programaciones', { preserveScroll: true });
+    };
+
+    /**
+     * Una pieza más de la marca en la caja del plan: si la marca ya está, sube
+     * su cantidad; si no, entra al final. El texto queda normalizado, igual que
+     * lo lee el servidor al guardar.
+     */
+    const agregarMarca = (marca: string) => {
+        const lista = leerMarcas(form.data.marcas);
+        const clave = marca.toUpperCase().replace(/\s+/g, '');
+        const previa = lista.find((m) => m.marca === clave);
+
+        if (previa) {
+            previa.cantidad += 1;
+        } else {
+            lista.push({ marca: clave, cantidad: 1, repetida: false });
+        }
+
+        form.setData('marcas', textoDeMarcas(lista));
+    };
+
+    const abrirOtraObra = (otra: number) => {
+        if (form.isDirty && !confirm('El plan tiene cambios sin guardar. ¿Abrir la otra obra de todos modos?')) {
+            return;
+        }
+
+        onAbrirObra(otra);
     };
 
     /** Copiar las pendientes para pegarlas en la semana siguiente a mano. */
@@ -171,6 +203,9 @@ export function VistaObra({
                 >
                     <div className="grid gap-4 p-4 lg:grid-cols-2">
                         <div>
+                            {puedeCapturar && (
+                                <AgregarAlPlan obras={obras} obraId={obraId} onAgregar={agregarMarca} onAbrirObra={abrirOtraObra} />
+                            )}
                             <textarea
                                 value={form.data.marcas}
                                 onChange={(e) => form.setData('marcas', e.target.value)}

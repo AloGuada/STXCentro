@@ -35,6 +35,9 @@ export function faseDe(id: Fase): DefinicionFase {
     return FASES.find((f) => f.id === id) ?? FASES[0];
 }
 
+/** Una obra de Calidad como opción de selector. */
+export type ObraOpcion = { id: number; no: string | null; descripcion: string | null };
+
 /**
  * Una pieza (su QR) reducida a su historia en una transformación: el resumen
  * de todas sus inspecciones, porque una pieza reinspeccionada tres veces sigue

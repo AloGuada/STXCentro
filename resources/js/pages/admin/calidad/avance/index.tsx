@@ -25,7 +25,7 @@
 
 import { Head, router } from '@inertiajs/react';
 import { numeroSemana, rangoSemana } from '@/components/qal/avance/semanas';
-import type { ComparativaAvance, Fase, VistaAvance } from '@/components/qal/avance/tipos';
+import type { ComparativaAvance, Fase, ObraOpcion, VistaAvance } from '@/components/qal/avance/tipos';
 import { VistaComparativa } from '@/components/qal/avance/vista-comparativa';
 import { VistaObra } from '@/components/qal/avance/vista-obra';
 import { Select, SelectItem } from '@/components/ui/select';
@@ -37,8 +37,6 @@ const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Calidad', href: '/admin/calidad/catalogos' },
     { title: 'Avance de producción', href: '/admin/calidad/avance' },
 ];
-
-type ObraOpcion = { id: number; no: string | null; descripcion: string | null };
 
 type Props = {
     semana: string;
@@ -112,12 +110,14 @@ export default function AvanceProduccion({ semana, semanas, obras, obraId, fase,
                         key={`${obraId}|${fase}|${semana}`}
                         obraId={obraId}
                         obra={nombreDe(obras.find((o) => o.id === obraId))}
+                        obras={obras}
                         semana={semana}
                         fase={fase}
                         vista={vista}
                         puedeCapturar={puedeCapturar}
                         onFase={(siguiente) => ir({ fase: siguiente })}
                         onVolver={() => ir({ obra: null })}
+                        onAbrirObra={(otra) => ir({ obra: otra })}
                     />
                 ) : (
                     comparativa && (

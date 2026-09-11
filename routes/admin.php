@@ -148,6 +148,7 @@ use App\Http\Controllers\Admin\Qal\LaboratorioController as QalLaboratorioContro
 use App\Http\Controllers\Admin\Qal\ModeloMarcaController as QalModeloMarcaController;
 use App\Http\Controllers\Admin\Qal\OperadorController as QalOperadorController;
 use App\Http\Controllers\Admin\Qal\PiezaController as QalPiezaController;
+use App\Http\Controllers\Admin\Qal\PiezasDelPlanController as QalPiezasDelPlanController;
 use App\Http\Controllers\Admin\Qal\PndController as QalPndController;
 use App\Http\Controllers\Admin\Qal\ProgramacionController as QalProgramacionController;
 use App\Http\Controllers\Admin\Qal\RegistroController as QalRegistroController;
@@ -1246,6 +1247,13 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::post('avance/programaciones', [QalProgramacionController::class, 'store'])
             ->middleware('permission:qal.programacion.capturar')
             ->name('avance.programaciones.store');
+        // El formulario «agregar al plan» (obra, marca, QR): responde JSON
+        // para no recargar el plan que se está escribiendo.
+        Route::middleware('permission:qal.programacion.capturar')->prefix('avance')->name('avance.')->group(function () {
+            Route::get('marcas', [QalPiezasDelPlanController::class, 'marcas'])->name('marcas');
+            Route::get('piezas', [QalPiezasDelPlanController::class, 'piezas'])->name('piezas');
+            Route::get('pieza', [QalPiezasDelPlanController::class, 'pieza'])->name('pieza');
+        });
 
         // Pruebas no destructivas. Es recurso aparte de reportes: aqui se
         // cuentan juntas soldadas evaluadas por un laboratorio externo, alla
