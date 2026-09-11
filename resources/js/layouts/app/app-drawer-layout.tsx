@@ -275,6 +275,14 @@ const navGroups: NavGroup[] = [
                 permission: 'qal.reporte-semanal.ver',
             },
             {
+                // Los formatos F-STX-* en PDF: los que van al dosier del
+                // cliente y los de control interno.
+                title: 'Reportes',
+                href: '/admin/calidad/reportes',
+                icon: FileText,
+                permission: 'qal.reportes.ver',
+            },
+            {
                 title: 'Catálogos',
                 href: '/admin/calidad/catalogos',
                 icon: Folder,

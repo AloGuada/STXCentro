@@ -20,7 +20,8 @@
                 @endif
             </div>
             <div style="border-top: 1px solid #333; padding-top: 3px;">
-                <div style="font-size: 8pt; font-weight: bold;">{{ $firma['nombre'] ?? ' ' }}</div>
+                {{-- Sin nombre, un espacio duro: vacío el renglón no mide nada y la raya quedaría más baja que las demás. --}}
+                <div style="font-size: 8pt; font-weight: bold;">{!! $firma['nombre'] ? e($firma['nombre']) : '&nbsp;' !!}</div>
                 <div style="font-size: 7pt; color: #555;">{{ $firma['cargo'] }}</div>
             </div>
         </td>

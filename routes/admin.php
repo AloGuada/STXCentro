@@ -147,6 +147,7 @@ use App\Http\Controllers\Admin\Qal\PiezaController as QalPiezaController;
 use App\Http\Controllers\Admin\Qal\PndController as QalPndController;
 use App\Http\Controllers\Admin\Qal\ProgramacionController as QalProgramacionController;
 use App\Http\Controllers\Admin\Qal\RegistroController as QalRegistroController;
+use App\Http\Controllers\Admin\Qal\ReporteController as QalReporteController;
 use App\Http\Controllers\Admin\Qal\ReporteSemanalController as QalReporteSemanalController;
 use App\Http\Controllers\Admin\Qal\ResponsableController as QalResponsableController;
 use App\Http\Controllers\Admin\Qal\SoldadorController as QalSoldadorController;
@@ -173,6 +174,7 @@ use App\Http\Controllers\Admin\Sti\TecnicoController as StiTecnicoController;
 use App\Http\Controllers\Admin\Sti\TicketController as StiTicketController;
 use App\Http\Controllers\Admin\TagController;
 use App\Http\Controllers\Admin\UsuarioController;
+use App\Services\Qal\Formatos\Formatos;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(function () {
@@ -1307,6 +1309,16 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::get('reporte-semanal', [QalReporteSemanalController::class, 'index'])
             ->middleware('permission:qal.reporte-semanal.ver')
             ->name('reporte-semanal');
+
+        // Los formatos PDF F-STX-*: la pantalla que los previsualiza y el PDF
+        // de cada uno.
+        Route::get('reportes', [QalReporteController::class, 'index'])
+            ->middleware('permission:qal.reportes.ver')
+            ->name('reportes.index');
+        Route::get('reportes/{formato}', [QalReporteController::class, 'pdf'])
+            ->whereIn('formato', Formatos::claves())
+            ->middleware('permission:qal.reportes.ver')
+            ->name('reportes.pdf');
 
         // El plan comprometido es contrato, no captura: lo edita quien
         // administra la ficha de la obra.
