@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasManyThrough;
+use Illuminate\Support\Facades\Storage;
 
 /**
  * El modelo 3D de una obra, en una de sus versiones.
@@ -35,6 +36,7 @@ class Modelo extends Model
         'catalogo_id',
         'version',
         'archivo_ifc',
+        'archivo_modelo',
         'nombre_original',
         'tamano_bytes',
         'estatus',
@@ -104,6 +106,14 @@ class Modelo extends Model
     public function carpeta(): string
     {
         return "qal/modelos/{$this->id}";
+    }
+
+    /** La estructura entera en .glb, sin cordones; nula mientras no termine la conversión. */
+    public function modeloUrl(): ?string
+    {
+        return $this->archivo_modelo
+            ? Storage::disk('public')->url("{$this->carpeta()}/{$this->archivo_modelo}")
+            : null;
     }
 
     /** Si ya hay juntas capturadas sobre alguno de sus cordones. */

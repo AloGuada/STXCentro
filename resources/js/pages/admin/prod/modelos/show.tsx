@@ -1,11 +1,13 @@
 /**
- * Una versión del modelo 3D: sus marcas y cómo va cada cordón según las juntas
- * que Calidad capturó encima.
+ * Una versión del modelo 3D: la estructura entera de un vistazo y, marca por
+ * marca, su geometría con sus cordones.
  *
- * Una marca se fabrica muchas veces, así que el modelo es la plantilla: un
- * cordón está con defecto si alguna pieza lo tiene así ahora, correcto si
- * todas las revisadas lo tienen bien, y naranja si nadie lo ha revisado. Es el
- * reporte que sustituye al mapeo sobre el plano en papel.
+ * El modelo completo se enseña sin cordones —son decenas de miles y no dicen
+ * nada juntos—; los cordones se ven al abrir una marca. Una marca se fabrica
+ * muchas veces, así que su modelo es la plantilla: un cordón está con defecto
+ * si alguna pieza lo tiene así ahora, correcto si todas las revisadas lo
+ * tienen bien, y naranja si nadie lo ha revisado. Es el reporte que sustituye
+ * al mapeo sobre el plano en papel.
  */
 
 import { Head, router, usePage } from '@inertiajs/react';
@@ -27,13 +29,12 @@ type MarcaFila = {
     peso_kg: string;
     soldaduras: number;
     en_catalogo: boolean;
-    cordones: { correctos: number; con_defecto: number; sin_junta: number };
 };
 
 type Props = {
     /** El catálogo de la obra, para volver a él. Null si la obra ya no tiene. */
     catalogo: CatalogoDelModelo | null;
-    modelo: ModeloResumen;
+    modelo: ModeloResumen & { modelo_url: string | null };
     marcas: MarcaFila[];
 };
 
@@ -143,11 +144,12 @@ export default function ModeloShow({ catalogo, modelo, marcas }: Props) {
                 {modelo.error && <div className="alert alert-error text-sm">{modelo.error}</div>}
                 {enCurso && (
                     <div className="alert alert-info text-sm">
-                        El IFC se está convirtiendo en el servicio de modelos. Esta pantalla se actualiza sola.
+                        El IFC se está convirtiendo en el servicio de modelos. Las marcas aparecen conforme terminan y ya
+                        se pueden abrir; el modelo completo llega al final. Esta pantalla se actualiza sola.
                     </div>
                 )}
 
-                {marcas.length > 0 && (
+                {(marcas.length > 0 || modelo.modelo_url) && (
                     <div className="grid gap-4 lg:grid-cols-[minmax(0,22rem)_minmax(0,1fr)]">
                         <div className="border-base-300 bg-base-100 rounded-xl border">
                             <div className="border-base-300 border-b p-3">
@@ -161,26 +163,27 @@ export default function ModeloShow({ catalogo, modelo, marcas }: Props) {
                             <ul className="max-h-[560px] overflow-y-auto text-sm">
                                 {visibles.map((fila) => (
                                     <li key={fila.id}>
-                                        <button
-                                            type="button"
-                                            onClick={() => abrir(fila.id)}
-                                            className={`hover:bg-base-200 flex w-full items-center justify-between gap-2 px-3 py-2 text-left ${
+                                        <div
+                                            className={`flex w-full items-center justify-between gap-2 px-3 py-2 ${
                                                 marca?.id === fila.id ? 'bg-primary/10' : ''
                                             }`}
                                         >
-                                            <span>
+                                            <span className="min-w-0">
                                                 <span className="font-semibold">{fila.marca}</span>
                                                 {!fila.en_catalogo && <span className="text-warning ml-1 text-xs">sin catálogo</span>}
-                                                <span className="text-base-content/50 block text-xs">
-                                                    {fila.nombre} · {fila.piezas} pz · {Number(fila.peso_kg)} kg
+                                                <span className="text-base-content/50 block truncate text-xs">
+                                                    {fila.nombre} · {fila.piezas} pz · {Number(fila.peso_kg)} kg · {fila.soldaduras} cordones
                                                 </span>
                                             </span>
-                                            <span className="flex gap-1 font-mono text-xs">
-                                                <span className="text-success" title="cordones correctos">{fila.cordones.correctos}</span>
-                                                <span className="text-error" title="cordones con defecto">{fila.cordones.con_defecto}</span>
-                                                <span className="text-warning" title="cordones sin junta">{fila.cordones.sin_junta}</span>
-                                            </span>
-                                        </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => abrir(fila.id)}
+                                                disabled={cargandoMarca === fila.id}
+                                                className="btn btn-xs btn-outline shrink-0"
+                                            >
+                                                Ver cordones
+                                            </button>
+                                        </div>
                                     </li>
                                 ))}
                             </ul>
@@ -189,9 +192,26 @@ export default function ModeloShow({ catalogo, modelo, marcas }: Props) {
                         <div className="space-y-3">
                             {falla && <div className="alert alert-error text-sm">{falla}</div>}
                             {cargandoMarca !== null && <div className="text-base-content/60 text-sm">Cargando la marca…</div>}
-                            {!marca && cargandoMarca === null && (
+                            {!marca && cargandoMarca === null && modelo.modelo_url && (
+                                <>
+                                    <div className="text-sm font-semibold">
+                                        Estructura completa · sin cordones · «Ver cordones» en una marca para abrirla sola
+                                    </div>
+                                    <Visor
+                                        key={modelo.modelo_url}
+                                        glbUrl={modelo.modelo_url}
+                                        cordones={[]}
+                                        seleccionado={null}
+                                        onSeleccionar={() => undefined}
+                                        className="h-[520px]"
+                                    />
+                                </>
+                            )}
+                            {!marca && cargandoMarca === null && !modelo.modelo_url && (
                                 <div className="border-base-300 text-base-content/60 rounded-xl border border-dashed p-10 text-center text-sm">
-                                    Elige una marca para ver su geometría y sus cordones.
+                                    {enCurso
+                                        ? 'El modelo completo llega al terminar la conversión. Mientras, abre una marca.'
+                                        : 'Elige una marca para ver su geometría y sus cordones.'}
                                 </div>
                             )}
                             {marca && (
@@ -200,7 +220,12 @@ export default function ModeloShow({ catalogo, modelo, marcas }: Props) {
                                         <div className="text-sm font-semibold">
                                             {marca.marca} · {marca.cordones.length} cordones · toca uno para ver su ficha
                                         </div>
-                                        <BotonesHoja marca={marca} />
+                                        <div className="flex flex-wrap gap-2">
+                                            <button type="button" className="btn btn-xs btn-ghost" onClick={() => setMarca(null)}>
+                                                Volver al modelo completo
+                                            </button>
+                                            <BotonesHoja marca={marca} />
+                                        </div>
                                     </div>
                                     <Visor
                                         key={marca.glb_url}

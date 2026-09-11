@@ -12,15 +12,15 @@ use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Storage;
 use RuntimeException;
 use Throwable;
-use ZipArchive;
 
 /**
  * Convierte el IFC de un modelo con el servicio `ifc-service`.
  *
- * La conversión tarda minutos, así que el job no se queda esperando: sube el
- * archivo, se vuelve a encolar y pregunta cada tanto. Cuando el servicio
- * termina, descarga el zip, lo descomprime en el disco público (el visor pide
- * los .glb directo) y guarda marcas y cordones.
+ * La conversión tarda, así que el job no se queda esperando: sube el archivo,
+ * se vuelve a encolar y pregunta cada tanto. En cada vuelta se trae las marcas
+ * que el servicio ya escribió —su .glb, su plantilla y sus cordones— y las
+ * guarda, así que un modelo a medio convertir ya tiene marcas que sirven para
+ * el visor. Al terminar baja el modelo entero y cierra.
  *
  * Un fallo no se reintenta: deja el modelo en error con el mensaje, y se
  * vuelve a procesar a mano. Reintentar a ciegas sólo repetiría el mismo error
@@ -68,14 +68,19 @@ class ProcesarModeloIfc implements ShouldQueue
                 throw new RuntimeException('El servicio no pudo convertir el IFC: '.($estado['error'] ?? 'sin detalle'));
             }
 
-            if ($estado['estado'] !== 'listo') {
-                $modelo->update(['estatus' => EstatusModelo::Procesando, 'resumen' => ['progreso' => $estado['progreso'] ?? null]]);
+            $indice = $this->traerMarcas($modelo, $cliente, $importador);
+
+            if ($estado['estado'] !== 'listo' || ! ($indice['completo'] ?? false)) {
+                $modelo->update([
+                    'estatus' => EstatusModelo::Procesando,
+                    'resumen' => ['progreso' => ($estado['progreso'] ?? []) + ['marcas_guardadas' => $modelo->marcas()->count()]],
+                ]);
                 $this->release($this->espera());
 
                 return;
             }
 
-            $this->importar($modelo, $cliente, $importador);
+            $this->cerrar($modelo, $indice, $cliente, $importador);
         } catch (Throwable $error) {
             $modelo->update([
                 'estatus' => EstatusModelo::Error,
@@ -84,26 +89,51 @@ class ProcesarModeloIfc implements ShouldQueue
         }
     }
 
-    private function importar(Modelo $modelo, IfcClient $cliente, ImportadorDeModelo $importador): void
+    /**
+     * Las marcas que el servicio ya escribió y aquí todavía no están: se bajan
+     * su .glb y su plantilla y se guardan con sus cordones.
+     *
+     * @return array<string, mixed> el index.json tal como va
+     */
+    private function traerMarcas(Modelo $modelo, IfcClient $cliente, ImportadorDeModelo $importador): array
     {
-        $zip = "{$modelo->carpeta()}/resultado.zip";
-        Storage::disk('local')->makeDirectory($modelo->carpeta());
-        $cliente->descargarResultado($modelo->trabajo_externo_id, Storage::disk('local')->path($zip));
+        $indice = $cliente->marcas($modelo->trabajo_externo_id);
+        $guardadas = $modelo->marcas()->pluck('marca')->flip();
+        $carpeta = "{$modelo->carpeta()}/marks";
+        Storage::disk('public')->makeDirectory($carpeta);
 
-        Storage::disk('public')->deleteDirectory($modelo->carpeta());
-        Storage::disk('public')->makeDirectory($modelo->carpeta());
+        foreach ($indice['marcas'] ?? [] as $marca => $entrada) {
+            if ($guardadas->has($marca)) {
+                continue;
+            }
 
-        $archivo = new ZipArchive;
+            foreach (['glb', 'json'] as $extension) {
+                $cliente->descargarMarca(
+                    $modelo->trabajo_externo_id,
+                    "{$entrada['file']}.{$extension}",
+                    Storage::disk('public')->path("{$carpeta}/{$entrada['file']}.{$extension}"),
+                );
+            }
 
-        if ($archivo->open(Storage::disk('local')->path($zip)) !== true) {
-            throw new RuntimeException('El resultado del servicio no es un zip válido.');
+            $importador->importarMarca($modelo, (string) $marca, $entrada, Storage::disk('public')->path("{$carpeta}/{$entrada['file']}.json"));
         }
 
-        $archivo->extractTo(Storage::disk('public')->path($modelo->carpeta()));
-        $archivo->close();
-        Storage::disk('local')->delete($zip);
+        return $indice;
+    }
 
-        $importador->importar($modelo, Storage::disk('public')->path($modelo->carpeta()));
+    /**
+     * @param  array<string, mixed>  $indice
+     */
+    private function cerrar(Modelo $modelo, array $indice, IfcClient $cliente, ImportadorDeModelo $importador): void
+    {
+        if (! empty($indice['modelo'])) {
+            $cliente->descargarModelo(
+                $modelo->trabajo_externo_id,
+                Storage::disk('public')->path("{$modelo->carpeta()}/{$indice['modelo']}"),
+            );
+        }
+
+        $importador->cerrar($modelo, $indice);
         $cliente->borrar($modelo->trabajo_externo_id);
     }
 

@@ -24,8 +24,8 @@ use Spatie\Permission\Models\Permission;
  *
  * El servicio se simula con Http::fake: lo que se comprueba es el lado de
  * Laravel —la versión que nace, el job que sube y pregunta sin quedarse
- * esperando, lo que se guarda del zip, y que un error del servicio no se
- * esconde—.
+ * esperando, las marcas que se van guardando conforme el servicio las escribe,
+ * y que un error del servicio no se esconde—.
  */
 beforeEach(function () {
     Storage::fake('local');
@@ -44,22 +44,26 @@ function usuarioDeModelos(array $permisos = ['qal.modelos.ver', 'qal.modelos.cre
     return $usuario;
 }
 
-/** Lo que entregaría el servicio: dos marcas, una con dos cordones. */
-function zipDelServicio(): string
+/** Las marcas que entregaría el servicio: una columna con dos cordones y una placa sin ninguno. */
+const MARCAS_DEL_SERVICIO = [
+    'SX-CM2-11' => ['file' => 'SX-CM2-11', 'nombre' => 'COLUMNA', 'piezas' => 3, 'peso_kg' => 120.5, 'ensambles' => 4, 'soldaduras' => 2, 'soldadura_mm' => 600, 'bbox_mm' => [400, 400, 3000]],
+    'SX-XX9-1' => ['file' => 'SX-XX9-1', 'nombre' => 'PLACA', 'piezas' => 1, 'peso_kg' => 5, 'ensambles' => 1, 'soldaduras' => 0, 'soldadura_mm' => 0, 'bbox_mm' => [100, 100, 12]],
+];
+
+/** El index.json tal como lo va escribiendo el servicio. */
+function indiceDelServicio(array $marcas, bool $completo): array
 {
-    $ruta = tempnam(sys_get_temp_dir(), 'ifc');
-    $zip = new ZipArchive;
-    $zip->open($ruta, ZipArchive::CREATE | ZipArchive::OVERWRITE);
-
-    $zip->addFromString('index.json', json_encode([
+    return [
+        'completo' => $completo,
+        'modelo' => $completo ? 'modelo.glb' : null,
         'welds_version' => '2026-08-21',
-        'marcas' => [
-            'SX-CM2-11' => ['file' => 'SX-CM2-11', 'nombre' => 'COLUMNA', 'piezas' => 3, 'peso_kg' => 120.5, 'ensambles' => 4, 'soldaduras' => 2, 'soldadura_mm' => 600, 'bbox_mm' => [400, 400, 3000]],
-            'SX-XX9-1' => ['file' => 'SX-XX9-1', 'nombre' => 'PLACA', 'piezas' => 1, 'peso_kg' => 5, 'ensambles' => 1, 'soldaduras' => 0, 'soldadura_mm' => 0, 'bbox_mm' => [100, 100, 12]],
-        ],
-        'totales' => ['marcas' => 2, 'soldaduras' => 2, 'soldadura_mm' => 600],
-    ]));
+        'marcas' => array_intersect_key(MARCAS_DEL_SERVICIO, array_flip($marcas)),
+        'totales' => ['marcas' => count($marcas), 'soldaduras' => 2, 'soldadura_mm' => 600],
+    ];
+}
 
+function fichaDelServicio(string $marca): string
+{
     $cordon = fn (int $id): array => [
         'id' => $id, 'piezas' => ['P001', 'P000'], 'tipo' => 'filete', 'junta' => 'T', 'largo_mm' => 300,
         'ancho_mm' => 8, 'angulo' => 90, 't1_mm' => 8, 't2_mm' => 12, 'cateto_min_mm' => 4.76,
@@ -67,13 +71,7 @@ function zipDelServicio(): string
         'preparacion' => ['bisel' => 'ninguno'], 'avisos' => [], 'centro' => [0, 0, 0], 'puntos' => [[0, 0, 0], [0.3, 0, 0]],
     ];
 
-    $zip->addFromString('marks/SX-CM2-11.json', json_encode(['marca' => 'SX-CM2-11', 'soldaduras' => [$cordon(1), $cordon(2)]]));
-    $zip->addFromString('marks/SX-CM2-11.glb', 'glTF');
-    $zip->addFromString('marks/SX-XX9-1.json', json_encode(['marca' => 'SX-XX9-1', 'soldaduras' => []]));
-    $zip->addFromString('marks/SX-XX9-1.glb', 'glTF');
-    $zip->close();
-
-    return $ruta;
+    return json_encode(['marca' => $marca, 'soldaduras' => $marca === 'SX-CM2-11' ? [$cordon(1), $cordon(2)] : []]);
 }
 
 function modeloConArchivo(array $atributos = []): Modelo
@@ -123,7 +121,7 @@ test('lo que no es ifc no se sube, y ver no alcanza para subir', function () {
     expect(Modelo::count())->toBe(0);
 });
 
-test('el job sube el archivo, pregunta sin esperar y al terminar guarda marcas y cordones', function () {
+test('el job sube el archivo, guarda cada marca conforme el servicio la escribe y al final el modelo entero', function () {
     $modelo = modeloConArchivo();
     Concepto::factory()->create(['obra_id' => $modelo->obra_id, 'marca' => 'SX-CM2-11']);
     Http::fake([
@@ -131,7 +129,13 @@ test('el job sube el archivo, pregunta sin esperar y al terminar guarda marcas y
         '*/estado/abc' => Http::sequence()
             ->push(['estado' => 'procesando', 'progreso' => ['marcas_hechas' => 1, 'marcas_total' => 2]])
             ->push(['estado' => 'listo', 'progreso' => ['marcas_hechas' => 2, 'marcas_total' => 2]]),
-        '*/resultado/abc' => Http::response(file_get_contents(zipDelServicio()), 200),
+        '*/resultado/abc/marcas' => Http::sequence()
+            ->push(indiceDelServicio(['SX-CM2-11'], completo: false))
+            ->push(indiceDelServicio(['SX-CM2-11', 'SX-XX9-1'], completo: true)),
+        '*/resultado/abc/marcas/SX-CM2-11.json' => Http::response(fichaDelServicio('SX-CM2-11')),
+        '*/resultado/abc/marcas/SX-XX9-1.json' => Http::response(fichaDelServicio('SX-XX9-1')),
+        '*/resultado/abc/marcas/*.glb' => Http::response('glTF'),
+        '*/resultado/abc/modelo' => Http::response('glTF-completo'),
         '*/trabajos/abc' => Http::response('', 204),
     ]);
 
@@ -139,20 +143,31 @@ test('el job sube el archivo, pregunta sin esperar y al terminar guarda marcas y
     expect($subido->estatus)->toBe(EstatusModelo::Procesando)
         ->and($subido->trabajo_externo_id)->toBe('abc');
 
-    expect(correrJob($modelo)->resumen['progreso']['marcas_hechas'])->toBe(1);
+    // A media conversión la columna ya está guardada con sus cordones y sirve para el visor.
+    $aMedias = correrJob($modelo);
+    $columna = ModeloMarca::query()->firstWhere('marca', 'SX-CM2-11');
+
+    expect($aMedias->estatus)->toBe(EstatusModelo::Procesando)
+        ->and($aMedias->resumen['progreso'])->toMatchArray(['marcas_hechas' => 1, 'marcas_total' => 2, 'marcas_guardadas' => 1])
+        ->and($columna->concepto_id)->not->toBeNull()
+        ->and($columna->cordones()->pluck('numero')->all())->toBe([1, 2])
+        ->and(ModeloMarca::query()->where('marca', 'SX-XX9-1')->exists())->toBeFalse();
+    Storage::disk('public')->assertExists("qal/modelos/{$modelo->id}/marks/SX-CM2-11.glb");
 
     $listo = correrJob($modelo);
-    $columna = ModeloMarca::query()->firstWhere('marca', 'SX-CM2-11');
 
     expect($listo->estatus)->toBe(EstatusModelo::Listo)
         ->and($listo->welds_version)->toBe('2026-08-21')
+        ->and($listo->archivo_modelo)->toBe('modelo.glb')
+        ->and($listo->resumen['marcas'])->toBe(2)
         ->and($listo->resumen['cordones'])->toBe(2)
         ->and($listo->resumen['marcas_sin_catalogo'])->toBe(1)
-        ->and($columna->concepto_id)->not->toBeNull()
-        ->and($columna->cordones()->pluck('numero')->all())->toBe([1, 2])
+        // La columna no se volvió a bajar: ya estaba.
+        ->and(ModeloMarca::query()->firstWhere('marca', 'SX-CM2-11')->id)->toBe($columna->id)
         ->and(ModeloMarca::query()->firstWhere('marca', 'SX-XX9-1')->concepto_id)->toBeNull();
 
-    Storage::disk('public')->assertExists("qal/modelos/{$modelo->id}/marks/SX-CM2-11.glb");
+    Storage::disk('public')->assertExists("qal/modelos/{$modelo->id}/modelo.glb");
+    expect(Http::recorded(fn ($peticion) => str_ends_with($peticion->url(), '/marcas/SX-CM2-11.json')))->toHaveCount(1);
     Http::assertSent(fn ($peticion) => $peticion->method() === 'DELETE' && str_ends_with($peticion->url(), '/trabajos/abc'));
 });
 

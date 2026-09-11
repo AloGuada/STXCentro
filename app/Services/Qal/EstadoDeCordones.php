@@ -27,11 +27,14 @@ class EstadoDeCordones
             return [];
         }
 
-        $ultimas = Junta::query()
-            ->whereIn('cordon_id', $cordones)
-            ->join('qal_inspecciones', 'qal_inspecciones.id', '=', 'qal_juntas.inspeccion_id')
-            ->orderBy('qal_juntas.id')
-            ->get(['qal_juntas.id', 'qal_juntas.cordon_id', 'qal_juntas.resultado', 'qal_inspecciones.qr'])
+        // Por bloques: un modelo trae decenas de miles de cordones y SQLite no
+        // admite tantos parámetros en un solo IN.
+        $ultimas = collect(array_chunk($cordones, 500))
+            ->flatMap(fn (array $bloque) => Junta::query()
+                ->whereIn('cordon_id', $bloque)
+                ->join('qal_inspecciones', 'qal_inspecciones.id', '=', 'qal_juntas.inspeccion_id')
+                ->orderBy('qal_juntas.id')
+                ->get(['qal_juntas.id', 'qal_juntas.cordon_id', 'qal_juntas.resultado', 'qal_inspecciones.qr']))
             ->groupBy('cordon_id')
             ->map(fn ($juntas) => $juntas->keyBy(fn (Junta $junta): string => (string) ($junta->qr ?? $junta->id)));
 

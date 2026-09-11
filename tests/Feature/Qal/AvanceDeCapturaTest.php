@@ -58,8 +58,8 @@ test('las marcas de la obra llegan con cuantas piezas van y como salieron', func
 
 test('al abrir una marca cada qr trae la ultima inspeccion de cada etapa', function () {
     $marca = Concepto::factory()->create();
-    $pieza = Pieza::factory()->create(['concepto_id' => $marca->id, 'qr' => '155745']);
-    Pieza::factory()->create(['concepto_id' => $marca->id, 'qr' => '155746']);
+    $pieza = Pieza::factory()->create(['concepto_id' => $marca->id, 'qr' => '155745', 'qs' => '1']);
+    Pieza::factory()->create(['concepto_id' => $marca->id, 'qr' => '155746', 'qs' => '2']);
 
     $primera = Inspeccion::factory()->dePieza($pieza, FaseTransformacion::Segunda, Subetapa::Soldado)->create(['estatus' => EstatusInspeccion::Rechazado, 'fecha' => now()->subDay()]);
     $segunda = Inspeccion::factory()->dePieza($pieza, FaseTransformacion::Segunda, Subetapa::Soldado)->create(['estatus' => EstatusInspeccion::Liberado, 'numero_inspeccion' => 2]);

@@ -33,6 +33,15 @@ def test_procesa_el_ifc_y_entrega_el_zip(ifc_minimo):
     assert estado["estado"] == "listo", estado
     assert estado["progreso"] == {"marcas_hechas": 1, "marcas_total": 1}
 
+    parcial = cliente.get(f"/resultado/{id_}/marcas").json()
+    assert parcial["completo"] is True
+    assert parcial["marcas"]["SX-T1-1"]["file"] == "SX-T1-1"
+    assert cliente.get(f"/resultado/{id_}/marcas/SX-T1-1.json").json()["marca"] == "SX-T1-1"
+    assert cliente.get(f"/resultado/{id_}/marcas/SX-T1-1.glb").status_code == 200
+    assert cliente.get(f"/resultado/{id_}/marcas/OTRA.glb").status_code == 404
+    assert cliente.get(f"/resultado/{id_}/marcas/..%2Fmodelo.ifc").status_code == 404
+    assert cliente.get(f"/resultado/{id_}/modelo").status_code == 200
+
     zip_ = cliente.get(f"/resultado/{id_}")
     assert zip_.status_code == 200
     nombres = zipfile.ZipFile(io.BytesIO(zip_.content)).namelist()

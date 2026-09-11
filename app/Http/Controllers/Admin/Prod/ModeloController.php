@@ -8,14 +8,11 @@ use App\Http\Requests\Admin\Qal\ModeloIfcRequest;
 use App\Jobs\Qal\ProcesarModeloIfc;
 use App\Models\Prod\Catalogo;
 use App\Models\Qal\Modelo;
-use App\Models\Qal\ModeloCordon;
 use App\Models\Qal\ModeloMarca;
-use App\Services\Qal\EstadoDeCordones;
 use App\Services\Qal\ResolutorDeMarcas;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -62,14 +59,14 @@ class ModeloController extends Controller
         return back()->with('success', "Modelo v{$modelo->version} en cola: se convierte en unos minutos.");
     }
 
-    public function show(Modelo $modelo, EstadoDeCordones $estados): Response
+    public function show(Modelo $modelo): Response
     {
         $modelo->load('obra:id,no,descripcion')->loadCount('marcas');
 
+        // La pantalla enseña la estructura entera y la lista de marcas; los
+        // cordones y cómo van se piden al abrir una marca, no aquí: un modelo
+        // trae decenas de miles y cargarlos de golpe tiraba la página.
         $marcas = $modelo->marcas()->with('concepto:id,marca,lote')->get()->sortBy('marca', SORT_NATURAL | SORT_FLAG_CASE)->values();
-        $cordones = ModeloCordon::query()->whereIn('modelo_marca_id', $marcas->pluck('id'))->get(['id', 'modelo_marca_id']);
-        $porCordon = $estados->de($cordones->pluck('id')->all());
-        $porMarca = $cordones->groupBy('modelo_marca_id');
         $catalogo = $this->catalogoDe($modelo->obra_id);
 
         return Inertia::render('admin/prod/modelos/show', [
@@ -83,7 +80,6 @@ class ModeloController extends Controller
                 'peso_kg' => $marca->peso_kg,
                 'soldaduras' => $marca->soldaduras,
                 'en_catalogo' => $marca->concepto_id !== null,
-                'cordones' => $this->conteo($porMarca->get($marca->id, collect()), $porCordon),
             ]),
         ]);
     }
@@ -205,24 +201,9 @@ class ModeloController extends Controller
             'welds_version' => $modelo->welds_version,
             'resumen' => $modelo->resumen,
             'marcas_count' => $modelo->marcas_count,
+            'modelo_url' => $modelo->modeloUrl(),
             'procesado_at' => $modelo->procesado_at?->toDateTimeString(),
             'subido_at' => $modelo->created_at?->toDateTimeString(),
-        ];
-    }
-
-    /**
-     * @param  Collection<int, ModeloCordon>  $cordones
-     * @param  array<int, array{estado: string}>  $porCordon
-     * @return array{correctos: int, con_defecto: int, sin_junta: int}
-     */
-    private function conteo(Collection $cordones, array $porCordon): array
-    {
-        $estados = $cordones->map(fn (ModeloCordon $cordon): string => $porCordon[$cordon->id]['estado']);
-
-        return [
-            'correctos' => $estados->filter(fn (string $estado): bool => $estado === 'correcta')->count(),
-            'con_defecto' => $estados->filter(fn (string $estado): bool => $estado === 'defecto')->count(),
-            'sin_junta' => $estados->filter(fn (string $estado): bool => $estado === 'sin')->count(),
         ];
     }
 }

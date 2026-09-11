@@ -5,8 +5,13 @@ centrada encima, que es el caso 1 de los casos basicos (2 filetes).
 Se arma con la API de ifcopenshell en vez de guardar un archivo en el repo:
 asi se ve de un vistazo que geometria lleva y por que da lo que da.
 """
+import os
 import sys
+import tempfile
 from pathlib import Path
+
+# Las pruebas no tocan la carpeta real de trabajos: la API arranca sobre una temporal.
+os.environ["IFC_SERVICE_RAIZ"] = tempfile.mkdtemp(prefix="ifc-service-tests-")
 
 import numpy as np
 import pytest

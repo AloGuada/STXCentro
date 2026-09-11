@@ -6,7 +6,9 @@ sus cordones de soldadura detectados por geometría. Lo consume Calidad
 
 Corre aparte de Laravel, como el OCR de RH: procesar un IFC tarda minutos y no
 cabe en una petición web. Laravel sube el archivo desde un job de la cola
-`ifc`, pregunta por el estado cada tanto y, cuando está listo, descarga el zip.
+`ifc`, pregunta por el estado cada tanto y se va trayendo cada marca (su .glb,
+su plantilla .json y sus cordones) en cuanto el servicio la escribe; al final
+baja `modelo.glb`, la estructura entera sin cordones.
 
 ## Qué hace
 
@@ -16,7 +18,9 @@ cabe en una petición web. Laravel sube el archivo desde un job de la cola
   exporta soldaduras, así que se deducen de la geometría. **Si se cambia el
   algoritmo, se sube `WELDS_VERSION`**: cada modelo guarda con qué versión se
   calcularon sus cordones.
-- `trabajos.py`: los trabajos en memoria, de uno en uno.
+- `trabajos.py`: los trabajos, de uno en uno. El estado de cada uno vive en
+  su carpeta (`estado.json`) y al arrancar el servicio retoma los que quedaron
+  a medias sin repetir las marcas ya escritas.
 - `main.py`: la API.
 
 ## Instalación (Windows)
@@ -53,9 +57,13 @@ cola: `php artisan queue:work --queue=ifc`.
 |---|---|---|
 | POST | `/procesar` | multipart `archivo` (.ifc), `welds`, `only` → 202 `{id}` |
 | GET | `/estado/{id}` | `{estado, progreso{marcas_hechas, marcas_total}, welds_version, error}` |
+| GET | `/resultado/{id}/marcas` | el `index.json` tal como va (`completo` cuando están todas) |
+| GET | `/resultado/{id}/marcas/{archivo}` | el `.glb` o `.json` de una marca ya escrita |
+| GET | `/resultado/{id}/modelo` | `modelo.glb`, la estructura entera sin cordones (404 hasta terminar) |
 | GET | `/resultado/{id}` | zip con `index.json` y `marks/*` (409 si no está listo) |
 | DELETE | `/trabajos/{id}` | 204 |
 | GET | `/salud` | `{ok, welds_version}` |
 
-El registro de trabajos vive en memoria: si el servicio se reinicia a media
-conversión, Laravel recibe 404 y marca el modelo con error para reprocesarlo.
+Los trabajos viven en `%TEMP%/ifc-service/<id>/` (o en `IFC_SERVICE_RAIZ`).
+Laravel borra la carpeta al terminar de importar; si el servicio se reinicia a
+media conversión, la retoma solo al arrancar.

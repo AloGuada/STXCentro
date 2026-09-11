@@ -10,8 +10,8 @@ use RuntimeException;
  * archivo con sus cordones.
  *
  * El servicio corre aparte (ver `ifc-service/README.md`). La conversión es
- * asíncrona: se sube el archivo, se pregunta por el estado y, cuando termina,
- * se descarga el resultado en un zip.
+ * asíncrona: se sube el archivo, se pregunta por el estado y las marcas se van
+ * trayendo conforme el servicio las escribe; al final, el modelo entero.
  */
 class IfcClient
 {
@@ -55,34 +55,63 @@ class IfcClient
      */
     public function estado(string $trabajo): array
     {
-        $respuesta = Http::timeout($this->timeout)->get("{$this->url}/estado/{$trabajo}");
-
-        // El servicio guarda los trabajos en memoria: si se reinició a media
-        // conversión, el trabajo ya no existe y hay que volver a subirlo.
-        if ($respuesta->status() === 404) {
-            throw new RuntimeException('El servicio de IFC se reinició a media conversión y perdió el trabajo. Reprocesa el modelo.');
-        }
-
-        if (! $respuesta->successful()) {
-            throw new RuntimeException("El servicio de IFC respondió HTTP {$respuesta->status()} al preguntar por el trabajo.");
-        }
-
-        return $respuesta->json();
+        return $this->json("{$this->url}/estado/{$trabajo}", 'al preguntar por el trabajo');
     }
 
-    /** Descarga el zip del resultado directo a disco: con cientos de marcas pesa decenas de MB. */
-    public function descargarResultado(string $trabajo, string $destinoZip): void
+    /**
+     * El index.json tal como va: las marcas ya escritas, y `completo` cuando
+     * están todas.
+     *
+     * @return array{completo: bool, modelo?: string|null, welds_version?: string|null, marcas: array<string, array<string, mixed>>, totales?: array<string, mixed>}
+     */
+    public function marcas(string $trabajo): array
     {
-        $respuesta = Http::timeout($this->timeout)->sink($destinoZip)->get("{$this->url}/resultado/{$trabajo}");
+        return $this->json("{$this->url}/resultado/{$trabajo}/marcas", 'al pedir las marcas');
+    }
 
-        if (! $respuesta->successful()) {
-            throw new RuntimeException("El servicio de IFC no entregó el resultado (HTTP {$respuesta->status()}).");
-        }
+    /** Descarga el .glb o .json de una marca directo a disco. */
+    public function descargarMarca(string $trabajo, string $archivo, string $destino): void
+    {
+        $this->descargar("{$this->url}/resultado/{$trabajo}/marcas/{$archivo}", $destino, "la marca {$archivo}");
+    }
+
+    /** Descarga el modelo entero (`modelo.glb`) directo a disco. */
+    public function descargarModelo(string $trabajo, string $destino): void
+    {
+        $this->descargar("{$this->url}/resultado/{$trabajo}/modelo", $destino, 'el modelo completo');
     }
 
     /** Libera la carpeta temporal del servicio. Si falla no importa: el resultado ya está aquí. */
     public function borrar(string $trabajo): void
     {
         rescue(fn () => Http::timeout($this->timeout)->delete("{$this->url}/trabajos/{$trabajo}"), report: false);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function json(string $url, string $que): array
+    {
+        $respuesta = Http::timeout($this->timeout)->get($url);
+
+        // Si el servicio perdió la carpeta del trabajo, hay que volver a subirlo.
+        if ($respuesta->status() === 404) {
+            throw new RuntimeException('El servicio de IFC ya no tiene el trabajo. Reprocesa el modelo.');
+        }
+
+        if (! $respuesta->successful()) {
+            throw new RuntimeException("El servicio de IFC respondió HTTP {$respuesta->status()} {$que}.");
+        }
+
+        return $respuesta->json();
+    }
+
+    private function descargar(string $url, string $destino, string $que): void
+    {
+        $respuesta = Http::timeout($this->timeout)->sink($destino)->get($url);
+
+        if (! $respuesta->successful()) {
+            throw new RuntimeException("El servicio de IFC no entregó {$que} (HTTP {$respuesta->status()}).");
+        }
     }
 }

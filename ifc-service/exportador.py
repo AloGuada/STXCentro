@@ -58,14 +58,16 @@ def safe_name(mark):
     return re.sub(r"[^A-Za-z0-9_.-]", "_", mark)
 
 
-def exportar_marcas(ifc, salida, *, welds=True, only=None, bolts=False,
+def exportar_marcas(ifc, salida, *, welds=True, only=None, bolts=False, completo=True,
                     progreso: Optional[Callable[[int, int], None]] = None) -> dict:
     """
     ifc:      ruta del .ifc
-    salida:   carpeta donde se escriben index.json y marks/
+    salida:   carpeta donde se escriben index.json, marks/ y modelo.glb
     welds:    calcular los cordones (lo lento)
     only:     prefijo de marca, para exportar solo algunas
     bolts:    incluir los pernos como piezas
+    completo: escribir ademas modelo.glb con la estructura entera (todas las
+              instancias, sin cordones), para verla de un vistazo
     progreso: se llama con (marcas_hechas, marcas_total) conforme avanza
     devuelve: el contenido de index.json
     """
@@ -125,16 +127,79 @@ def exportar_marcas(ifc, salida, *, welds=True, only=None, bolts=False,
                 if not it.next():
                     break
 
-    # 3) un archivo por marca
+    # 3) un archivo por marca. Cada marca queda en disco en cuanto termina, y
+    # el index.json se reescribe con lo que va: quien lo lea a media conversion
+    # ve las marcas listas (`completo` dice si ya estan todas). Una marca que ya
+    # tiene su .glb y su .json de una corrida anterior no se vuelve a calcular:
+    # asi una conversion interrumpida se retoma donde iba.
     index = {}
     for k, mark in enumerate(marcas, 1):
-        piezas_mesh = meshes_by_mark.get(mark) or {}
-        if piezas_mesh:
-            index[mark] = _exportar_una(mark, asm_by_mark[mark], piezas_mesh, info_by_guid, marks, welds, bolts)
+        safe = safe_name(mark)
+        if (marks / f"{safe}.glb").is_file() and (marks / f"{safe}.json").is_file():
+            index[mark] = entrada_de_ficha(json.loads((marks / f"{safe}.json").read_text(encoding="utf-8")), safe)
+        else:
+            piezas_mesh = meshes_by_mark.get(mark) or {}
+            if piezas_mesh:
+                index[mark] = _exportar_una(mark, asm_by_mark[mark], piezas_mesh, info_by_guid, marks, welds, bolts)
+        _escribir_index(salida, index, welds, completo=(k == len(marcas)))
         if progreso:
             progreso(k, len(marcas))
 
+    modelo = None
+    if completo and not only and marcas:
+        modelo = _exportar_modelo_completo(model, asm_by_mark, marcas, bolts, salida)
+
+    return _escribir_index(salida, index, welds, completo=True, modelo=modelo)
+
+
+def _exportar_modelo_completo(model, asm_by_mark, marcas, bolts, salida):
+    """
+    La estructura entera en un solo .glb: todas las instancias de todas las
+    marcas, en coordenadas de obra, sin cordones. Cada malla lleva por nombre
+    la marca y el numero de instancia, para poder resaltar una marca desde el
+    visor. Si un modelo no tiene nada que mallar, no se escribe.
+    """
+    partes, marca_de = [], {}
+    for mark in marcas:
+        for n, ensamble in enumerate(asm_by_mark[mark], 1):
+            for rel in getattr(ensamble, "IsDecomposedBy", []) or []:
+                for c in rel.RelatedObjects:
+                    if not bolts and c.is_a("IfcMechanicalFastener"):
+                        continue
+                    partes.append(c)
+                    marca_de[c.GlobalId] = (mark, n)
+    if not partes:
+        return None
+
+    settings = geom.settings()
+    settings.set(settings.USE_WORLD_COORDS, True)
+    it = geom.iterator(settings, model, include=partes)
+    if not it.initialize():
+        return None
+
+    scene, k = trimesh.Scene(), 0
+    while True:
+        shape = it.get()
+        g = shape.geometry
+        V = np.asarray(g.verts, dtype=np.float64).reshape(-1, 3)
+        F = np.asarray(g.faces, dtype=np.uint32).reshape(-1, 3)
+        if shape.guid in marca_de and len(V) and len(F):
+            mark, n = marca_de[shape.guid]
+            k += 1
+            scene.add_geometry(trimesh.Trimesh(vertices=V, faces=F, process=False),
+                               node_name=f"{safe_name(mark)}#{n}#{k}", geom_name=f"{safe_name(mark)}#{n}#{k}")
+        if not it.next():
+            break
+    if scene.is_empty:
+        return None
+    scene.export(salida / "modelo.glb")
+    return "modelo.glb"
+
+
+def _escribir_index(salida, index, welds, *, completo, modelo=None):
     resultado = {
+        "completo": completo,
+        "modelo": modelo,
         "welds_version": WELDS_VERSION if welds else None,
         "marcas": index,
         "totales": {
@@ -143,8 +208,24 @@ def exportar_marcas(ifc, salida, *, welds=True, only=None, bolts=False,
             "soldadura_mm": round(sum(m["soldadura_mm"] for m in index.values()), 1),
         },
     }
-    (salida / "index.json").write_text(json.dumps(resultado, ensure_ascii=False, indent=1), encoding="utf-8")
+    tmp = salida / "index.json.tmp"
+    tmp.write_text(json.dumps(resultado, ensure_ascii=False, indent=1), encoding="utf-8")
+    tmp.replace(salida / "index.json")
     return resultado
+
+
+def entrada_de_ficha(ficha, safe):
+    """La linea del index.json de una marca, sacada de su ficha ya escrita."""
+    return {
+        "file": safe,
+        "nombre": ficha.get("nombre", ""),
+        "piezas": len(ficha.get("piezas", [])),
+        "peso_kg": ficha["totales"]["peso_kg"],
+        "ensambles": ficha.get("ensambles_en_modelo", 1),
+        "soldaduras": len(ficha.get("soldaduras", [])),
+        "soldadura_mm": ficha["totales"]["soldadura_mm"],
+        "bbox_mm": ficha["totales"]["bbox_mm"],
+    }
 
 
 def _exportar_una(mark, ensambles, piezas_mesh, info_by_guid, marks, welds, bolts):
@@ -195,15 +276,10 @@ def _exportar_una(mark, ensambles, piezas_mesh, info_by_guid, marks, welds, bolt
             "soldadura_mm": round(sum(w["largo_mm"] for w in solds), 1),
         },
     }
-    (marks / f"{safe}.json").write_text(json.dumps(ficha, ensure_ascii=False), encoding="utf-8")
+    # El json va al final y por un temporal: si el proceso muere a medio
+    # escribir, no queda una marca "lista" con la ficha truncada.
+    tmp = marks / f"{safe}.json.tmp"
+    tmp.write_text(json.dumps(ficha, ensure_ascii=False), encoding="utf-8")
+    tmp.replace(marks / f"{safe}.json")
 
-    return {
-        "file": safe,
-        "nombre": ficha["nombre"],
-        "piezas": len(piezas),
-        "peso_kg": ficha["totales"]["peso_kg"],
-        "ensambles": len(ensambles),
-        "soldaduras": len(solds),
-        "soldadura_mm": ficha["totales"]["soldadura_mm"],
-        "bbox_mm": ficha["totales"]["bbox_mm"],
-    }
+    return entrada_de_ficha(ficha, safe)

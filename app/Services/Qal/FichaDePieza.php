@@ -70,7 +70,9 @@ class FichaDePieza
     {
         $modeloMarcaId = ModeloMarca::query()
             ->where('marca', mb_strtoupper(trim($marca)))
-            ->whereHas('modelo', fn ($modelo) => $modelo->where('obra_id', $obraId)->where('estatus', EstatusModelo::Listo->value))
+            // Las marcas se guardan conforme el servicio las termina: la de un
+            // modelo a medio convertir ya sirve para el visor.
+            ->whereHas('modelo', fn ($modelo) => $modelo->where('obra_id', $obraId)->whereIn('estatus', [EstatusModelo::Listo->value, EstatusModelo::Procesando->value]))
             ->orderByDesc('modelo_id')
             ->value('id');
 

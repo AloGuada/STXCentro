@@ -22,6 +22,10 @@ def test_exporta_la_marca_con_su_glb_su_ficha_y_sus_cordones(ifc_minimo, tmp_pat
     indice = json.loads((tmp_path / "index.json").read_text(encoding="utf-8"))
     assert indice["marcas"]["SX-T1-1"]["soldaduras"] == 2
     assert indice["marcas"]["SX-T1-1"]["file"] == "SX-T1-1"
+    # La estructura entera, sin cordones, para verla de un vistazo.
+    assert indice["completo"] is True
+    assert indice["modelo"] == "modelo.glb"
+    assert (tmp_path / "modelo.glb").stat().st_size > 0
 
 
 def test_sin_soldaduras_no_calcula_cordones(ifc_minimo, tmp_path):
@@ -33,7 +37,10 @@ def test_sin_soldaduras_no_calcula_cordones(ifc_minimo, tmp_path):
 
 
 def test_only_filtra_por_prefijo_y_no_malla_nada_si_no_hay(ifc_minimo, tmp_path):
-    assert exportar_marcas(ifc_minimo, tmp_path, only="XX")["marcas"] == {}
+    resultado = exportar_marcas(ifc_minimo, tmp_path, only="XX")
+
+    assert resultado["marcas"] == {}
+    assert resultado["modelo"] is None
 
 
 def test_reporta_el_avance(ifc_minimo, tmp_path):
