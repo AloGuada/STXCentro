@@ -23,7 +23,8 @@ use Illuminate\Support\Collection;
  */
 class VistaDeReporte
 {
-    private const ARRASTRA = ['kg', 'linea', 'modulo', 'soldador'];
+    /** La pintura y la adherencia van enteras: son las medidas de la pieza, no un criterio. */
+    private const ARRASTRA = ['kg', 'linea', 'modulo', 'soldador', 'pintura', 'adherencia'];
 
     /** Puntos que son una medida de la pieza, no un criterio. */
     private const ARRASTRA_PUNTOS = ['p2_elem'];

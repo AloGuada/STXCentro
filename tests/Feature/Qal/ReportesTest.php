@@ -12,6 +12,7 @@ use App\Models\Qal\PuntoInspeccion;
 use App\Models\User;
 use App\Services\Qal\Formatos\ArmadoVestido;
 use App\Services\Qal\Formatos\FiltrosDeReporte;
+use App\Services\Qal\Formatos\Formatos;
 use App\Services\Qal\Formatos\MapeoDeJuntas;
 use App\Services\Qal\Formatos\Soldadura;
 use App\Services\Qal\Formatos\VisualSoldadura;
@@ -68,9 +69,9 @@ test('la pantalla de reportes pide su permiso y ofrece primero los formatos del 
         ->assertOk()
         ->assertInertia(fn ($page) => $page
             ->component('admin/calidad/reportes/index')
-            ->has('formatos', 4)
-            ->where('formatos.0.destino', 'dosier')
-            ->where('formatos.3.destino', 'interno')
+            ->has('formatos', 9)
+            ->where('formatos.4.destino', 'dosier')
+            ->where('formatos.5.destino', 'interno')
             ->where('filtros.formato', 'visual-soldadura')
             ->where('filtros.estatus', 'liberadas')
             ->where('opciones', null));
@@ -109,14 +110,14 @@ test('el pdf se previsualiza en linea y se descarga como adjunto', function () {
     expect($descarga->headers->get('content-disposition'))->toContain('attachment');
 });
 
-test('cada formato de 2a genera su pdf aunque este vacio', function (string $formato) {
+test('cada formato genera su pdf aunque este vacio', function (string $formato) {
     $marca = Concepto::factory()->create();
 
     $this->actingAs(usuarioDeReportes())
         ->get(route('admin.qal.reportes.pdf', ['formato' => $formato, 'obra' => $marca->obra_id, 'pieza' => 1]))
         ->assertOk()
         ->assertHeader('content-type', 'application/pdf');
-})->with(['visual-soldadura', 'mapeo', 'soldadura', 'armado']);
+})->with(fn (): array => Formatos::claves());
 
 test('un formato que no existe es 404 y los filtros mal puestos se rechazan', function () {
     $marca = Concepto::factory()->create();

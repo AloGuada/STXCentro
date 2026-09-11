@@ -63,6 +63,23 @@
         .a-def { color: #b3261e; font-weight: bold; }
         .a-pen { color: #8a6d00; font-weight: bold; }
         .nulo { color: #999; }
+        /* ✓ y ✗ no existen en la Helvetica del PDF: van en DejaVu, que dompdf trae. */
+        .sim { font-family: 'DejaVu Sans', sans-serif; }
+        table.grid td.bajo { background: #fff7d6; }
+        .aviso { margin-top: 5pt; padding: 3pt 6pt; background: #fdecea; border: 0.6pt solid #e3a39c; font-size: 6.8pt; }
+
+        /* Hojas de evidencia: seis recuadros en 3 × 2, como el acetato escaneado. */
+        .evidencias { page-break-before: always; }
+        .ev-titulo { width: 100%; border-collapse: collapse; border: 1.5pt solid #000; margin-bottom: 6pt; }
+        .ev-titulo td { padding: 3pt 8pt; font-size: 8pt; }
+        table.ev-rejilla { width: 100%; border-collapse: collapse; }
+        table.ev-rejilla td { width: 33.3%; height: 196pt; padding: 3pt 10pt; vertical-align: top; text-align: center; }
+        table.ev-rejilla tr { page-break-inside: avoid; }
+        .ev-rotulo { font-size: 9pt; font-weight: bold; padding-bottom: 3pt; }
+        .ev-marco { height: 176pt; border: 0.8pt solid #000; text-align: center; }
+        .ev-marco img { max-width: 100%; max-height: 174pt; }
+        .ev-marco.vacio { border: 0.8pt dashed #bbb; }
+        .ev-pdf { padding-top: 80pt; font-size: 8pt; color: #333; }
 
         .nota { margin-top: 5pt; padding: 3pt 6pt; background: #fdf6e3; border: 0.6pt solid #d9c27a; font-size: 6.8pt; }
         .leyenda { margin-top: 4pt; font-size: 6.8pt; color: #333; }
@@ -101,9 +118,15 @@
         <div class="nota">{{ $nota }}</div>
     @endif
     @if ($leyenda)
-        <div class="leyenda">{{ $leyenda }}</div>
+        {{-- La leyenda va en Helvetica, que no trae ✓ ✗ ≥: esos signos se escriben en DejaVu. --}}
+        <div class="leyenda">{!! preg_replace('/([✓✗≥≤])/u', '<span class="sim">$1</span>', e($leyenda)) !!}</div>
     @endif
 
     @include('pdf.partials.firmas-qal', ['firmas' => $firmas])
+
+    {{-- Lo que va después de firmar, en hojas completas: las evidencias de adherencia. --}}
+    @isset($anexos)
+        {{ $anexos }}
+    @endisset
 </body>
 </html>

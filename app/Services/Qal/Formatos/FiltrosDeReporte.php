@@ -30,6 +30,12 @@ final readonly class FiltrosDeReporte
         public ?int $piezaId = null,
     ) {}
 
+    /** Los mismos filtros leídos de otra forma: el control diario siempre va en su estado final. */
+    public function conVista(string $vista): self
+    {
+        return new self($this->obraId, $this->periodo, $this->fecha, $this->semana, $this->inspectorId, $this->estatus, $vista, $this->piezaId);
+    }
+
     /**
      * @return array{0: int, 1: int}|null
      */

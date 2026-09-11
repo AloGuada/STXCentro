@@ -37,6 +37,8 @@ type FichaFormato = {
     subetapa: string | null;
     /** El mapeo es de una pieza, no de un periodo. */
     usaPeriodo: boolean;
+    /** El control diario tiene una sola lectura y no ofrece «Mostrar». */
+    usaVista: boolean;
     vistaPorDefecto: string;
     estatusPorDefecto: string;
 };
@@ -278,7 +280,8 @@ export default function Reportes({ formatos, obras, filtros, opciones }: Props) 
                                     )}
                                 {lista('Inspector', filtros.inspector, opciones?.inspectores ?? [], (inspector) => cambiar({ inspector }), 'Todos')}
                                 {lista('Estatus', filtros.estatus, ESTATUS, (estatus) => cambiar({ estatus }))}
-                                {lista('Mostrar', filtros.vista, vistas(formato.destino), (vista) => cambiar({ vista }))}
+                                {formato.usaVista &&
+                                    lista('Mostrar', filtros.vista, vistas(formato.destino), (vista) => cambiar({ vista }))}
                             </>
                         ) : (
                             <div className="col-span-2 sm:col-span-4 lg:col-span-6">

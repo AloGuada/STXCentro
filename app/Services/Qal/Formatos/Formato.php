@@ -63,6 +63,12 @@ abstract class Formato
         return true;
     }
 
+    /** El control diario tiene una sola lectura —la pieza como quedó— y no ofrece elegir. */
+    public function usaVista(): bool
+    {
+        return true;
+    }
+
     public function paraElDosier(): bool
     {
         return $this->destino() === self::DOSIER;
@@ -81,7 +87,7 @@ abstract class Formato
     /**
      * Lo que la pantalla de Reportes necesita para ofrecerlo.
      *
-     * @return array{clave: string, codigo: string, titulo: string, destino: string, fase: string, subetapa: string|null, usaPeriodo: bool, vistaPorDefecto: string, estatusPorDefecto: string}
+     * @return array{clave: string, codigo: string, titulo: string, destino: string, fase: string, subetapa: string|null, usaPeriodo: bool, usaVista: bool, vistaPorDefecto: string, estatusPorDefecto: string}
      */
     public function ficha(): array
     {
@@ -93,6 +99,7 @@ abstract class Formato
             'fase' => $this->fase()->value,
             'subetapa' => $this->subetapa()?->value,
             'usaPeriodo' => $this->usaPeriodo(),
+            'usaVista' => $this->usaVista(),
             'vistaPorDefecto' => $this->vistaPorDefecto(),
             'estatusPorDefecto' => $this->estatusPorDefecto(),
         ];
@@ -122,6 +129,22 @@ abstract class Formato
         }
 
         return $fila['observaciones'] !== '' ? $fila['observaciones'] : ($this->paraElDosier() ? 'N/A' : '');
+    }
+
+    /**
+     * Cómo se nombra una pieza en la hoja: su marca y su consecutivo.
+     *
+     * @param  array<string, mixed>  $fila
+     */
+    protected function pieza(array $fila): string
+    {
+        return trim($fila['marca'].' #'.$fila['consecutivo'], ' #');
+    }
+
+    /** Un espesor sin ceros de más: 4.50 ⇒ 4.5. */
+    protected function mils(?float $valor): string
+    {
+        return $valor === null ? '' : rtrim(rtrim(number_format($valor, 2, '.', ''), '0'), '.');
     }
 
     protected function obra(int $obraId): string

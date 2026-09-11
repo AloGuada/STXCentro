@@ -12,8 +12,13 @@ class Formatos
     private const CLASES = [
         'visual-soldadura' => VisualSoldadura::class,
         'mapeo' => MapeoDeJuntas::class,
+        'espesores' => Espesores::class,
+        'visual-pintura' => VisualPintura::class,
+        'adherencia' => PruebaDeAdherencia::class,
         'soldadura' => Soldadura::class,
         'armado' => ArmadoVestido::class,
+        'control-pintura' => ControlPintura::class,
+        'primera' => PrimeraTransformacion::class,
     ];
 
     /** @return list<string> */

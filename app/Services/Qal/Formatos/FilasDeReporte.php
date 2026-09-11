@@ -4,16 +4,20 @@ namespace App\Services\Qal\Formatos;
 
 use App\Enums\Qal\FaseTransformacion;
 use App\Enums\Qal\Subetapa;
+use App\Models\Media;
+use App\Models\Qal\Adherencia;
 use App\Models\Qal\Inspeccion;
 use App\Models\Qal\InspeccionDefecto;
 use App\Models\Qal\InspeccionPunto;
+use App\Models\Qal\Pintura;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 
 /**
  * La consulta que comparten los formatos: las inspecciones de una etapa en una
  * obra, acotadas por los filtros, como filas planas con sus puntos por clave
- * (`p2_bisel`) y sus defectos por nombre.
+ * (`p2_bisel`) y sus defectos por nombre. En 1ª traen además equipo, operador y
+ * muestreo; en pintura, los espesores y la adherencia.
  *
  * Trae aparte el universo —todas las inspecciones de esas mismas piezas en la
  * etapa, estén o no dentro del periodo—, porque la hoja de revisión tiene que
@@ -31,7 +35,7 @@ class FilasDeReporte
     public function de(FaseTransformacion $fase, ?Subetapa $subetapa, FiltrosDeReporte $filtros): array
     {
         $filas = $this->acotada($this->base($fase, $subetapa, $filtros->obraId), $filtros)
-            ->with(self::RELACIONES)
+            ->with($this->relaciones($fase))
             ->get()
             ->map(fn (Inspeccion $inspeccion): array => $this->fila($inspeccion));
 
@@ -55,6 +59,18 @@ class FilasDeReporte
             ?: ((int) $a['consecutivo'] <=> (int) $b['consecutivo'])
             ?: ($a['inspeccion'] <=> $b['inspeccion'])
             ?: ($a['id'] <=> $b['id']))->values();
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function relaciones(FaseTransformacion $fase): array
+    {
+        return [...self::RELACIONES, ...match ($fase) {
+            FaseTransformacion::Primera => ['equipo:id,nombre', 'operador:id,nombre', 'tipoPieza:id,prefijo,descripcion', 'muestreo'],
+            FaseTransformacion::Tercera => ['pintura.lecturas', 'adherencia.tiras', 'adherencia.fotos'],
+            default => [],
+        }];
     }
 
     /**
@@ -107,7 +123,7 @@ class FilasDeReporte
             : $consulta->whereIn('qr', $filas->pluck('qr')->filter()->unique()->all());
         $piezas = $filas->pluck('pieza')->flip();
 
-        return $consulta->with(self::RELACIONES)->get()
+        return $consulta->with($this->relaciones($fase))->get()
             ->map(fn (Inspeccion $inspeccion): array => $this->fila($inspeccion))
             ->filter(fn (array $fila): bool => $piezas->has($fila['pieza']))
             ->values();
@@ -121,6 +137,8 @@ class FilasDeReporte
         $pieza = $inspeccion->fase === FaseTransformacion::Primera
             ? "{$inspeccion->marca}|{$inspeccion->lote}|{$inspeccion->consecutivo}"
             : (string) $inspeccion->qr;
+        $cargada = fn (string $relacion) => $inspeccion->relationLoaded($relacion) ? $inspeccion->getRelation($relacion) : null;
+        $muestreo = $cargada('muestreo');
 
         return [
             'id' => $inspeccion->id,
@@ -133,14 +151,19 @@ class FilasDeReporte
             'pieza' => $pieza,
             'etapa' => $pieza.'|'.($inspeccion->subetapa?->value ?? ''),
             'subetapa' => $inspeccion->subetapa?->value,
+            'subtipo' => $inspeccion->subtipo?->etiqueta(),
             'inspeccion' => $inspeccion->numero_inspeccion,
             'estatus' => $inspeccion->estatus->value,
             'kg' => (float) $inspeccion->kg,
+            'cantidad_lote' => $inspeccion->cantidad_lote,
             'linea' => $inspeccion->linea,
             'modulo' => $inspeccion->modulo,
             'soldador' => $inspeccion->soldador?->clave ?: $inspeccion->soldador?->nombre,
             'inspector' => $inspeccion->inspector?->usuario?->name,
             'inspector_usuario_id' => $inspeccion->inspector?->usuario_id,
+            'equipo' => $cargada('equipo')?->nombre,
+            'operador' => $cargada('operador')?->nombre,
+            'tipo' => $cargada('tipoPieza')?->prefijo,
             'observaciones' => trim((string) $inspeccion->observaciones),
             'puntos' => $inspeccion->puntos
                 ->mapWithKeys(fn (InspeccionPunto $respuesta): array => [$respuesta->punto->clave => [
@@ -152,6 +175,59 @@ class FilasDeReporte
             'defectos' => $inspeccion->defectos
                 ->mapWithKeys(fn (InspeccionDefecto $defecto): array => [$defecto->defecto->nombre => (int) $defecto->cantidad])
                 ->all(),
+            'muestreo' => $muestreo ? [
+                'lote' => $muestreo->tamano_lote,
+                'muestra' => $muestreo->muestra,
+                'rechazadas' => $muestreo->rechazadas,
+                'veredicto' => $muestreo->veredicto?->value,
+            ] : null,
+            'pintura' => ($pintura = $cargada('pintura')) ? $this->pintura($pintura) : null,
+            'adherencia' => ($adherencia = $cargada('adherencia')) ? $this->adherencia($adherencia) : null,
+        ];
+    }
+
+    /**
+     * Cada medición es el promedio de sus lecturas del calibre (SSPC-PA2), y
+     * el espesor de la pieza el promedio de sus mediciones.
+     *
+     * @return array{requerido: float|null, promedio: float|null, cumple: bool|null, metodo: string|null, area: float|null, mediciones: array<int, float>}
+     */
+    private function pintura(Pintura $pintura): array
+    {
+        $mediciones = $pintura->lecturas
+            ->groupBy('medicion')
+            ->sortKeys()
+            ->map(fn (Collection $lecturas): float => round($lecturas->avg(fn ($lectura): float => (float) $lectura->valor_mils), 2))
+            ->all();
+
+        $promedio = $pintura->promedio_mils !== null
+            ? (float) $pintura->promedio_mils
+            : ($mediciones === [] ? null : round(array_sum($mediciones) / count($mediciones), 2));
+
+        return [
+            'requerido' => $pintura->espesor_requerido_mils === null ? null : (float) $pintura->espesor_requerido_mils,
+            'promedio' => $promedio,
+            'cumple' => $pintura->cumple,
+            'metodo' => $pintura->metodo,
+            'area' => $pintura->area_m2 === null ? null : (float) $pintura->area_m2,
+            'mediciones' => $mediciones,
+        ];
+    }
+
+    /**
+     * @return array{metodo: string|null, resultado: string|null, tiras: array<int, string>, fotos: list<array{path: string, nombre: string|null, imagen: bool}>}
+     */
+    private function adherencia(Adherencia $adherencia): array
+    {
+        return [
+            'metodo' => $adherencia->metodo,
+            'resultado' => $adherencia->resultado,
+            'tiras' => $adherencia->tiras->sortBy('orden')->pluck('clasificacion', 'orden')->all(),
+            'fotos' => $adherencia->fotos->map(fn (Media $foto): array => [
+                'path' => $foto->path,
+                'nombre' => $foto->nombre_original,
+                'imagen' => str_starts_with((string) $foto->mime, 'image/'),
+            ])->values()->all(),
         ];
     }
 
