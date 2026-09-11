@@ -1,20 +1,9 @@
 /**
- * Los números de las hojas que todavía no se pueden calcular. Son FALSOS, a
- * propósito, y cada hoja que los usa lo dice en su encabezado.
+ * Las formas de las hojas del F-STX-CA-31 y las cuentas que se hacen en la
+ * pantalla con ellas. Todos los números llegan del servidor.
  *
- * Tres de las seis hojas del F-STX-CA-31 se alimentan de tablas que no
- * existen en `qal_`:
- *
- *  - Hojas 0, 1 y 3 salen de la **inspección visual** (`qal_inspecciones` y sus
- *    hijas). La captura del inspector ya está construida en el front, pero
- *    todavía no guarda.
- *
- * Las hojas 4 y 5 **ya no están aquí**: salen de `qal_obra_montaje` y
- * `qal_obra_incidencias`, que llena el módulo de incidencias en obra, y llegan
- * como props desde el servidor.
- *
- * Lo que NO es relleno y hay que conservar cuando esto se sustituya por props
- * son las **definiciones**, que vienen discutidas del formato en Excel:
+ * Lo que hay que conservar son las **definiciones**, que vienen discutidas del
+ * formato en Excel y se calculan en `EstadisticaInspecciones`:
  *
  *  - El porcentaje de la hoja 1 es **piezas liberadas que traían rechazo previo
  *    ÷ piezas liberadas**. No es «rechazadas ÷ liberadas de la misma semana»:
@@ -32,6 +21,7 @@
 
 /** Una obra en la hoja de inspección visual de la semana. */
 export type FilaVisual = {
+    obra_id: number;
     obra: string;
     /** Piezas de 2ª transformación liberadas en la semana. */
     liberadas2t: number;
@@ -41,29 +31,8 @@ export type FilaVisual = {
     conRechazoPintura: number;
 };
 
-export const INSPECCION_VISUAL: FilaVisual[] = [
-    { obra: 'AMPLIACION T4 CANCUN', liberadas2t: 84, conRechazo2t: 13, liberadasPintura: 61, conRechazoPintura: 4 },
-    { obra: 'CANCUN PARKS II NAVE A', liberadas2t: 52, conRechazo2t: 11, liberadasPintura: 38, conRechazoPintura: 5 },
-    { obra: 'TRES GUERRAS VILLA MAGNA', liberadas2t: 31, conRechazo2t: 9, liberadasPintura: 12, conRechazoPintura: 1 },
-    { obra: 'TOTEM PRIME CENTER', liberadas2t: 18, conRechazo2t: 2, liberadasPintura: 0, conRechazoPintura: 0 },
-];
-
-/** Kilos de estructura principal liberados en la semana. */
-export const KG_LIBERADOS = 412_500;
-
-/** La serie del año con la misma fórmula que la hoja 1. `null` = sin base. */
+/** La serie del año con la misma fórmula que la hoja 1. `null` = sin liberadas esa semana. */
 export type PuntoSerie = { semana: number; t2: number | null; t3: number | null };
-
-export const SERIE_ANIO: PuntoSerie[] = [
-    { semana: 26, t2: 24, t3: 7 },
-    { semana: 27, t2: 22, t3: 9 },
-    { semana: 28, t2: 26, t3: 6 },
-    { semana: 29, t2: 19, t3: 8 },
-    { semana: 30, t2: 21, t3: 11 },
-    { semana: 31, t2: 23, t3: 7 },
-    { semana: 32, t2: 20, t3: 8 },
-    { semana: 33, t2: 18, t3: 6 },
-];
 
 /**
  * Una obra en las hojas de montaje.

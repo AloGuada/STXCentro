@@ -1,6 +1,6 @@
 import { EvolucionRechazo } from '@/components/qal/graficas';
 import { pct } from '@/components/qal/paleta';
-import { SERIE_ANIO } from '@/components/qal/reporte-semanal/datos';
+import type { PuntoSerie } from '@/components/qal/reporte-semanal/datos';
 import { Bloque, estadoIncidencia, FilaKpis, Hoja, Kpi, Nota, Origen } from '@/components/qal/reporte-semanal/ui';
 
 /** Promedio de la serie ignorando las semanas sin base. */
@@ -17,10 +17,10 @@ function promedio(valores: (number | null)[]): number | null {
  * fórmula que la hoja 1 —liberadas con rechazo previo ÷ liberadas—; con otra
  * definición, la tendencia estaría midiendo algo distinto de lo que hay arriba.
  */
-export function HojaTendencia({ anio, semana }: { anio: number; semana: number }) {
-    const m2 = promedio(SERIE_ANIO.map((p) => p.t2));
-    const m3 = promedio(SERIE_ANIO.map((p) => p.t3));
-    const actual = SERIE_ANIO.find((p) => p.semana === semana);
+export function HojaTendencia({ anio, semana, serie }: { anio: number; semana: number; serie: PuntoSerie[] }) {
+    const m2 = promedio(serie.map((p) => p.t2));
+    const m3 = promedio(serie.map((p) => p.t3));
+    const actual = serie.find((p) => p.semana === semana);
 
     const contra = (valor: number | null | undefined, media: number | null) => {
         if (valor === null || valor === undefined || media === null) {
@@ -37,12 +37,12 @@ export function HojaTendencia({ anio, semana }: { anio: number; semana: number }
             numero={3}
             titulo="Tendencia del año"
             pregunta="¿Esta semana es un pico o es la tónica?"
-            meta={`${SERIE_ANIO.length} semanas`}
+            meta={`${serie.length} semanas`}
             submeta={`con datos en ${anio}`}
             origen={
                 <Origen
-                    real={false}
-                    detalle="Es la serie de la hoja 1, así que depende de la misma tabla que todavía no existe."
+                    real
+                    detalle="Es la serie de la hoja 1, con la misma fórmula, semana a semana hasta la de corte."
                 />
             }
         >
@@ -65,7 +65,7 @@ export function HojaTendencia({ anio, semana }: { anio: number; semana: number }
 
             <Bloque titulo="Incidencias semana a semana">
                 <EvolucionRechazo
-                    datos={SERIE_ANIO.map((p) => ({
+                    datos={serie.map((p) => ({
                         semana: `S${p.semana}`,
                         fabricacion: p.t2 ?? 0,
                         pintura: p.t3 ?? 0,

@@ -5,12 +5,14 @@ namespace App\Http\Controllers\Admin\Qal;
 use App\Enums\Qal\MetodoPnd;
 use App\Enums\Qal\ResultadoPnd;
 use App\Http\Controllers\Controller;
+use App\Models\Qal\Inspeccion;
 use App\Models\Qal\Obra;
 use App\Models\Qal\ObraIncidencia;
 use App\Models\Qal\ObraMontaje;
 use App\Models\Qal\PndJunta;
 use App\Models\Qal\PndReporte;
 use App\Services\Qal\EstadisticaIncidencias;
+use App\Services\Qal\EstadisticaInspecciones;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
@@ -25,21 +27,23 @@ use Inertia\Response;
  * folio de formato, seis hojas fijas y una semana de corte, que sale igual
  * todas las semanas para que se pueda comparar con las anteriores.
  *
- * Hoy tres de las seis hojas se calculan de verdad:
+ * Las seis hojas se calculan de la base:
  *
+ *  - **Hojas 0, 1 y 3 · inspección visual** salen de `qal_inspecciones`, vía
+ *    `EstadisticaInspecciones`.
  *  - **Hoja 2 · PND** sale entera de `qal_pnd_reportes` y del plan de la obra.
  *  - **Hojas 4 y 5 · montaje e incidencias** salen de `qal_obra_montaje` y
  *    `qal_obra_incidencias`, que llena el módulo de incidencias en obra.
- *  - Las hojas 0, 1 y 3 se calculan de la inspección visual, y
- *    `qal_inspecciones` todavía no existe.
  *
- * Lo que falta se dibuja en el front como maqueta y **va marcado como tal en la
- * propia hoja**: un reporte que se manda fuera no puede dejar la duda de qué
- * número es real y cuál es de ejemplo.
+ * Cada hoja dice de dónde salen sus números: un reporte que se manda fuera no
+ * puede dejar la duda.
  */
 class ReporteSemanalController extends Controller
 {
-    public function __construct(private readonly EstadisticaIncidencias $incidencias) {}
+    public function __construct(
+        private readonly EstadisticaIncidencias $incidencias,
+        private readonly EstadisticaInspecciones $inspecciones,
+    ) {}
 
     public function index(Request $request): Response
     {
@@ -54,6 +58,9 @@ class ReporteSemanalController extends Controller
             'semana' => $semana,
             'anios' => $anios,
             'semanas' => $semanas,
+            // Hojas 0, 1 y 3: lo liberado en la semana, con su rechazo previo,
+            // y la misma cuenta a lo largo del año.
+            ...$this->inspecciones->hojasDelReporteSemanal($anio, $semana),
             'pnd' => $this->hojaPnd(),
             // Las hojas 4 y 5 son el mismo cálculo con dos cortes distintos, y
             // la regla que los parte vive en el servicio para que el documento
@@ -194,16 +201,16 @@ class ReporteSemanalController extends Controller
     /**
      * Los años con algo que reportar.
      *
-     * Salen de PND, del montaje y de las incidencias, que es lo capturado hoy.
-     * Cuando exista la inspección visual habrá que unir sus fechas aquí: el año
-     * del reporte no lo decide un módulo, lo decide que haya trabajo
+     * Salen de la inspección visual, de PND, del montaje y de las incidencias:
+     * el año del reporte no lo decide un módulo, lo decide que haya trabajo
      * registrado.
      *
      * @return list<int>
      */
     private function aniosConDatos(): array
     {
-        return $this->anios(PndReporte::query())
+        return $this->anios(Inspeccion::query())
+            ->merge($this->anios(PndReporte::query()))
             ->merge($this->anios(ObraMontaje::query()))
             ->merge($this->anios(ObraIncidencia::query()))
             ->push(Carbon::now()->isoFormat('GGGG'))
@@ -240,7 +247,8 @@ class ReporteSemanalController extends Controller
             ->distinct()
             ->pluck('semana');
 
-        $semanas = $de(PndReporte::class)
+        $semanas = $de(Inspeccion::class)
+            ->merge($de(PndReporte::class))
             ->merge($de(ObraMontaje::class))
             ->merge($de(ObraIncidencia::class))
             ->map(fn ($semana): int => (int) $semana);

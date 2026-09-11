@@ -1,5 +1,5 @@
 import { num, pct } from '@/components/qal/paleta';
-import { INSPECCION_VISUAL, KG_LIBERADOS, SERIE_ANIO, totalVisual } from '@/components/qal/reporte-semanal/datos';
+import { totalVisual, type FilaVisual, type PuntoSerie } from '@/components/qal/reporte-semanal/datos';
 import {
     Bloque,
     estadoIncidencia,
@@ -25,21 +25,30 @@ export function HojaResumen({
     obras,
     spotsPnd,
     incidenciasSemana,
+    filas,
+    kgLiberados,
+    serie,
 }: {
     anio: number;
     semana: number;
     obras: string[];
     spotsPnd: number;
-    /** Piezas con incidencia en taller y obra durante la semana. Es real. */
+    /** Piezas con incidencia en taller y obra durante la semana. */
     incidenciasSemana: number;
+    /** La hoja 1, de donde sale la portada. */
+    filas: FilaVisual[];
+    /** Kilos de estructura principal liberados en la semana. */
+    kgLiberados: number;
+    /** La hoja 3, para comparar con la semana anterior. */
+    serie: PuntoSerie[];
 }) {
-    const T = totalVisual(INSPECCION_VISUAL);
+    const T = totalVisual(filas);
     const t2 = porcentaje(T.conRechazo2t, T.liberadas2t);
     const t3 = porcentaje(T.conRechazoPintura, T.liberadasPintura);
 
     // La semana anterior de la serie, para la flecha. Sin ella el porcentaje se
     // lee como bueno o malo en abstracto, que es como no leerlo.
-    const previa = SERIE_ANIO.filter((p) => p.semana < semana).slice(-1)[0];
+    const previa = serie.filter((p) => p.semana < semana).slice(-1)[0];
     const contra = (hoy: number | null, antes: number | null | undefined) => {
         if (hoy === null || antes === null || antes === undefined) {
             return undefined;
@@ -81,8 +90,8 @@ export function HojaResumen({
             submeta="F-STX-CA-31 · Rev. 00"
             origen={
                 <Origen
-                    real={false}
-                    detalle="Se calcula de la inspección visual, y qal_inspecciones todavía no existe."
+                    real
+                    detalle="Sale de qal_inspecciones, de PND y de las incidencias en obra: es la síntesis de las otras hojas."
                 />
             }
         >
@@ -104,7 +113,7 @@ export function HojaResumen({
                     sub={contra(t3, previa?.t3)}
                     estado={estadoIncidencia(t3)}
                 />
-                <Kpi valor={num(KG_LIBERADOS)} etiqueta="Kg liberados" sub="estructura principal" />
+                <Kpi valor={num(Math.round(kgLiberados))} etiqueta="Kg liberados" sub="estructura principal" />
             </FilaKpis>
 
             <Bloque titulo="Lectura de la semana">

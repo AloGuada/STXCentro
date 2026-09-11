@@ -8,11 +8,10 @@
  * con las anteriores. Por eso arriba sólo hay dos controles —año y semana— y no
  * la barra de filtros del tablero.
  *
- * De las seis hojas, hoy se calculan de verdad **la 2 (PND) y las dos de
- * montaje e incidencias en obra**. Las otras tres dependen de
- * `qal_inspecciones`, que todavía no existe, y salen con datos de ejemplo. Cada
- * hoja lo dice en su encabezado, porque un documento que se manda fuera no
- * puede dejar la duda de qué número es real.
+ * Las seis hojas se calculan de la base: la inspección visual (0, 1 y 3), PND
+ * (2) y el montaje e incidencias en obra (4 y 5). Cada hoja dice de dónde salen
+ * sus números en su encabezado, porque un documento que se manda fuera no
+ * puede dejar la duda.
  *
  * La corrección de fórmula que trae este reporte y que no hay que perder: el
  * porcentaje de incidencias es **piezas liberadas que traían rechazo previo ÷
@@ -22,7 +21,7 @@
 
 import { Head, router } from '@inertiajs/react';
 import { PrinterIcon } from 'lucide-react';
-import type { FilaMontaje } from '@/components/qal/reporte-semanal/datos';
+import type { FilaMontaje, FilaVisual, PuntoSerie } from '@/components/qal/reporte-semanal/datos';
 import { HojaMontaje } from '@/components/qal/reporte-semanal/hoja-montaje';
 import { HojaPnd } from '@/components/qal/reporte-semanal/hoja-pnd';
 import { HojaResumen } from '@/components/qal/reporte-semanal/hoja-resumen';
@@ -44,6 +43,12 @@ type Props = {
     semana: number;
     anios: number[];
     semanas: number[];
+    /** Hoja 1: lo liberado en la semana por obra, con su rechazo previo. */
+    visual: FilaVisual[];
+    /** Kilos de estructura principal liberados en la semana. */
+    kg_liberados: number;
+    /** Hoja 3: la misma cuenta semana a semana hasta el corte. */
+    serie: PuntoSerie[];
     pnd: QalReporteSemanalPnd[];
     /** Hoja 4: todas las incidencias, partidas por área —taller / montaje—. */
     montaje: FilaMontaje[];
@@ -58,6 +63,9 @@ export default function ReporteSemanal({
     semana,
     anios,
     semanas,
+    visual,
+    kg_liberados: kgLiberados,
+    serie,
     pnd,
     montaje,
     pintura,
@@ -72,6 +80,10 @@ export default function ReporteSemanal({
     };
 
     const spotsPnd = pnd.reduce((a, f) => a + f.spots, 0);
+
+    // Los proyectos del alcance son los que tienen algo en el reporte: lo que
+    // liberaron esta semana o lo que llevan ensayado.
+    const proyectos = [...new Set([...visual.map((f) => f.obra), ...pnd.map((f) => f.obra)])];
 
     // Las piezas con incidencia de la semana salen de la hoja 4, que es la que
     // cuenta todas: la 5 es un corte suyo y sumarlas contaría dos veces.
@@ -130,13 +142,16 @@ export default function ReporteSemanal({
                 <HojaResumen
                     anio={anio}
                     semana={semana}
-                    obras={pnd.map((f) => f.obra)}
+                    obras={proyectos}
                     spotsPnd={spotsPnd}
                     incidenciasSemana={incidenciasSemana}
+                    filas={visual}
+                    kgLiberados={kgLiberados}
+                    serie={serie}
                 />
-                <HojaVisual semana={semana} />
+                <HojaVisual semana={semana} filas={visual} />
                 <HojaPnd filas={pnd} />
-                <HojaTendencia anio={anio} semana={semana} />
+                <HojaTendencia anio={anio} semana={semana} serie={serie} />
                 <HojaMontaje
                     numero={4}
                     titulo="Montaje e incidencias en obra"

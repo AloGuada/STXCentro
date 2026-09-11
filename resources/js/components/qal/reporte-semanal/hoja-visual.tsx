@@ -1,6 +1,6 @@
 import { BarrasTotalYParte } from '@/components/qal/graficas';
 import { num, pct } from '@/components/qal/paleta';
-import { INSPECCION_VISUAL, totalVisual } from '@/components/qal/reporte-semanal/datos';
+import { totalVisual, type FilaVisual } from '@/components/qal/reporte-semanal/datos';
 import {
     Bloque,
     estadoIncidencia,
@@ -31,8 +31,8 @@ function pastillaPct(parte: number, total: number) {
  * subconjunto suyo. Por eso el porcentaje no puede pasar de 100: es la parte de
  * lo entregado que costó dos vueltas o más.
  */
-export function HojaVisual({ semana }: { semana: number }) {
-    const T = totalVisual(INSPECCION_VISUAL);
+export function HojaVisual({ semana, filas }: { semana: number; filas: FilaVisual[] }) {
+    const T = totalVisual(filas);
 
     return (
         <Hoja
@@ -43,8 +43,8 @@ export function HojaVisual({ semana }: { semana: number }) {
             submeta="2ª transformación y pintura"
             origen={
                 <Origen
-                    real={false}
-                    detalle="Se calcula de la inspección visual, y qal_inspecciones todavía no existe."
+                    real
+                    detalle="Sale de qal_inspecciones: la pieza se libera en soldado (2ª) o en su inspección de pintura."
                 />
             }
         >
@@ -60,7 +60,7 @@ export function HojaVisual({ semana }: { semana: number }) {
                         '% pintura',
                     ]}
                     vacia="Ninguna pieza se liberó en esta semana."
-                    filas={INSPECCION_VISUAL.map((f) => [
+                    filas={filas.map((f) => [
                         f.obra,
                         num(f.liberadas2t),
                         num(f.conRechazo2t),
@@ -86,7 +86,7 @@ export function HojaVisual({ semana }: { semana: number }) {
             <Rejilla2>
                 <Bloque titulo="2ª transformación">
                     <BarrasTotalYParte
-                        datos={INSPECCION_VISUAL.map((f) => ({
+                        datos={filas.map((f) => ({
                             nombre: f.obra,
                             total: f.liberadas2t,
                             parte: f.conRechazo2t,
@@ -97,7 +97,7 @@ export function HojaVisual({ semana }: { semana: number }) {
                 </Bloque>
                 <Bloque titulo="Pintura">
                     <BarrasTotalYParte
-                        datos={INSPECCION_VISUAL.map((f) => ({
+                        datos={filas.map((f) => ({
                             nombre: f.obra,
                             total: f.liberadasPintura,
                             parte: f.conRechazoPintura,

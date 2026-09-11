@@ -34,7 +34,7 @@ class HistorialDePiezas
             ->with(['obra:id,no', 'inspector.usuario:id,name'])
             ->orderBy('fecha')
             ->orderBy('id')
-            ->get(['id', 'obra_id', 'inspector_id', 'marca', 'qr', 'fecha', 'anio', 'semana', 'estatus', 'numero_inspeccion'])
+            ->get(['id', 'obra_id', 'inspector_id', 'marca', 'qr', 'fecha', 'anio', 'semana', 'estatus', 'numero_inspeccion', 'kg'])
             ->groupBy(fn (Inspeccion $inspeccion): string => $inspeccion->obra_id.'|'.$inspeccion->qr)
             ->map(fn (Collection $historia): array => $this->resumir($historia))
             ->values()
@@ -110,6 +110,12 @@ class HistorialDePiezas
             'semanaLiberada' => $liberada ? $this->semanaDe($liberada) : '',
             // Liberada en una inspección posterior a la primera: hubo retrabajo.
             'inspeccionLiberada' => $liberada?->numero_inspeccion,
+            // Rechazada al menos una vez antes de liberarse: la pieza arrastra
+            // su historia hasta la semana en que salió.
+            'conRechazoPrevio' => $liberada !== null && $historia
+                ->takeWhile(fn (Inspeccion $inspeccion): bool => $inspeccion->id !== $liberada->id)
+                ->contains(fn (Inspeccion $inspeccion): bool => $inspeccion->estatus === EstatusInspeccion::Rechazado),
+            'kgLiberada' => $liberada?->kg !== null ? (float) $liberada->kg : null,
             'semanasRechazada' => $historia
                 ->filter(fn (Inspeccion $inspeccion): bool => $inspeccion->estatus === EstatusInspeccion::Rechazado)
                 ->map(fn (Inspeccion $inspeccion): string => $this->semanaDe($inspeccion))
