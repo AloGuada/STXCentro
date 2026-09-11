@@ -18,7 +18,7 @@ class PndJuntaFactory extends Factory
     {
         return [
             'qal_pnd_reporte_id' => PndReporte::factory(),
-            'qal_pieza_id' => null,
+            'concepto_id' => null,
             'marca' => mb_strtoupper($this->faker->bothify('TP##-#')),
             'junta' => $this->faker->numberBetween(1, 40).'-'.$this->faker->numberBetween(1, 4),
             'modulo' => (string) $this->faker->numberBetween(1, 12),

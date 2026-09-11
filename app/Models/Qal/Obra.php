@@ -134,14 +134,6 @@ class Obra extends Model
     }
 
     /**
-     * Herencia de la aplicación de mapeo 2D. Se retira junto con `qal_etapas`.
-     */
-    public function etapas(): HasMany
-    {
-        return $this->hasMany(Etapa::class, 'obra_id');
-    }
-
-    /**
      * @return HasMany<ObraPndPlan, $this>
      */
     public function pndPlan(): HasMany

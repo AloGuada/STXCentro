@@ -5,7 +5,6 @@ namespace App\Models\Qal;
 use App\Models\Qal\Concerns\EsCatalogoDeCalidad;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * Soldador del padrón.
@@ -49,10 +48,5 @@ class Soldador extends Model
     {
         return $this->certificacion_vence_at !== null
             && $this->certificacion_vence_at->isPast();
-    }
-
-    public function reportes(): HasMany
-    {
-        return $this->hasMany(Reporte::class, 'soldador_id');
     }
 }

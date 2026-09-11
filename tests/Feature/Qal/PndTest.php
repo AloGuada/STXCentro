@@ -2,11 +2,10 @@
 
 use App\Enums\Qal\MetodoPnd;
 use App\Enums\Qal\ResultadoPnd;
-use App\Models\Qal\Etapa;
+use App\Models\Concepto;
 use App\Models\Qal\Laboratorio;
 use App\Models\Qal\Obra;
 use App\Models\Qal\ObraPndPlan;
-use App\Models\Qal\Pieza;
 use App\Models\Qal\PndJunta;
 use App\Models\Qal\PndReporte;
 use App\Models\User;
@@ -158,7 +157,7 @@ test('el spot tecleado gana sobre el deducido', function () {
  * El laboratorio entrega antes de que Calidad dé de alta las piezas: exigir la
  * pieza para poder capturar el informe sería no poder capturarlo.
  */
-test('la marca del laboratorio se conserva aunque la pieza no exista', function () {
+test('la marca del laboratorio se conserva aunque no este en el catalogo', function () {
     $obra = Obra::factory()->create();
     $laboratorio = Laboratorio::factory()->create();
 
@@ -168,22 +167,21 @@ test('la marca del laboratorio se conserva aunque la pieza no exista', function 
     $junta = PndJunta::first();
 
     expect($junta->marca)->toBe('TP12-3')
-        ->and($junta->qal_pieza_id)->toBeNull();
+        ->and($junta->concepto_id)->toBeNull();
 });
 
-test('la junta se engancha a la pieza cuando la marca ya existe', function () {
+test('la junta se engancha a la marca de produccion cuando ya existe', function () {
     $obra = Obra::factory()->create();
-    $etapa = Etapa::factory()->create(['obra_id' => $obra->id]);
-    $pieza = Pieza::factory()->create(['etapa_id' => $etapa->id, 'marca' => 'TP12-3']);
+    $concepto = Concepto::factory()->create(['obra_id' => $obra->obra_id, 'marca' => 'TP12-3']);
     $laboratorio = Laboratorio::factory()->create();
 
     $this->actingAs(usuarioPnd(['qal.pnd.crear', 'qal.pnd.ver']))
         ->post(route('admin.qal.pnd.store'), informeValido($obra, $laboratorio));
 
-    expect(PndJunta::first()->qal_pieza_id)->toBe($pieza->id);
+    expect(PndJunta::first()->concepto_id)->toBe($concepto->id);
 });
 
-test('las marcas sueltas se enganchan despues, cuando la pieza aparece', function () {
+test('las marcas sueltas se enganchan despues, cuando produccion las carga', function () {
     $obra = Obra::factory()->create();
     $laboratorio = Laboratorio::factory()->create();
     $usuario = usuarioPnd(['qal.pnd.crear', 'qal.pnd.editar', 'qal.pnd.ver']);
@@ -191,29 +189,38 @@ test('las marcas sueltas se enganchan despues, cuando la pieza aparece', functio
     $this->actingAs($usuario)->post(route('admin.qal.pnd.store'), informeValido($obra, $laboratorio));
 
     $reporte = PndReporte::first();
-    expect(PndJunta::first()->qal_pieza_id)->toBeNull();
+    expect(PndJunta::first()->concepto_id)->toBeNull();
 
-    $etapa = Etapa::factory()->create(['obra_id' => $obra->id]);
-    $pieza = Pieza::factory()->create(['etapa_id' => $etapa->id, 'marca' => 'TP12-3']);
+    $concepto = Concepto::factory()->create(['obra_id' => $obra->obra_id, 'marca' => 'TP12-3']);
 
     $this->actingAs($usuario)
         ->post(route('admin.qal.pnd.resolver-marcas', $reporte))
         ->assertRedirect();
 
-    expect(PndJunta::first()->qal_pieza_id)->toBe($pieza->id);
+    expect(PndJunta::first()->concepto_id)->toBe($concepto->id);
 });
 
-test('la pieza de otra obra no engancha la marca', function () {
+test('la marca de otra obra no engancha', function () {
     $obra = Obra::factory()->create();
     $otra = Obra::factory()->create();
-    $etapa = Etapa::factory()->create(['obra_id' => $otra->id]);
-    Pieza::factory()->create(['etapa_id' => $etapa->id, 'marca' => 'TP12-3']);
+    Concepto::factory()->create(['obra_id' => $otra->obra_id, 'marca' => 'TP12-3']);
     $laboratorio = Laboratorio::factory()->create();
 
     $this->actingAs(usuarioPnd(['qal.pnd.crear', 'qal.pnd.ver']))
         ->post(route('admin.qal.pnd.store'), informeValido($obra, $laboratorio));
 
-    expect(PndJunta::first()->qal_pieza_id)->toBeNull();
+    expect(PndJunta::first()->concepto_id)->toBeNull();
+});
+
+test('una marca repetida en dos lotes no se adivina', function () {
+    $obra = Obra::factory()->create();
+    Concepto::factory()->count(2)->create(['obra_id' => $obra->obra_id, 'marca' => 'TP12-3']);
+    $laboratorio = Laboratorio::factory()->create();
+
+    $this->actingAs(usuarioPnd(['qal.pnd.crear', 'qal.pnd.ver']))
+        ->post(route('admin.qal.pnd.store'), informeValido($obra, $laboratorio));
+
+    expect(PndJunta::first()->concepto_id)->toBeNull();
 });
 
 test('un parametro sin valor se descarta en vez de tumbar el guardado', function () {

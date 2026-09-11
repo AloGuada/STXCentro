@@ -3,6 +3,7 @@
 namespace App\Models\Qal;
 
 use App\Enums\Qal\ResultadoPnd;
+use App\Models\Concepto;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -14,9 +15,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * del porcentaje de rechazo es el spot; contar juntas subestima el volumen
  * ensayado.
  *
- * `marca` conserva el texto del laboratorio aunque `qal_pieza_id` quede nulo:
- * el informe llega antes de que la pieza esté dada de alta, y el texto sigue
- * siendo lo que dice el documento firmado.
+ * `marca` conserva el texto del laboratorio aunque `concepto_id` quede nulo:
+ * el informe puede llegar antes de que Producción cargue el catálogo de la
+ * obra, y el texto sigue siendo lo que dice el documento firmado.
  *
  * @use HasFactory<\Database\Factories\Qal\PndJuntaFactory>
  */
@@ -31,7 +32,7 @@ class PndJunta extends Model
      */
     protected $fillable = [
         'qal_pnd_reporte_id',
-        'qal_pieza_id',
+        'concepto_id',
         'marca',
         'junta',
         'modulo',
@@ -65,13 +66,14 @@ class PndJunta extends Model
     }
 
     /**
-     * La pieza, cuando la marca del laboratorio ya existe dada de alta.
+     * La marca de Producción, cuando la del laboratorio es única en el
+     * catálogo vigente de la obra.
      *
-     * @return BelongsTo<Pieza, $this>
+     * @return BelongsTo<Concepto, $this>
      */
-    public function pieza(): BelongsTo
+    public function concepto(): BelongsTo
     {
-        return $this->belongsTo(Pieza::class, 'qal_pieza_id');
+        return $this->belongsTo(Concepto::class, 'concepto_id');
     }
 
     /**

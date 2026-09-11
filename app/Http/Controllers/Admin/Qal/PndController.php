@@ -100,7 +100,7 @@ class PndController extends Controller
     {
         $pnd->load([
             'juntas' => fn ($consulta) => $consulta->orderBy('id'),
-            'juntas.pieza:id,marca',
+            'juntas.concepto:id,marca,lote',
             'parametros' => fn ($consulta) => $consulta->orderBy('id'),
             'fotos',
         ]);

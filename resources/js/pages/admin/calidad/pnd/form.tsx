@@ -118,7 +118,7 @@ export default function PndForm({ reporte, obraId, obras, laboratorios, soldador
         });
     };
 
-    const sueltas = reporte?.juntas?.filter((junta) => junta.qal_pieza_id === null).length ?? 0;
+    const sueltas = reporte?.juntas?.filter((junta) => junta.concepto_id === null).length ?? 0;
 
     const breadcrumbs: BreadcrumbItem[] = [
         { title: 'Dashboard', href: '/dashboard' },
@@ -173,9 +173,9 @@ export default function PndForm({ reporte, obraId, obras, laboratorios, soldador
                 {editando && sueltas > 0 && can('qal.pnd.editar') && (
                     <div className="alert alert-warning">
                         <span>
-                            {sueltas} puntos del informe citan marcas que todavía no existen como pieza de la obra. Se
-                            conserva el texto del laboratorio; el enlace se puede volver a intentar cuando se den de
-                            alta.
+                            {sueltas} puntos del informe citan marcas que no están, o están en más de un lote, en el
+                            catálogo vigente de Producción de la obra. Se conserva el texto del laboratorio; el enlace
+                            se puede volver a intentar cuando Producción las cargue.
                         </span>
                         <button
                             type="button"

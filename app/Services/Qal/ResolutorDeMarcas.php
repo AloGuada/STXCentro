@@ -7,8 +7,8 @@ use App\Models\Qal\Modelo;
 use App\Models\Qal\ModeloMarca;
 
 /**
- * Amarra las marcas del modelo 3D a las marcas del catálogo vigente de
- * Producción.
+ * Amarra una marca escrita en otro lado —la del modelo 3D, la del informe de
+ * PND— a la marca del catálogo vigente de Producción.
  *
  * El IFC y el catálogo se cargan por separado y no siempre en ese orden, así
  * que el amarre se puede volver a pedir (al versionar el catálogo, o cuando

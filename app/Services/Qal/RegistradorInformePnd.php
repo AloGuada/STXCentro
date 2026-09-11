@@ -2,7 +2,6 @@
 
 namespace App\Services\Qal;
 
-use App\Models\Qal\Pieza;
 use App\Models\Qal\PndJunta;
 use App\Models\Qal\PndReporte;
 use Illuminate\Http\UploadedFile;
@@ -25,6 +24,8 @@ use Illuminate\Support\Facades\Storage;
  */
 class RegistradorInformePnd
 {
+    public function __construct(private readonly ResolutorDeMarcas $marcas) {}
+
     /**
      * @param  array<string, mixed>  $encabezado
      * @param  list<array<string, mixed>>  $juntas
@@ -69,26 +70,26 @@ class RegistradorInformePnd
     }
 
     /**
-     * Vuelve a intentar el enlace marca → pieza de las juntas que quedaron
-     * sueltas.
+     * Vuelve a intentar el enlace de la marca del laboratorio con la marca de
+     * Producción en las juntas que quedaron sueltas.
      *
-     * El laboratorio entrega antes de que Calidad dé de alta las piezas, así
-     * que un informe nace con `qal_pieza_id` en nulo y se engancha semanas
-     * después. Sólo toca las que están sueltas: una junta ya enlazada no se
-     * reasigna, porque el enlace pudo corregirse a mano.
+     * El laboratorio puede entregar antes de que Producción cargue el catálogo
+     * de la obra, así que un informe nace con `concepto_id` en nulo y se
+     * engancha después. Sólo toca las que están sueltas: una junta ya enlazada
+     * no se reasigna, porque el enlace pudo corregirse a mano.
      *
      * @return int cuántas juntas quedaron enlazadas en esta pasada
      */
     public function resolverMarcas(PndReporte $reporte): int
     {
-        $piezas = $this->piezasDeLaObra($reporte);
+        $conceptos = $this->conceptosDeLaObra($reporte);
         $enlazadas = 0;
 
-        foreach ($reporte->juntas()->whereNull('qal_pieza_id')->get() as $junta) {
-            $piezaId = $piezas[$this->normalizar($junta->marca)] ?? null;
+        foreach ($reporte->juntas()->whereNull('concepto_id')->get() as $junta) {
+            $conceptoId = $this->marcas->conceptoDe($junta->marca, $conceptos);
 
-            if ($piezaId !== null) {
-                $junta->update(['qal_pieza_id' => $piezaId]);
+            if ($conceptoId !== null) {
+                $junta->update(['concepto_id' => $conceptoId]);
                 $enlazadas++;
             }
         }
@@ -123,16 +124,16 @@ class RegistradorInformePnd
 
     /**
      * Deja cada renglón listo para insertarse: junta y spot separados, y la
-     * pieza enganchada cuando la marca ya existe.
+     * marca de Producción enganchada cuando ya existe.
      *
      * @param  list<array<string, mixed>>  $juntas
      * @return list<array<string, mixed>>
      */
     private function prepararJuntas(PndReporte $reporte, array $juntas): array
     {
-        $piezas = $this->piezasDeLaObra($reporte);
+        $conceptos = $this->conceptosDeLaObra($reporte);
 
-        return array_values(array_map(function (array $fila) use ($piezas): array {
+        return array_values(array_map(function (array $fila) use ($conceptos): array {
             $referencia = trim((string) ($fila['junta'] ?? ''));
             $partida = PndJunta::descomponerReferencia($referencia);
 
@@ -141,7 +142,7 @@ class RegistradorInformePnd
 
             return [
                 'marca' => $marca,
-                'qal_pieza_id' => $piezas[$this->normalizar($marca)] ?? null,
+                'concepto_id' => $this->marcas->conceptoDe($marca, $conceptos),
                 'junta' => $partida['junta'],
                 // El spot tecleado gana sobre el deducido: la deducción es una
                 // sugerencia y el capturista tiene el informe a la vista.
@@ -157,18 +158,16 @@ class RegistradorInformePnd
     }
 
     /**
-     * Marcas de la obra del informe, indexadas para comparar sin depender de
-     * mayúsculas ni espacios.
+     * Las marcas del catálogo vigente de la obra del informe. Una marca
+     * repetida en dos lotes no se adivina: la junta queda suelta.
      *
      * @return array<string, int>
      */
-    private function piezasDeLaObra(PndReporte $reporte): array
+    private function conceptosDeLaObra(PndReporte $reporte): array
     {
-        return Pieza::query()
-            ->whereHas('etapa', fn ($consulta) => $consulta->where('obra_id', $reporte->qal_obra_id))
-            ->pluck('id', 'marca')
-            ->mapWithKeys(fn (int $id, string $marca): array => [$this->normalizar($marca) => $id])
-            ->all();
+        $obraId = $reporte->obra()->value('obra_id');
+
+        return $obraId === null ? [] : $this->marcas->deLaObra((int) $obraId);
     }
 
     private function normalizar(string $texto): string

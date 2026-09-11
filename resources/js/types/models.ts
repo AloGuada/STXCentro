@@ -4630,7 +4630,8 @@ export type QalPndParametro = {
  */
 export type QalPndJunta = {
     id: number;
-    qal_pieza_id: number | null;
+    /** La marca de Producción, cuando la del laboratorio es única en el catálogo vigente de la obra. */
+    concepto_id: number | null;
     /** El texto tal como lo escribió el laboratorio; se conserva siempre. */
     marca: string;
     junta: string;
@@ -4641,7 +4642,7 @@ export type QalPndJunta = {
     longitud_discontinuidad: string | null;
     espesor: string | null;
     soldador_id: number | null;
-    pieza?: { id: number; marca: string } | null;
+    concepto?: { id: number; marca: string; lote: string | null } | null;
 };
 
 /** Evidencia fotográfica del informe. */
