@@ -7,25 +7,20 @@
  *
  * Lo que se escribe es sólo lo que no se puede deducir —qué se piensa hacer, qué
  * se da de baja y por qué—. Lo que sí se puede deducir —qué se hizo, qué pasó el
- * filtro, qué está a medias— no se pregunta.
+ * filtro, qué está a medias— no se pregunta: lo calcula el servidor al guardar.
  */
 
+import { useForm, usePage } from '@inertiajs/react';
 import { ArrowLeftIcon, ClipboardCopyIcon, SaveIcon } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useMemo, type FormEvent } from 'react';
 import { Kpi, Leyenda, Nota, Pastilla, Tarjeta, tonoDeAvance } from '@/components/qal/ui';
 import { cn } from '@/lib/utils';
-import {
-    estadoDeFila,
-    lineasDeLaSemana,
-    porTipoDePieza,
-    porcentaje,
-    totalizar,
-    type IndicePiezas,
-} from './calculo';
-import { faseDe, FASES, type Fase, type Plan, type PiezaVista } from './datos';
+import type { SharedData } from '@/types';
+import { estadoDeFila, porcentaje } from './calculo';
 import { leerMarcas, tipoDeMarca } from './marcas';
 import { Reparaciones } from './reparaciones';
 import { numeroSemana, rangoSemana, semanaMas } from './semanas';
+import { faseDe, FASES, type Fase, type VistaAvance } from './tipos';
 
 /**
  * El contador en vivo debajo del área de texto.
@@ -76,41 +71,41 @@ function ResumenPegado({ texto }: { texto: string }) {
 }
 
 export function VistaObra({
+    obraId,
     obra,
     semana,
     fase,
-    planes,
-    indices,
-    enProceso,
-    piezas,
+    vista,
+    puedeCapturar,
     onFase,
     onVolver,
 }: {
+    obraId: number;
     obra: string;
     semana: string;
     fase: Fase;
-    planes: Plan[];
-    indices: Record<Fase, IndicePiezas>;
-    enProceso: Record<Fase, Map<string, number>>;
-    piezas: PiezaVista[];
+    vista: VistaAvance;
+    puedeCapturar: boolean;
     onFase: (fase: Fase) => void;
     onVolver: () => void;
 }) {
     const F = faseDe(fase);
+    const { props } = usePage<SharedData & { flash?: { success?: string | null } }>();
+    const { lineas, total, tipos } = vista;
 
-    const plan = planes.find((p) => p.obra === obra && p.semana === semana && p.fase === fase);
-    const [textoPlan, setTextoPlan] = useState(plan?.marcas ?? '');
-    const [textoBajas, setTextoBajas] = useState(plan?.bajas ?? '');
-    const [textoNotas, setTextoNotas] = useState(plan?.notas ?? '');
+    const form = useForm({
+        obra_id: obraId,
+        fase,
+        semana,
+        marcas: vista.plan?.marcas ?? '',
+        bajas: vista.plan?.bajas ?? '',
+        notas: vista.plan?.notas ?? '',
+    });
 
-    const lineas = useMemo(
-        () => lineasDeLaSemana(planes, indices[fase], enProceso[fase], obra, fase, semana),
-        [planes, indices, enProceso, obra, fase, semana],
-    );
-    const total = useMemo(() => totalizar(lineas), [lineas]);
-    const tipos = useMemo(() => porTipoDePieza(lineas), [lineas]);
-
-    const suyas = useMemo(() => piezas.filter((p) => p.obra === obra), [piezas, obra]);
+    const guardar = (evento: FormEvent) => {
+        evento.preventDefault();
+        form.post('/admin/calidad/avance/programaciones', { preserveScroll: true });
+    };
 
     /** Copiar las pendientes para pegarlas en la semana siguiente a mano. */
     const copiarPendientes = () => {
@@ -120,6 +115,8 @@ export function VistaObra({
             .join('\n');
         navigator.clipboard?.writeText(texto);
     };
+
+    const errores = [form.errors.marcas, form.errors.bajas, form.errors.notas, form.errors.semana, form.errors.obra_id].filter(Boolean);
 
     return (
         <div className="space-y-4">
@@ -143,82 +140,99 @@ export function VistaObra({
                 </div>
             </div>
 
-            {/* 1 · la caja donde se pega la lista */}
-            <Tarjeta
-                titulo={`Piezas a ${F.gerundio} en la semana ${numeroSemana(semana)}`}
-                nota={`${rangoSemana(semana)} · ${F.nombre}`}
-                acciones={
-                    <>
-                        <button type="button" onClick={copiarPendientes} className="btn btn-sm btn-ghost">
-                            <ClipboardCopyIcon className="size-4" />
-                            Copiar pendientes
-                        </button>
-                        <button type="button" disabled className="btn btn-sm btn-primary" title="Llega con el backend">
-                            <SaveIcon className="size-4" />
-                            Guardar
-                        </button>
-                    </>
-                }
-            >
-                <div className="grid gap-4 p-4 lg:grid-cols-2">
-                    <div>
-                        <textarea
-                            value={textoPlan}
-                            onChange={(e) => setTextoPlan(e.target.value)}
-                            spellCheck={false}
-                            className="textarea textarea-bordered h-48 w-full font-mono text-sm"
-                            placeholder={
-                                'Pega aquí la lista de marcas, una por línea:\n\nPIP-CM1-1\nPIP-CM1-2\nPIP-TP2-7\n\nSi de una marca van varias piezas:  PIP-CM1-5 x3'
-                            }
-                        />
-                        <ResumenPegado texto={textoPlan} />
-                    </div>
-
-                    <div className="space-y-3">
-                        <Nota>
-                            Una línea = una pieza. Pega la columna tal cual salga de tu hoja: da igual si vienen con
-                            tabulaciones o comas. El tipo se saca solo de la marca.
-                            {fase === '3' && (
-                                <>
-                                    <br />
-                                    <br />
-                                    <b>Pintura lleva su propio plan.</b> Una pieza que se termina de fabricar el viernes
-                                    no da tiempo a pintarse esa semana: aquí se programa lo que pintura cree que va a
-                                    pintar, que puede incluir piezas fabricadas la semana pasada.
-                                </>
-                            )}
-                        </Nota>
-
-                        <label className="block">
-                            <span className="text-base-content/70 mb-1 block text-xs font-semibold">
-                                Notas de la semana
-                            </span>
-                            <textarea
-                                value={textoNotas}
-                                onChange={(e) => setTextoNotas(e.target.value)}
-                                className="textarea textarea-bordered h-16 w-full text-sm"
-                                placeholder="ej. falta material para las TS"
-                            />
-                        </label>
-
-                        <label className="block">
-                            <span className="text-base-content/70 mb-1 block text-xs font-semibold">
-                                Piezas dadas de baja
-                            </span>
-                            <span className="text-base-content/50 mb-1 block text-xs">
-                                Ya no se van a fabricar. Dejan de arrastrarse — es la única forma de que una marca salga
-                                del plan para siempre.
-                            </span>
-                            <textarea
-                                value={textoBajas}
-                                onChange={(e) => setTextoBajas(e.target.value)}
-                                className="textarea textarea-bordered h-16 w-full font-mono text-sm"
-                                placeholder="una marca por línea"
-                            />
-                        </label>
-                    </div>
+            {props.flash?.success && <div className="alert alert-success text-sm">{props.flash.success}</div>}
+            {errores.length > 0 && (
+                <div className="alert alert-error text-sm">
+                    {errores.map((error) => (
+                        <div key={error}>{error}</div>
+                    ))}
                 </div>
-            </Tarjeta>
+            )}
+
+            {/* 1 · la caja donde se pega la lista */}
+            <form onSubmit={guardar}>
+                <Tarjeta
+                    titulo={`Piezas a ${F.gerundio} en la semana ${numeroSemana(semana)}`}
+                    nota={`${rangoSemana(semana)} · ${F.nombre}`}
+                    acciones={
+                        <>
+                            <button type="button" onClick={copiarPendientes} className="btn btn-sm btn-ghost">
+                                <ClipboardCopyIcon className="size-4" />
+                                Copiar pendientes
+                            </button>
+                            {puedeCapturar && (
+                                <button type="submit" disabled={form.processing} className="btn btn-sm btn-primary">
+                                    <SaveIcon className="size-4" />
+                                    {form.processing ? 'Guardando…' : 'Guardar'}
+                                </button>
+                            )}
+                        </>
+                    }
+                >
+                    <div className="grid gap-4 p-4 lg:grid-cols-2">
+                        <div>
+                            <textarea
+                                value={form.data.marcas}
+                                onChange={(e) => form.setData('marcas', e.target.value)}
+                                readOnly={!puedeCapturar}
+                                spellCheck={false}
+                                className="textarea textarea-bordered h-48 w-full font-mono text-sm"
+                                placeholder={
+                                    'Pega aquí la lista de marcas, una por línea:\n\nPIP-CM1-1\nPIP-CM1-2\nPIP-TP2-7\n\nSi de una marca van varias piezas:  PIP-CM1-5 x3'
+                                }
+                            />
+                            <ResumenPegado texto={form.data.marcas} />
+                        </div>
+
+                        <div className="space-y-3">
+                            <Nota>
+                                Una línea = una pieza. Pega la columna tal cual salga de tu hoja: da igual si vienen con
+                                tabulaciones o comas. El tipo se saca solo de la marca.
+                                {fase === '3' && (
+                                    <>
+                                        <br />
+                                        <br />
+                                        <b>Pintura lleva su propio plan.</b> Una pieza que se termina de fabricar el
+                                        viernes no da tiempo a pintarse esa semana: aquí se programa lo que pintura cree
+                                        que va a pintar, que puede incluir piezas fabricadas la semana pasada.
+                                    </>
+                                )}
+                            </Nota>
+
+                            <label className="block">
+                                <span className="text-base-content/70 mb-1 block text-xs font-semibold">
+                                    Notas de la semana
+                                </span>
+                                <textarea
+                                    value={form.data.notas}
+                                    onChange={(e) => form.setData('notas', e.target.value)}
+                                    readOnly={!puedeCapturar}
+                                    className="textarea textarea-bordered h-16 w-full text-sm"
+                                    placeholder="ej. falta material para las TS"
+                                />
+                            </label>
+
+                            <label className="block">
+                                <span className="text-base-content/70 mb-1 block text-xs font-semibold">
+                                    Piezas dadas de baja
+                                </span>
+                                <span className="text-base-content/50 mb-1 block text-xs">
+                                    Ya no se van a fabricar. Dejan de arrastrarse — es la única forma de que una marca
+                                    salga del plan para siempre. Cada una lleva su motivo: sin él, la semana se lee como
+                                    incumplimiento del taller.
+                                </span>
+                                <textarea
+                                    value={form.data.bajas}
+                                    onChange={(e) => form.setData('bajas', e.target.value)}
+                                    readOnly={!puedeCapturar}
+                                    className="textarea textarea-bordered h-16 w-full font-mono text-sm"
+                                    placeholder="una por línea, con su motivo:  PIP-CM1-5: cambio de ingeniería"
+                                />
+                            </label>
+                        </div>
+                    </div>
+                </Tarjeta>
+            </form>
 
             {/* 2 · cómo va la semana */}
             <Tarjeta titulo="Cómo va la semana" nota={rangoSemana(semana)}>
@@ -226,11 +240,7 @@ export function VistaObra({
                     <Kpi
                         titulo="Programadas"
                         valor={total.programadas}
-                        pie={
-                            total.arrastre
-                                ? `${total.nuevas} nuevas + ${total.arrastre} arrastradas`
-                                : 'esta semana'
-                        }
+                        pie={total.arrastre ? `${total.nuevas} nuevas + ${total.arrastre} arrastradas` : 'esta semana'}
                     />
                     <Kpi
                         titulo={F.verbo.charAt(0).toUpperCase() + F.verbo.slice(1)}
@@ -339,12 +349,8 @@ export function VistaObra({
                                             {t.rechazadas ? <Pastilla tono="error">{t.rechazadas}</Pastilla> : '—'}
                                         </td>
                                         <td className="text-right font-mono">{t.empezadas || '—'}</td>
-                                        <td className="text-right font-mono">
-                                            {fabricado === null ? '—' : `${fabricado}%`}
-                                        </td>
-                                        <td className="text-right font-mono">
-                                            {rechazo === null ? '—' : `${rechazo}%`}
-                                        </td>
+                                        <td className="text-right font-mono">{fabricado === null ? '—' : `${fabricado}%`}</td>
+                                        <td className="text-right font-mono">{rechazo === null ? '—' : `${rechazo}%`}</td>
                                         <td className="text-right font-mono font-bold">
                                             {salieron === null ? '—' : `${salieron}%`}
                                         </td>
@@ -367,9 +373,7 @@ export function VistaObra({
                                 <td className="text-right font-mono">
                                     {total.tasaRechazo === null ? '—' : `${total.tasaRechazo}%`}
                                 </td>
-                                <td className="text-right font-mono">
-                                    {total.salieron === null ? '—' : `${total.salieron}%`}
-                                </td>
+                                <td className="text-right font-mono">{total.salieron === null ? '—' : `${total.salieron}%`}</td>
                             </tr>
                         </tfoot>
                     </table>
@@ -385,8 +389,12 @@ export function VistaObra({
                 {lineas.length === 0 ? (
                     <p className="text-base-content/60 px-4 py-10 text-center text-sm">
                         Todavía no hay nada programado.
-                        <br />
-                        Pega arriba la lista de marcas y pulsa Guardar.
+                        {puedeCapturar && (
+                            <>
+                                <br />
+                                Pega arriba la lista de marcas y pulsa Guardar.
+                            </>
+                        )}
                     </p>
                 ) : (
                     <div className="overflow-x-auto">
@@ -405,7 +413,6 @@ export function VistaObra({
                             </thead>
                             <tbody>
                                 {lineas.map((l) => {
-                                    const primera = l.piezas[0];
                                     const estado = estadoDeFila(l, fase);
 
                                     return (
@@ -416,15 +423,9 @@ export function VistaObra({
                                             <td>
                                                 <Pastilla tono={estado.tono}>{estado.texto}</Pastilla>
                                             </td>
-                                            <td className="font-mono text-sm">
-                                                {primera ? primera.semanaFabricada : '—'}
-                                            </td>
-                                            <td className="font-mono text-sm">
-                                                {primera?.semanaLiberada || '—'}
-                                            </td>
-                                            <td className="text-right font-mono">
-                                                {primera ? primera.inspecciones : '—'}
-                                            </td>
+                                            <td className="font-mono text-sm">{l.primera?.semanaFabricada || '—'}</td>
+                                            <td className="font-mono text-sm">{l.primera?.semanaLiberada || '—'}</td>
+                                            <td className="text-right font-mono">{l.primera ? l.primera.inspecciones : '—'}</td>
                                             <td>
                                                 {l.arrastrada ? (
                                                     <Pastilla tono="info">arrastrada de {l.desde}</Pastilla>
@@ -442,7 +443,7 @@ export function VistaObra({
             </Tarjeta>
 
             {/* 5 · la cola de reparación */}
-            <Reparaciones piezas={suyas} semana={semana} fase={fase} />
+            <Reparaciones piezas={vista.reparaciones} semana={semana} fase={fase} />
         </div>
     );
 }

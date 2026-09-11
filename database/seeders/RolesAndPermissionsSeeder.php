@@ -490,9 +490,9 @@ class RolesAndPermissionsSeeder extends Seeder
             'qal.obras.ver',
             'qal.obras.crear',
             'qal.obras.editar',
-            // Abre Avance de producción hasta que tenga su permiso propio. Los
-            // de etapas, piezas, planos, reportes y flechas eran del mapeo 2D.
-            'qal.reportes.ver',
+            // Avance de producción: ver el cruce y capturar el plan de la semana.
+            'qal.programacion.ver',
+            'qal.programacion.capturar',
             'qal.usuarios.gestionar',
             'qal.soldadores.ver',
             'qal.soldadores.crear',

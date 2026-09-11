@@ -10,8 +10,8 @@
  */
 
 import { Kpi, Pastilla, Tarjeta } from '@/components/qal/ui';
-import type { Fase, PiezaVista } from './datos';
 import { diasDesde } from './semanas';
+import type { Fase, PiezaVista } from './tipos';
 
 /** A partir de aquí una pieza parada deja de ser normal y empieza a estorbar. */
 const DIAS_VIEJA = 14;
@@ -80,7 +80,7 @@ export function Reparaciones({ piezas, semana, fase }: { piezas: PiezaVista[]; s
                                 <tr>
                                     <th className="bg-base-200">Marca</th>
                                     <th className="bg-base-200">Obra</th>
-                                    <th className="bg-base-200 text-right">Cons.</th>
+                                    <th className="bg-base-200">QR</th>
                                     <th className="bg-base-200">Rechazada el</th>
                                     <th className="bg-base-200 text-right">Días parada</th>
                                     <th className="bg-base-200 text-right">Insp.</th>
@@ -92,10 +92,10 @@ export function Reparaciones({ piezas, semana, fase }: { piezas: PiezaVista[]; s
                                     const dias = diasDesde(p.fechaUltima);
 
                                     return (
-                                        <tr key={`${p.marca}|${p.obra}|${p.consec}`} className="hover:bg-base-200/50">
+                                        <tr key={`${p.obra_id}|${p.qr}`} className="hover:bg-base-200/50">
                                             <td className="font-semibold">{p.marca}</td>
                                             <td className="text-sm">{p.obra}</td>
-                                            <td className="text-right font-mono">{p.consec}</td>
+                                            <td className="font-mono text-sm">{p.qr}</td>
                                             <td className="font-mono text-sm">{p.fechaUltima}</td>
                                             <td className="text-right">
                                                 <Pastilla
@@ -111,7 +111,7 @@ export function Reparaciones({ piezas, semana, fase }: { piezas: PiezaVista[]; s
                                                 </Pastilla>
                                             </td>
                                             <td className="text-right font-mono">{p.inspecciones}</td>
-                                            <td className="text-sm">{p.inspector}</td>
+                                            <td className="text-sm">{p.inspector ?? '—'}</td>
                                         </tr>
                                     );
                                 })}

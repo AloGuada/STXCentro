@@ -18,32 +18,14 @@
  *
  * Dos vistas: la portada compara todas las obras sin sumarlas —una obra
  * adelantada taparía a otra retrasada—, y dentro de una obra está el plan de la
- * semana con sus cinco bloques.
- *
- * Todavía no lee ni escribe en la base: `qal_inspecciones` y `qal_programaciones`
- * no existen. Los datos salen de `components/qal/avance/datos.ts` y el botón de
- * Guardar está desactivado a propósito — dejar guardar sin persistir sería peor
- * que no ofrecerlo.
- *
- * Divergencia con la especificación que hay que resolver antes del backend:
- * RF-13.5 pide **una sola programación por obra y semana**, pero la aplicación
- * anterior lleva una por obra, semana y transformación, y su razón es buena: 2ª
- * y 3ª no van al mismo ritmo, y una pieza que se termina de fabricar el viernes
- * no da tiempo a pintarse esa semana. La maqueta sigue el comportamiento de la
- * aplicación anterior.
+ * semana con sus cinco bloques. El plan va uno por obra, semana y
+ * transformación, porque 2ª y pintura no van al mismo ritmo; el cruce lo
+ * calcula el servidor. Semana, obra y transformación viven en la URL.
  */
 
-import { Head } from '@inertiajs/react';
-import { useMemo, useState } from 'react';
-import { indexar, type IndicePiezas } from '@/components/qal/avance/calculo';
-import {
-    maquetaDeEjemplo,
-    OBRAS_AVANCE,
-    semanaActual,
-    semanasDisponibles,
-    type Fase,
-} from '@/components/qal/avance/datos';
+import { Head, router } from '@inertiajs/react';
 import { numeroSemana, rangoSemana } from '@/components/qal/avance/semanas';
+import type { ComparativaAvance, Fase, VistaAvance } from '@/components/qal/avance/tipos';
 import { VistaComparativa } from '@/components/qal/avance/vista-comparativa';
 import { VistaObra } from '@/components/qal/avance/vista-obra';
 import { Select, SelectItem } from '@/components/ui/select';
@@ -56,25 +38,31 @@ const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Avance de producción', href: '/admin/calidad/avance' },
 ];
 
-export default function AvanceProduccion() {
-    const { piezas, enProceso, planes } = useMemo(() => maquetaDeEjemplo(), []);
+type ObraOpcion = { id: number; no: string | null; descripcion: string | null };
 
-    const semanas = useMemo(() => semanasDisponibles(), []);
-    const [semana, setSemana] = useState(semanaActual);
-    const [obra, setObra] = useState('');
-    const [fase, setFase] = useState<Fase>('2');
+type Props = {
+    semana: string;
+    semanas: string[];
+    obras: ObraOpcion[];
+    obraId: number | null;
+    fase: Fase;
+    /** Con obra elegida: su plan de la semana, ya cruzado. */
+    vista: VistaAvance | null;
+    /** Sin obra elegida: la portada con todas. */
+    comparativa: ComparativaAvance | null;
+    puedeCapturar: boolean;
+};
 
-    const indices = useMemo<Record<Fase, IndicePiezas>>(
-        () => ({ '2': indexar(piezas['2']), '3': indexar(piezas['3']) }),
-        [piezas],
-    );
+const nombreDe = (obra: ObraOpcion | undefined) => (obra ? [obra.no, obra.descripcion].filter(Boolean).join(' — ') : '');
 
-    const abrir = (cual: string, suFase?: Fase) => {
-        setObra(cual);
-        if (suFase) {
-            setFase(suFase);
-        }
-        window.scrollTo(0, 0);
+export default function AvanceProduccion({ semana, semanas, obras, obraId, fase, vista, comparativa, puedeCapturar }: Props) {
+    const ir = (cambios: { semana?: string; obra?: number | null; fase?: Fase }) => {
+        const destino = { semana, obra: obraId, fase, ...cambios };
+
+        router.get('/admin/calidad/avance', {
+            semana: destino.semana,
+            ...(destino.obra ? { obra: destino.obra, fase: destino.fase } : {}),
+        });
     };
 
     return (
@@ -93,11 +81,7 @@ export default function AvanceProduccion() {
                     <div className="flex flex-wrap items-end gap-2">
                         <label className="text-xs">
                             <span className="text-base-content/60 mb-1 block">Semana</span>
-                            <Select
-                                value={semana}
-                                onValueChange={setSemana}
-                                className="select-sm w-60"
-                            >
+                            <Select value={semana} onValueChange={(valor) => ir({ semana: valor })} className="select-sm w-60">
                                 {semanas.map((s) => (
                                     <SelectItem key={s} value={s}>
                                         {`Semana ${numeroSemana(s)} · ${rangoSemana(s)}`}
@@ -107,41 +91,42 @@ export default function AvanceProduccion() {
                         </label>
                         <label className="text-xs">
                             <span className="text-base-content/60 mb-1 block">Obra</span>
-                            <Select value={obra} onValueChange={setObra} className="select-sm w-56">
+                            <Select
+                                value={obraId ? String(obraId) : ''}
+                                onValueChange={(valor) => ir({ obra: valor ? Number(valor) : null, fase: '2' })}
+                                className="select-sm w-56"
+                            >
                                 <SelectItem value="">Todas las obras</SelectItem>
-                                {OBRAS_AVANCE.map((o) => (
-                                    <SelectItem key={o} value={o}>
-                                        {o}
+                                {obras.map((o) => (
+                                    <SelectItem key={o.id} value={String(o.id)}>
+                                        {nombreDe(o)}
                                     </SelectItem>
                                 ))}
                             </Select>
                         </label>
-                        <span className="badge badge-warning badge-sm font-semibold">Maqueta · datos de ejemplo</span>
                     </div>
                 </div>
 
-                {obra ? (
+                {obraId !== null && vista ? (
                     <VistaObra
-                        obra={obra}
+                        key={`${obraId}|${fase}|${semana}`}
+                        obraId={obraId}
+                        obra={nombreDe(obras.find((o) => o.id === obraId))}
                         semana={semana}
                         fase={fase}
-                        planes={planes}
-                        indices={indices}
-                        enProceso={enProceso}
-                        piezas={piezas[fase]}
-                        onFase={setFase}
-                        onVolver={() => setObra('')}
+                        vista={vista}
+                        puedeCapturar={puedeCapturar}
+                        onFase={(siguiente) => ir({ fase: siguiente })}
+                        onVolver={() => ir({ obra: null })}
                     />
                 ) : (
-                    <VistaComparativa
-                        semana={semana}
-                        obras={OBRAS_AVANCE}
-                        planes={planes}
-                        indices={indices}
-                        enProceso={enProceso}
-                        piezas={piezas['2']}
-                        onAbrir={abrir}
-                    />
+                    comparativa && (
+                        <VistaComparativa
+                            semana={semana}
+                            comparativa={comparativa}
+                            onAbrir={(id, suFase) => ir({ obra: id, fase: suFase ?? '2' })}
+                        />
+                    )
                 )}
             </div>
         </AppLayout>

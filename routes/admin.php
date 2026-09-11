@@ -142,6 +142,7 @@ use App\Http\Controllers\Admin\Qal\ModeloMarcaController as QalModeloMarcaContro
 use App\Http\Controllers\Admin\Qal\OperadorController as QalOperadorController;
 use App\Http\Controllers\Admin\Qal\PiezaController as QalPiezaController;
 use App\Http\Controllers\Admin\Qal\PndController as QalPndController;
+use App\Http\Controllers\Admin\Qal\ProgramacionController as QalProgramacionController;
 use App\Http\Controllers\Admin\Qal\RegistroController as QalRegistroController;
 use App\Http\Controllers\Admin\Qal\ReporteSemanalController as QalReporteSemanalController;
 use App\Http\Controllers\Admin\Qal\ResponsableController as QalResponsableController;
@@ -1224,9 +1225,14 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         // Producción contra calidad, semana a semana. Cuelga del mismo permiso
         // que la captura porque lo que compara es justo lo que se inspecciona;
         // cuando pueda guardar el plan va a pedir qal.programacion.capturar.
-        Route::get('avance', [QalVistasController::class, 'avance'])
-            ->middleware('permission:qal.reportes.ver')
+        // Avance de producción: el plan de la semana contra lo que calidad
+        // inspeccionó. El plan lo teclea Producción; el resto se deduce.
+        Route::get('avance', [QalProgramacionController::class, 'index'])
+            ->middleware('permission:qal.programacion.ver')
             ->name('avance');
+        Route::post('avance/programaciones', [QalProgramacionController::class, 'store'])
+            ->middleware('permission:qal.programacion.capturar')
+            ->name('avance.programaciones.store');
 
         // Pruebas no destructivas. Es recurso aparte de reportes: aqui se
         // cuentan juntas soldadas evaluadas por un laboratorio externo, alla

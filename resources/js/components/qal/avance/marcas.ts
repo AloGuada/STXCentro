@@ -1,8 +1,10 @@
 /**
  * La lista de marcas de la programación semanal.
  *
- * Esto NO es dato de ejemplo: es la regla con la que se lee lo que producción
- * pega en la caja, portada tal cual de la aplicación anterior. Producción
+ * Es la regla con la que se lee lo que producción pega en la caja, portada tal
+ * cual de la aplicación anterior. Aquí sirve para contar en vivo mientras se
+ * pega; al guardar la vuelve a aplicar el servidor (`LectorDeProgramacion`), y
+ * la que vale es ésa, así que las dos tienen que decir lo mismo. Producción
  * programa copiando una columna de su hoja de Excel, y esa columna llega con
  * tabulaciones, comas y cantidades escritas de tres maneras distintas. Si el
  * parseo se equivoca, la semana entera se mide contra un plan que nadie

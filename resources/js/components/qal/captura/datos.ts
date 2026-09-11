@@ -7,25 +7,10 @@
  * rechazado. El servidor tiene su propia copia de la tabla AQL
  * (`CalculadorAql`) y es la que vale al guardar; ésta sólo adelanta el
  * veredicto en pantalla.
- *
- * `OBRAS` es la excepción: son nombres de ejemplo que todavía alimentan la
- * maqueta de Avance de producción, y se van con ella.
  */
 
 /** Nivel de inspección del muestreo. */
 export type NivelMuestreo = 'I' | 'II' | 'III';
-
-/** Sólo para la maqueta de Avance de producción. */
-export const OBRAS = [
-    'AMPLIACION T4 CANCUN',
-    'CANCUN PARKS II NAVE A',
-    'TRES GUERRAS VILLA MAGNA',
-    'STEELEX 2',
-    'TOTEM PRIME CENTER',
-    'RANCHO COCOYOL',
-    'PARKS NAVE J',
-    'PLAZA COMERCIAL CHOLUL',
-];
 
 /**
  * Tabla de muestreo AQL 10.

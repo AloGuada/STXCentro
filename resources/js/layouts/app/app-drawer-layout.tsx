@@ -289,7 +289,7 @@ const navGroups: NavGroup[] = [
                 title: 'Avance de produccion',
                 href: '/admin/calidad/avance',
                 icon: GitCompareArrows,
-                permission: 'qal.reportes.ver',
+                permission: 'qal.programacion.ver',
             },
             {
                 // Lo que falla durante el montaje, en obra. Circuito aparte del

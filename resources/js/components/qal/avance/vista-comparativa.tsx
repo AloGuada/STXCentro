@@ -14,69 +14,9 @@ import { ChevronDownIcon, ChevronRightIcon } from 'lucide-react';
 import { useState } from 'react';
 import { Barra, Pastilla, Tarjeta } from '@/components/qal/ui';
 import { cn } from '@/lib/utils';
-import { lineasDeLaSemana, totalizar, type IndicePiezas } from './calculo';
-import { FASES, type DefinicionFase, type Fase, type Plan, type PiezaVista } from './datos';
 import { Reparaciones } from './reparaciones';
 import { numeroSemana, rangoSemana } from './semanas';
-
-type ResumenFase = {
-    programadas: number;
-    fabricadas: number;
-    pendientes: number;
-    empezadas: number;
-    enReparacion: number;
-    arrastre: number;
-    fabricadasSemana: number;
-    cumplimiento: number | null;
-    salieron: number | null;
-};
-
-type ResumenObra = {
-    obra: string;
-    fases: Record<Fase, ResumenFase>;
-    /** ¿Pasó algo esta semana? Programado, fabricado, liberado, arrastrado o en reparación. */
-    viva: boolean;
-};
-
-function resumirObra(
-    obra: string,
-    semana: string,
-    planes: Plan[],
-    indices: Record<Fase, IndicePiezas>,
-    enProceso: Record<Fase, Map<string, number>>,
-): ResumenObra {
-    const fases = {} as Record<Fase, ResumenFase>;
-
-    FASES.forEach((F) => {
-        const lineas = lineasDeLaSemana(planes, indices[F.id], enProceso[F.id], obra, F.id, semana);
-        const total = totalizar(lineas);
-
-        // Lo de la obra entera, no sólo lo del plan: una pieza rechazada puede
-        // venir de un plan de hace un mes y sigue siendo carga de esta obra.
-        const suyas = [...indices[F.id].entries()]
-            .filter(([clave]) => clave.endsWith(`|${obra}`))
-            .flatMap(([, piezas]) => piezas);
-
-        fases[F.id] = {
-            programadas: total.programadas,
-            fabricadas: total.fabricadas,
-            pendientes: total.pendientes,
-            empezadas: total.empezadas,
-            arrastre: total.arrastre,
-            enReparacion: suyas.filter((p) => p.estatus === 'Rechazado').length,
-            fabricadasSemana: suyas.filter((p) => p.semanaFabricada === semana).length,
-            cumplimiento: total.cumplimiento,
-            salieron: total.salieron,
-        };
-    });
-
-    const viva = FASES.some((F) => {
-        const x = fases[F.id];
-        return x.programadas > 0 || x.fabricadasSemana > 0 || x.enReparacion > 0 || x.arrastre > 0;
-    });
-
-    return { obra, fases, viva };
-}
+import { FASES, type ComparativaAvance, type DefinicionFase, type Fase, type ResumenFase, type ResumenObra } from './tipos';
 
 function BloqueFase({
     definicion,
@@ -123,8 +63,7 @@ function BloqueFase({
             ) : (
                 <>
                     <div className="text-base-content/60 text-xl font-bold">
-                        {resumen.fabricadasSemana}{' '}
-                        <span className="text-sm font-normal">{definicion.verbo}</span>
+                        {resumen.fabricadasSemana} <span className="text-sm font-normal">{definicion.verbo}</span>
                     </div>
                     <div className="text-base-content/50 mt-1 text-xs">sin plan escrito</div>
                 </>
@@ -139,19 +78,13 @@ function BloqueFase({
     );
 }
 
-function TarjetaObra({
-    resumen,
-    onAbrir,
-}: {
-    resumen: ResumenObra;
-    onAbrir: (obra: string, fase?: Fase) => void;
-}) {
+function TarjetaObra({ resumen, onAbrir }: { resumen: ResumenObra; onAbrir: (obraId: number, fase?: Fase) => void }) {
     return (
         <div
             role="button"
             tabIndex={0}
-            onClick={() => onAbrir(resumen.obra)}
-            onKeyDown={(e) => e.key === 'Enter' && onAbrir(resumen.obra)}
+            onClick={() => onAbrir(resumen.obra_id)}
+            onKeyDown={(e) => e.key === 'Enter' && onAbrir(resumen.obra_id)}
             className={cn(
                 'border-base-300 bg-base-100 hover:border-primary/50 cursor-pointer rounded-xl border p-3 transition-colors',
                 !resumen.viva && 'opacity-60',
@@ -169,7 +102,7 @@ function TarjetaObra({
                             key={F.id}
                             definicion={F}
                             resumen={resumen.fases[F.id]}
-                            onAbrir={() => onAbrir(resumen.obra, F.id)}
+                            onAbrir={() => onAbrir(resumen.obra_id, F.id)}
                         />
                     ))}
                 </div>
@@ -186,26 +119,15 @@ function TarjetaObra({
 
 export function VistaComparativa({
     semana,
-    obras,
-    planes,
-    indices,
-    enProceso,
-    piezas,
+    comparativa,
     onAbrir,
 }: {
     semana: string;
-    obras: string[];
-    planes: Plan[];
-    indices: Record<Fase, IndicePiezas>;
-    enProceso: Record<Fase, Map<string, number>>;
-    piezas: PiezaVista[];
-    onAbrir: (obra: string, fase?: Fase) => void;
+    comparativa: ComparativaAvance;
+    onAbrir: (obraId: number, fase?: Fase) => void;
 }) {
     const [verQuietas, setVerQuietas] = useState(false);
-
-    const resumenes = obras
-        .map((obra) => resumirObra(obra, semana, planes, indices, enProceso))
-        .sort((a, b) => a.obra.localeCompare(b.obra, 'es'));
+    const { resumenes } = comparativa;
 
     const vivas = resumenes.filter((r) => r.viva);
     const quietas = resumenes.filter((r) => !r.viva);
@@ -230,7 +152,7 @@ export function VistaComparativa({
             {vivas.length > 0 ? (
                 <div className="grid gap-3 lg:grid-cols-2">
                     {vivas.map((r) => (
-                        <TarjetaObra key={r.obra} resumen={r} onAbrir={onAbrir} />
+                        <TarjetaObra key={r.obra_id} resumen={r} onAbrir={onAbrir} />
                     ))}
                 </div>
             ) : (
@@ -245,16 +167,8 @@ export function VistaComparativa({
                     titulo="Otras obras dadas de alta"
                     nota={`${quietas.length} sin movimiento esta semana`}
                     acciones={
-                        <button
-                            type="button"
-                            onClick={() => setVerQuietas((v) => !v)}
-                            className="btn btn-ghost btn-xs"
-                        >
-                            {verQuietas ? (
-                                <ChevronDownIcon className="size-4" />
-                            ) : (
-                                <ChevronRightIcon className="size-4" />
-                            )}
+                        <button type="button" onClick={() => setVerQuietas((v) => !v)} className="btn btn-ghost btn-xs">
+                            {verQuietas ? <ChevronDownIcon className="size-4" /> : <ChevronRightIcon className="size-4" />}
                             {verQuietas ? 'ocultar' : 'mostrar para programarlas'}
                         </button>
                     }
@@ -262,7 +176,7 @@ export function VistaComparativa({
                     {verQuietas && (
                         <div className="grid gap-3 p-4 lg:grid-cols-2">
                             {quietas.map((r) => (
-                                <TarjetaObra key={r.obra} resumen={r} onAbrir={onAbrir} />
+                                <TarjetaObra key={r.obra_id} resumen={r} onAbrir={onAbrir} />
                             ))}
                         </div>
                     )}
@@ -272,7 +186,7 @@ export function VistaComparativa({
             {/* La cola de reparacion es de todas las obras a la vez: aqui si se
                 suma, porque una pieza parada frena al taller sin importar de
                 que obra sea. Lo que no se suma son los planes. */}
-            <Reparaciones piezas={piezas} semana={semana} />
+            <Reparaciones piezas={comparativa.reparaciones} semana={semana} />
         </div>
     );
 }

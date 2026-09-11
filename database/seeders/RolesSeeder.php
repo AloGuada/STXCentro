@@ -89,6 +89,8 @@ class RolesSeeder extends Seeder
 
         // Admin Produccion tiene todos los permisos de produccion
         $adminProduccion->givePermissionTo($permisos['prod']);
+        // y teclea la programación semanal que Calidad cruza contra lo inspeccionado.
+        $adminProduccion->givePermissionTo(['qal.programacion.ver', 'qal.programacion.capturar']);
 
         // Admin Infra tiene todos los permisos de infraestructura
         $adminInfra->givePermissionTo($permisos['infra']);
@@ -209,7 +211,7 @@ class RolesSeeder extends Seeder
             'cal.flechas.editar',
             'cal.soldadores.ver',
             'qal.obras.ver',
-            'qal.reportes.ver',
+            'qal.programacion.ver',
             'qal.soldadores.ver',
             'qal.inspecciones.ver',
             'qal.inspecciones.crear',
