@@ -16,21 +16,24 @@
  *    más frecuente: si no, el primero define la escala y los cinco salen «Alta».
  *  - **Asociación, no causa.** Los factores de riesgo dicen dónde mirar primero;
  *    nadie ha controlado qué piezas le tocaron a cada quien.
+ *
+ * Los números los calcula el servidor (`DiagnosticoDelTablero`) con los filtros
+ * de la barra.
  */
 
 import { useState } from 'react';
 import {
-    FACTORES_RIESGO,
-    MAPAS_RIESGO,
     MIN_PIEZAS_CAMPO,
-    MIN_PIEZAS_OTRO,
-    MIN_PIEZAS_PERSONA,
-    PERFIL_DEFECTOS,
-    USO_CAMPOS,
+    PIEZAS_MINIMAS,
+    PIEZAS_MINIMAS_PERSONA,
     type CampoFormulario,
+    type DiagnosticoTablero,
     type DimensionPerfil,
+    type FactorRiesgo,
+    type FaseReportada,
+    type FilaPerfil,
     type MapaRiesgo,
-} from '@/components/qal/dashboard/datos';
+} from '@/components/qal/dashboard/tipos';
 import {
     BarraCampo,
     Etiqueta,
@@ -91,11 +94,11 @@ function calcular(campo: CampoFormulario): CampoCalculado {
     return { ...campo, respondido, aplica, pctResp, pctDef, estado };
 }
 
-function UsoCampos() {
+function UsoCampos({ campos }: { campos: CampoFormulario[] }) {
     const [fase, setFase] = useState<'todas' | '1ª' | '2ª' | '3ª'>('todas');
     const [estado, setEstado] = useState<EstadoCampo | ''>('');
 
-    const todos = USO_CAMPOS.map(calcular);
+    const todos = campos.map(calcular);
     const deLaFase = todos.filter((c) => fase === 'todas' || c.fase === fase);
     const filas = deLaFase.filter((c) => !estado || c.estado === estado);
 
@@ -134,6 +137,9 @@ function UsoCampos() {
                     <b>Sin una sola respuesta</b> = candidato a salir del formulario. <b>Sin muestra</b> = esa etapa
                     tiene menos de {MIN_PIEZAS_CAMPO} piezas registradas.
                     <br />
+                    Todo esto se calcula <b>sobre el filtro de arriba</b>: si acotas fechas u obra, un campo puede
+                    aparecer como «sin una sola respuesta» sólo porque en ese periodo no se usó.
+                    <br />
                     <b>Una casilla en blanco no cuenta como OK.</b> Se comprobó en la base: las piezas rechazadas dejan
                     más casillas vacías que las liberadas. El blanco es «no se llenó», no «lo vi y estaba bien»; por eso
                     no entra en ningún denominador.
@@ -141,124 +147,134 @@ function UsoCampos() {
             }
             ancha
         >
-            <div className="mb-3 flex flex-wrap items-center gap-2">
-                <b className="text-sm">{deLaFase.length} campos</b>
-                {(['senal', 'poco', 'sin', 'nunca', 'nodatos'] as EstadoCampo[]).map((e) => {
-                    const cuantos = deLaFase.filter((c) => c.estado === e).length;
-                    if (cuantos === 0) {
-                        return null;
-                    }
-                    return (
-                        <button
-                            key={e}
-                            type="button"
-                            onClick={() => setEstado(estado === e ? '' : e)}
-                            aria-pressed={estado === e}
-                            className={cn('cursor-pointer', estado === e && 'ring-primary rounded-full ring-2')}
-                        >
-                            <Etiqueta texto={`${cuantos} ${ESTADO[e].texto}`} tono={ESTADO[e].tono} />
-                        </button>
-                    );
-                })}
-                {estado && (
-                    <button
-                        type="button"
-                        onClick={() => setEstado('')}
-                        className="text-primary ml-auto text-xs underline"
-                    >
-                        quitar filtro
-                    </button>
-                )}
-            </div>
-
-            {filas.length === 0 ? (
-                <NotaCallada>Ningún campo cumple ese filtro.</NotaCallada>
+            {todos.length === 0 ? (
+                <NotaCallada>No hay inspecciones con puntos por contestar con los filtros actuales.</NotaCallada>
             ) : (
-                <div className="space-y-3">
-                    {Object.keys(bloques)
-                        .sort()
-                        .map((clave) => {
-                            const grupo = bloques[clave]
-                                .slice()
-                                .sort((a, b) => b.pctDef - a.pctDef || b.pctResp - a.pctResp);
-                            const respondido = grupo.reduce((a, c) => a + c.pctResp, 0) / grupo.length;
-                            const conSenal = grupo.filter((c) => c.estado === 'senal').length;
-
+                <>
+                    <div className="mb-3 flex flex-wrap items-center gap-2">
+                        <b className="text-sm">{deLaFase.length} campos</b>
+                        {(['senal', 'poco', 'sin', 'nunca', 'nodatos'] as EstadoCampo[]).map((e) => {
+                            const cuantos = deLaFase.filter((c) => c.estado === e).length;
+                            if (cuantos === 0) {
+                                return null;
+                            }
                             return (
-                                <div key={clave} className="rounded-box border-base-300 border">
-                                    <div className="border-base-300 bg-base-200/40 flex flex-wrap items-center gap-2 border-b px-3 py-2">
-                                        <b className="text-sm">{clave}</b>
-                                        <span className="text-base-content/50 text-xs">
-                                            {grupo.length} campo(s) · {Math.round(respondido)} % respondido
-                                            {conSenal > 0 && ` · ${conSenal} detecta(n) defectos`}
-                                        </span>
-                                    </div>
-                                    <Tabla
-                                        columnas={[
-                                            'Campo',
-                                            'Piezas',
-                                            '% respondido',
-                                            '% con defecto',
-                                            'Distribución',
-                                            'Estado',
-                                        ]}
-                                        filas={grupo.map((c) => [
-                                            <b key="c">{c.campo}</b>,
-                                            num(c.n),
-                                            <span key="r" className={c.pctResp < 50 ? 'text-error font-bold' : ''}>
-                                                {Math.round(c.pctResp)} %
-                                            </span>,
-                                            c.aplica > 0 ? (
-                                                <span key="d">
-                                                    <span className={c.pctResp < 50 ? 'text-base-content/50' : 'font-bold'}>
-                                                        {c.pctDef.toFixed(1)} %
-                                                    </span>{' '}
-                                                    <span className="text-base-content/50 text-xs">
-                                                        {c.defecto}/{c.aplica}
-                                                    </span>
-                                                    {c.pctResp < 50 && (
-                                                        <span
-                                                            className="text-base-content/50"
-                                                            title="El campo se responde en menos de la mitad de las piezas: con tantos blancos, esta tasa es orientativa"
-                                                        >
-                                                            {' '}
-                                                            ≈
-                                                        </span>
-                                                    )}
-                                                </span>
-                                            ) : (
-                                                <span key="d" className="text-base-content/40">
-                                                    n/a
-                                                </span>
-                                            ),
-                                            <BarraCampo
-                                                key="b"
-                                                ok={c.ok}
-                                                defecto={c.defecto}
-                                                noAplica={c.noAplica}
-                                                vacio={c.vacio}
-                                                total={c.n}
-                                            />,
-                                            <Etiqueta
-                                                key="e"
-                                                texto={ESTADO[c.estado].texto}
-                                                tono={ESTADO[c.estado].tono}
-                                            />,
-                                        ])}
-                                    />
-                                </div>
+                                <button
+                                    key={e}
+                                    type="button"
+                                    onClick={() => setEstado(estado === e ? '' : e)}
+                                    aria-pressed={estado === e}
+                                    className={cn('cursor-pointer', estado === e && 'ring-primary rounded-full ring-2')}
+                                >
+                                    <Etiqueta texto={`${cuantos} ${ESTADO[e].texto}`} tono={ESTADO[e].tono} />
+                                </button>
                             );
                         })}
-                </div>
-            )}
+                        {estado && (
+                            <button
+                                type="button"
+                                onClick={() => setEstado('')}
+                                className="text-primary ml-auto text-xs underline"
+                            >
+                                quitar filtro
+                            </button>
+                        )}
+                    </div>
 
-            <p className="text-base-content/50 mt-2 text-xs">
-                <span className="bg-success mr-1 inline-block size-2 rounded-[2px]" /> OK ·{' '}
-                <span className="bg-error mr-1 inline-block size-2 rounded-[2px]" /> con defecto ·{' '}
-                <span className="bg-base-content/25 mr-1 inline-block size-2 rounded-[2px]" /> no aplica ·{' '}
-                <span className="bg-base-300 mr-1 inline-block size-2 rounded-[2px]" /> sin contestar. Pasa el ratón por
-                la barra para ver los números.
-            </p>
+                    {filas.length === 0 ? (
+                        <NotaCallada>Ningún campo cumple ese filtro.</NotaCallada>
+                    ) : (
+                        <div className="space-y-3">
+                            {Object.keys(bloques)
+                                .sort()
+                                .map((clave) => {
+                                    const grupo = bloques[clave]
+                                        .slice()
+                                        .sort((a, b) => b.pctDef - a.pctDef || b.pctResp - a.pctResp);
+                                    const respondido = grupo.reduce((a, c) => a + c.pctResp, 0) / grupo.length;
+                                    const conSenal = grupo.filter((c) => c.estado === 'senal').length;
+
+                                    return (
+                                        <div key={clave} className="rounded-box border-base-300 border">
+                                            <div className="border-base-300 bg-base-200/40 flex flex-wrap items-center gap-2 border-b px-3 py-2">
+                                                <b className="text-sm">{clave}</b>
+                                                <span className="text-base-content/50 text-xs">
+                                                    {grupo.length} campo(s) · {Math.round(respondido)} % respondido
+                                                    {conSenal > 0 && ` · ${conSenal} detecta(n) defectos`}
+                                                </span>
+                                            </div>
+                                            <Tabla
+                                                columnas={[
+                                                    'Campo',
+                                                    'Piezas',
+                                                    '% respondido',
+                                                    '% con defecto',
+                                                    'Distribución',
+                                                    'Estado',
+                                                ]}
+                                                filas={grupo.map((c) => [
+                                                    <b key="c">{c.campo}</b>,
+                                                    num(c.n),
+                                                    <span key="r" className={c.pctResp < 50 ? 'text-error font-bold' : ''}>
+                                                        {Math.round(c.pctResp)} %
+                                                    </span>,
+                                                    c.aplica > 0 ? (
+                                                        <span key="d">
+                                                            <span
+                                                                className={
+                                                                    c.pctResp < 50 ? 'text-base-content/50' : 'font-bold'
+                                                                }
+                                                            >
+                                                                {c.pctDef.toFixed(1)} %
+                                                            </span>{' '}
+                                                            <span className="text-base-content/50 text-xs">
+                                                                {c.defecto}/{c.aplica}
+                                                            </span>
+                                                            {c.pctResp < 50 && (
+                                                                <span
+                                                                    className="text-base-content/50"
+                                                                    title="El campo se responde en menos de la mitad de las piezas: con tantos blancos, esta tasa es orientativa"
+                                                                >
+                                                                    {' '}
+                                                                    ≈
+                                                                </span>
+                                                            )}
+                                                        </span>
+                                                    ) : (
+                                                        <span key="d" className="text-base-content/40">
+                                                            n/a
+                                                        </span>
+                                                    ),
+                                                    <BarraCampo
+                                                        key="b"
+                                                        ok={c.ok}
+                                                        defecto={c.defecto}
+                                                        noAplica={c.noAplica}
+                                                        vacio={c.vacio}
+                                                        total={c.n}
+                                                    />,
+                                                    <Etiqueta
+                                                        key="e"
+                                                        texto={ESTADO[c.estado].texto}
+                                                        tono={ESTADO[c.estado].tono}
+                                                    />,
+                                                ])}
+                                            />
+                                        </div>
+                                    );
+                                })}
+                        </div>
+                    )}
+
+                    <p className="text-base-content/50 mt-2 text-xs">
+                        <span className="bg-success mr-1 inline-block size-2 rounded-[2px]" /> OK ·{' '}
+                        <span className="bg-error mr-1 inline-block size-2 rounded-[2px]" /> con defecto ·{' '}
+                        <span className="bg-base-content/25 mr-1 inline-block size-2 rounded-[2px]" /> no aplica ·{' '}
+                        <span className="bg-base-300 mr-1 inline-block size-2 rounded-[2px]" /> sin contestar. Pasa el
+                        ratón por la barra para ver los números.
+                    </p>
+                </>
+            )}
         </TarjetaGrafica>
     );
 }
@@ -281,7 +297,40 @@ const FONDO: string[][] = [
 const NIVEL_Y = ['Baja', 'Media', 'Alta'];
 const NIVEL_X = ['Bajo', 'Medio', 'Alto'];
 
+/** Cómo se nombra cada mapa y en qué mide su impacto. */
+const ROTULO_MAPA: Record<
+    FaseReportada,
+    { etapa: string; nota: string; unidad: string; larga: string; material: string; queSeMide: string }
+> = {
+    '2ª': {
+        etapa: '2ª transformación',
+        nota: 'soldadura, armado y vestido',
+        unidad: 'kg',
+        larga: 'kilos de pieza afectados',
+        material: 'los kilos',
+        queSeMide: 'el peso de material',
+    },
+    '3ª': {
+        etapa: 'pintura',
+        nota: '3ª · histórico',
+        unidad: 'm²',
+        larga: 'm² pintados',
+        material: 'la superficie',
+        queSeMide: 'la superficie pintada',
+    },
+};
+
 function MapaDeRiesgo({ mapa }: { mapa: MapaRiesgo }) {
+    const rotulo = ROTULO_MAPA[mapa.fase];
+
+    if (mapa.items.length === 0) {
+        return (
+            <TarjetaGrafica titulo={`Mapa de riesgo · ${rotulo.etapa}`} apunte={rotulo.nota}>
+                <NotaCallada>Aún no hay defectos de {rotulo.etapa} capturados para construir el mapa.</NotaCallada>
+            </TarjetaGrafica>
+        );
+    }
+
     // Cada celda guarda los números de los defectos que caen en ella.
     const celdas: Record<string, number[]> = {};
     mapa.items.forEach((item, i) => {
@@ -294,19 +343,14 @@ function MapaDeRiesgo({ mapa }: { mapa: MapaRiesgo }) {
 
     return (
         <TarjetaGrafica
-            titulo={`Mapa de riesgo · ${mapa.etapa}`}
-            apunte={mapa.nota}
+            titulo={`Mapa de riesgo · ${rotulo.etapa}`}
+            apunte={rotulo.nota}
             pie={
                 <>
                     Cruza la <b>frecuencia</b> de cada defecto con{' '}
                     {mapa.usaMagnitud ? (
                         <>
-                            {mapa.unidadMagnitud === 'm²' ? (
-                                <>la <b>superficie pintada</b></>
-                            ) : (
-                                <>el <b>peso de material</b></>
-                            )}{' '}
-                            que compromete
+                            <b>{rotulo.queSeMide}</b> que compromete
                         </>
                     ) : (
                         <>
@@ -318,8 +362,8 @@ function MapaDeRiesgo({ mapa }: { mapa: MapaRiesgo }) {
                         <>
                             {' '}
                             <b className="text-error">
-                                El eje de impacto no usa {mapa.unidadMagnitud}: sólo el {mapa.coberturaMagnitud} % de
-                                las piezas con defecto tienen ese dato capturado
+                                El eje de impacto no usa {rotulo.unidad}: sólo el {mapa.coberturaMagnitud} % de las
+                                piezas con defecto tienen ese dato capturado
                             </b>
                             , y un impacto de 0 por falta de dato se leería como «no impacta».
                         </>
@@ -334,8 +378,8 @@ function MapaDeRiesgo({ mapa }: { mapa: MapaRiesgo }) {
                     <br />
                     Los cortes son fijos: <b>baja</b> por debajo del 10 % del total, <b>media</b> hasta el 25 %,{' '}
                     <b>alta</b> por encima. Los porcentajes de impacto <b>no suman 100</b>: una pieza con tres defectos
-                    aporta sus {mapa.unidadMagnitud} a los tres, así que cada uno se lee como «qué parte del material
-                    con defecto lleva este defecto», no como un reparto.
+                    aporta sus {rotulo.unidad} a los tres, así que cada uno se lee como «qué parte del material con
+                    defecto lleva este defecto», no como un reparto.
                 </>
             }
         >
@@ -378,7 +422,7 @@ function MapaDeRiesgo({ mapa }: { mapa: MapaRiesgo }) {
             </div>
 
             <div className="text-base-content/50 mt-1.5 text-center text-[11px] font-bold uppercase">
-                Impacto · {mapa.usaMagnitud ? mapa.magnitudLarga : 'piezas afectadas'}
+                Impacto · {mapa.usaMagnitud ? rotulo.larga : 'piezas afectadas'}
             </div>
 
             <ul className="divide-base-300 mt-3 divide-y">
@@ -393,9 +437,7 @@ function MapaDeRiesgo({ mapa }: { mapa: MapaRiesgo }) {
                                 Frecuencia: {item.defectos} defectos ({Math.round(item.frecuencia)} % del total) ·
                                 Impacto:{' '}
                                 {mapa.usaMagnitud
-                                    ? `${num(item.magnitud)} ${mapa.unidadMagnitud} · ${item.impacto} % de ${
-                                          mapa.unidadMagnitud === 'm²' ? 'la superficie' : 'los kilos'
-                                      } con defecto`
+                                    ? `${num(Math.round(item.magnitud))} ${rotulo.unidad} · ${item.impacto} % de ${rotulo.material} con defecto`
                                     : `${item.piezas} de ${num(mapa.piezasEtapa)} piezas de la etapa · ${item.impacto} %`}
                             </div>
                         </div>
@@ -410,29 +452,34 @@ function MapaDeRiesgo({ mapa }: { mapa: MapaRiesgo }) {
 // Factores de riesgo y perfil de defectos
 // ---------------------------------------------------------------------------
 
-const EVIDENCIA: Record<'confirmado' | 'indicio' | 'nada', { texto: string; tono: Tono }> = {
+const EVIDENCIA: Record<FactorRiesgo['evidencia'], { texto: string; tono: Tono }> = {
     confirmado: { texto: 'confirmado', tono: 'ok' },
     indicio: { texto: 'indicio', tono: 'alerta' },
     nada: { texto: 'puede ser azar', tono: 'neutro' },
 };
 
-function FactoresRiesgo() {
-    const confirmados = FACTORES_RIESGO.filter((f) => f.evidencia === 'confirmado').length;
+function FactoresRiesgo({ factores }: { factores: FactorRiesgo[] }) {
+    const confirmados = factores.filter((f) => f.evidencia === 'confirmado').length;
 
     return (
         <TarjetaGrafica
             titulo="Factores de riesgo"
-            apunte={`dónde mirar primero · ${confirmados} confirmado(s) de ${FACTORES_RIESGO.length} señales`}
+            apunte={
+                factores.length > 0
+                    ? `dónde mirar primero · ${confirmados} confirmado(s) de ${factores.length} señales`
+                    : 'dónde mirar primero'
+            }
             pie={
                 <>
                     <b>«2.0×»</b> = esa categoría rechaza el doble que el promedio de su transformación. Cada categoría
                     se compara con <b>su propia etapa</b>, no con el total: en pintura casi no se rechaza al cierre, así
                     que mezclarlas hacía que cualquiera de 2ª pareciera un problema.
                     <br />
-                    <b>¿Es real?</b> Como se miran muchas categorías a la vez, alguna saldría alta por casualidad: por
-                    eso <b>confirmado</b> exige un listón más duro (0,05 dividido entre el número de comparaciones) e{' '}
-                    <b>indicio</b> es el p &lt; 0,05 de toda la vida. «Puede ser azar» no significa que esté bien:
-                    significa que con estas piezas todavía no se puede afirmar.
+                    <b>¿Es real?</b> Se calcula la probabilidad exacta de ver esos rechazos en esas piezas si la
+                    categoría fuera como el resto. Como se miran muchas categorías a la vez, alguna saldría alta por
+                    casualidad: por eso <b>confirmado</b> exige un listón más duro (0,05 dividido entre el número de
+                    comparaciones) e <b>indicio</b> es el p &lt; 0,05 de toda la vida. «Puede ser azar» no significa
+                    que esté bien: significa que con estas piezas todavía no se puede afirmar.
                     <br />
                     Una pieza cuenta como rechazada si lo fue <b>alguna vez</b> —la misma definición que la portada—, no
                     sólo si acabó mal: por eso los porcentajes son más altos que en el chi² de Estadística.
@@ -449,38 +496,45 @@ function FactoresRiesgo() {
                 tabla dice <b>cuál</b> es el caso concreto y por dónde empezar.
             </p>
 
-            <Tabla
-                columnas={['Etapa', 'Factor', 'Valor', 'Piezas', 'Rechazo', 'vs su etapa', '¿Es real?']}
-                atenuadas={FACTORES_RIESGO.map((f) => f.evidencia === 'nada')}
-                filas={FACTORES_RIESGO.map((f) => {
-                    const malo = f.rr >= 1.3;
+            {factores.length === 0 ? (
+                <NotaCallada>
+                    Ninguna categoría se desvía lo suficiente del promedio de su etapa (mínimo {PIEZAS_MINIMAS} piezas,{' '}
+                    {PIEZAS_MINIMAS_PERSONA} si la categoría es una persona).
+                </NotaCallada>
+            ) : (
+                <Tabla
+                    columnas={['Etapa', 'Factor', 'Valor', 'Piezas', 'Rechazo', 'vs su etapa', '¿Es real?']}
+                    atenuadas={factores.map((f) => f.evidencia === 'nada')}
+                    filas={factores.map((f) => {
+                        const malo = f.rr >= 1.3;
 
-                    return [
-                        <span key="f" className="text-base-content/50 text-xs">
-                            {f.fase}
-                        </span>,
-                        f.factor,
-                        <b key="v">{f.valor}</b>,
-                        <span key="n">
-                            {num(f.piezas)}{' '}
-                            <span className="text-base-content/50 text-xs">({f.rechazadas} rech.)</span>
-                        </span>,
-                        <span key="t">
-                            {pct(f.tasa, 0)}{' '}
-                            <span className="text-base-content/50 text-xs">vs {pct(f.base, 0)}</span>
-                        </span>,
-                        <b key="rr" className={malo ? 'text-error' : 'text-success'}>
-                            {f.rr.toFixed(1)}×
-                        </b>,
-                        <span key="e" className="inline-flex items-center gap-1.5">
-                            <Etiqueta texto={EVIDENCIA[f.evidencia].texto} tono={EVIDENCIA[f.evidencia].tono} />
-                            <span className="text-base-content/50 text-xs">
-                                p={f.p < 0.001 ? '<0.001' : f.p.toFixed(3)}
-                            </span>
-                        </span>,
-                    ];
-                })}
-            />
+                        return [
+                            <span key="f" className="text-base-content/50 text-xs">
+                                {f.fase}
+                            </span>,
+                            f.factor,
+                            <b key="v">{f.valor}</b>,
+                            <span key="n">
+                                {num(f.piezas)}{' '}
+                                <span className="text-base-content/50 text-xs">({f.rechazadas} rech.)</span>
+                            </span>,
+                            <span key="t">
+                                {pct(f.tasa, 0)}{' '}
+                                <span className="text-base-content/50 text-xs">vs {pct(f.base, 0)}</span>
+                            </span>,
+                            <b key="rr" className={malo ? 'text-error' : 'text-success'}>
+                                {f.rr.toFixed(1)}×
+                            </b>,
+                            <span key="e" className="inline-flex items-center gap-1.5">
+                                <Etiqueta texto={EVIDENCIA[f.evidencia].texto} tono={EVIDENCIA[f.evidencia].tono} />
+                                <span className="text-base-content/50 text-xs">
+                                    p={f.p < 0.001 ? '<0.001' : f.p.toFixed(3)}
+                                </span>
+                            </span>,
+                        ];
+                    })}
+                />
+            )}
         </TarjetaGrafica>
     );
 }
@@ -493,11 +547,11 @@ const ETIQUETA_PERFIL: Record<DimensionPerfil, string> = {
     tipo: 'Tipo de pieza',
 };
 
-function PerfilDefectos() {
+function PerfilDefectos({ perfil }: { perfil: Record<DimensionPerfil, FilaPerfil[]> }) {
     const [dimension, setDimension] = useState<DimensionPerfil>('soldador');
-    const filas = PERFIL_DEFECTOS[dimension];
+    const filas = perfil[dimension];
     const esPersona = dimension === 'soldador' || dimension === 'inspector';
-    const minimo = esPersona ? MIN_PIEZAS_PERSONA : MIN_PIEZAS_OTRO;
+    const minimo = esPersona ? PIEZAS_MINIMAS_PERSONA : PIEZAS_MINIMAS;
 
     return (
         <TarjetaGrafica
@@ -525,7 +579,8 @@ function PerfilDefectos() {
                     <br />
                     El <b>defecto característico</b> es aquel en el que esa categoría se desvía más de la mezcla de su
                     etapa (mínimo 3 casos; «Otro» no cuenta, es el cajón de sastre). Sirve para dar formación o ajuste
-                    específico, no para comparar personas. Las tasas se publican a partir de {minimo} piezas
+                    específico, no para comparar personas. <b>Piezas</b> son piezas distintas, no inspecciones: si hay
+                    re-inspecciones se indica al lado. Las tasas se publican a partir de {minimo} piezas
                     {esPersona && ' —el mínimo es más alto cuando la fila lleva el nombre de una persona—'}.
                     {dimension === 'inspector' && (
                         <>
@@ -543,86 +598,93 @@ function PerfilDefectos() {
             }
             ancha
         >
-            <Tabla
-                columnas={[
-                    'Etapa',
-                    ETIQUETA_PERFIL[dimension],
-                    'Piezas',
-                    'Defectos',
-                    'Def./pieza',
-                    'Rechazo',
-                    'Sus 3 defectos principales',
-                    'Defecto característico',
-                ]}
-                filas={filas.map((f) => [
-                    <span key="f" className="text-base-content/50 text-xs">
-                        {f.fase}
-                    </span>,
-                    <b key="k">{f.nombre}</b>,
-                    <span key="p">
-                        {num(f.piezas)}
-                        {f.inspecciones !== f.piezas && (
-                            <span className="text-base-content/50 text-xs"> · {f.inspecciones} insp.</span>
-                        )}
-                    </span>,
-                    num(f.defectos),
-                    f.defPorPieza.toFixed(2),
-                    f.rechazo === null ? (
-                        <span
-                            key="r"
-                            className="text-base-content/40 text-xs"
-                            title={`hacen falta ${minimo} piezas para publicar una tasa`}
-                        >
-                            n&lt;{minimo}
-                        </span>
-                    ) : (
-                        pct(f.rechazo, 0)
-                    ),
-                    <span key="t" className="flex flex-wrap justify-end gap-1">
-                        {f.top.length > 0 ? (
-                            f.top.map((t) => (
-                                <span
-                                    key={t.defecto}
-                                    className="bg-base-200 rounded-full px-2 py-0.5 text-xs whitespace-nowrap"
-                                >
-                                    <b>{t.defecto}</b> {t.n} ({Math.round(t.share)} %)
-                                </span>
-                            ))
+            {filas.length === 0 ? (
+                <NotaCallada>
+                    Aún no hay suficientes datos con ese desglose: hacen falta al menos 2 piezas por{' '}
+                    {ETIQUETA_PERFIL[dimension].toLowerCase()} dentro de una misma transformación.
+                </NotaCallada>
+            ) : (
+                <Tabla
+                    columnas={[
+                        'Etapa',
+                        ETIQUETA_PERFIL[dimension],
+                        'Piezas',
+                        'Defectos',
+                        'Def./pieza',
+                        'Rechazo',
+                        'Sus 3 defectos principales',
+                        'Defecto característico',
+                    ]}
+                    filas={filas.map((f) => [
+                        <span key="f" className="text-base-content/50 text-xs">
+                            {f.fase}
+                        </span>,
+                        <b key="k">{f.nombre}</b>,
+                        <span key="p">
+                            {num(f.piezas)}
+                            {f.inspecciones !== f.piezas && (
+                                <span className="text-base-content/50 text-xs"> · {f.inspecciones} insp.</span>
+                            )}
+                        </span>,
+                        num(f.defectos),
+                        f.defPorPieza.toFixed(2),
+                        f.rechazo === null ? (
+                            <span
+                                key="r"
+                                className="text-base-content/40 text-xs"
+                                title={`hacen falta ${f.minimo} piezas para publicar una tasa`}
+                            >
+                                n&lt;{f.minimo}
+                            </span>
                         ) : (
-                            <span className="text-base-content/40 text-xs">sin defectos</span>
-                        )}
-                    </span>,
-                    f.caracteristico ? (
-                        <div key="c">
-                            <b className="text-warning">{f.caracteristico.defecto}</b>
-                            <div className="text-base-content/50 text-xs">
-                                {f.caracteristico.indice.toFixed(1)}× más frecuente que el promedio de {f.fase}
+                            pct(f.rechazo, 0)
+                        ),
+                        <span key="t" className="flex flex-wrap justify-end gap-1">
+                            {f.top.length > 0 ? (
+                                f.top.map((t) => (
+                                    <span
+                                        key={t.defecto}
+                                        className="bg-base-200 rounded-full px-2 py-0.5 text-xs whitespace-nowrap"
+                                    >
+                                        <b>{t.defecto}</b> {t.n} ({Math.round(t.share)} %)
+                                    </span>
+                                ))
+                            ) : (
+                                <span className="text-base-content/40 text-xs">sin defectos</span>
+                            )}
+                        </span>,
+                        f.caracteristico ? (
+                            <div key="c">
+                                <b className="text-warning">{f.caracteristico.defecto}</b>
+                                <div className="text-base-content/50 text-xs">
+                                    {f.caracteristico.indice.toFixed(1)}× más frecuente que el promedio de {f.fase}
+                                </div>
                             </div>
-                        </div>
-                    ) : (
-                        <span key="c" className="text-base-content/40">
-                            —
-                        </span>
-                    ),
-                ])}
-            />
+                        ) : (
+                            <span key="c" className="text-base-content/40">
+                                —
+                            </span>
+                        ),
+                    ])}
+                />
+            )}
         </TarjetaGrafica>
     );
 }
 
-export function TabDiagnostico() {
+export function TabDiagnostico({ datos }: { datos: DiagnosticoTablero }) {
     return (
         <div className="space-y-3">
-            <UsoCampos />
+            <UsoCampos campos={datos.usoCampos} />
 
             <Rejilla2>
-                {MAPAS_RIESGO.map((mapa) => (
-                    <MapaDeRiesgo key={mapa.etapa} mapa={mapa} />
+                {datos.mapas.map((mapa) => (
+                    <MapaDeRiesgo key={mapa.fase} mapa={mapa} />
                 ))}
             </Rejilla2>
 
-            <FactoresRiesgo />
-            <PerfilDefectos />
+            <FactoresRiesgo factores={datos.factores} />
+            <PerfilDefectos perfil={datos.perfil} />
         </div>
     );
 }

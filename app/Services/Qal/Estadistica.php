@@ -66,6 +66,44 @@ class Estadistica
     }
 
     /**
+     * La probabilidad exacta, a dos colas, de ver tantos éxitos en tantos
+     * ensayos si la probabilidad fuera la de la base. Con pocas piezas es la
+     * prueba honesta: la aproximación normal se rompe justo ahí.
+     */
+    public static function pBinomialDosColas(int $exitos, int $ensayos, float $probabilidad): float
+    {
+        $abajo = 0.0;
+        $arriba = 0.0;
+
+        for ($i = 0; $i <= $exitos; $i++) {
+            $abajo += self::binomial($i, $ensayos, $probabilidad);
+        }
+
+        for ($i = $exitos; $i <= $ensayos; $i++) {
+            $arriba += self::binomial($i, $ensayos, $probabilidad);
+        }
+
+        return min(1.0, 2 * min($abajo, $arriba));
+    }
+
+    /** La probabilidad de exactamente k éxitos en n ensayos. */
+    private static function binomial(int $exitos, int $ensayos, float $probabilidad): float
+    {
+        if ($probabilidad <= 0) {
+            return $exitos === 0 ? 1.0 : 0.0;
+        }
+
+        if ($probabilidad >= 1) {
+            return $exitos === $ensayos ? 1.0 : 0.0;
+        }
+
+        return exp(
+            self::lnGamma($ensayos + 1) - self::lnGamma($exitos + 1) - self::lnGamma($ensayos - $exitos + 1)
+            + $exitos * log($probabilidad) + ($ensayos - $exitos) * log(1 - $probabilidad),
+        );
+    }
+
+    /**
      * La gamma incompleta inferior regularizada P(a, x): por su serie cuando
      * x < a + 1 y por fracción continua cuando no, que es donde cada una
      * converge rápido.

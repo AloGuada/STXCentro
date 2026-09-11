@@ -180,11 +180,96 @@ export type EstadisticaTablero = {
     tendencias: Record<EtapaPrueba, TendenciaRechazo>;
 };
 
+/** Por debajo de estas piezas de la etapa no se puede decir nada de un campo. */
+export const MIN_PIEZAS_CAMPO = 10;
+
+/** Piezas para publicar una tasa sin nombre de persona, y con él. */
+export const PIEZAS_MINIMAS = 4;
+export const PIEZAS_MINIMAS_PERSONA = 10;
+
+/**
+ * Uso de un punto del formulario. `% respondido` va sobre `n`; `% con defecto`
+ * sólo sobre donde aplicaba (OK + defecto). El blanco no entra en ninguno.
+ */
+export type CampoFormulario = {
+    fase: Fase;
+    bloque: string;
+    campo: string;
+    /** Inspecciones de la etapa en las que el punto aplicaba. */
+    n: number;
+    ok: number;
+    defecto: number;
+    noAplica: number;
+    vacio: number;
+};
+
+export type ItemRiesgo = {
+    defecto: string;
+    defectos: number;
+    /** % del total de defectos de la etapa. */
+    frecuencia: number;
+    piezas: number;
+    magnitud: number;
+    /** % de la magnitud (o de las piezas) con defecto que lleva este defecto. */
+    impacto: number;
+};
+
+export type MapaRiesgo = {
+    fase: FaseReportada;
+    totalDefectos: number;
+    tiposDefecto: number;
+    piezasEtapa: number;
+    /** `false` = el impacto se mide en piezas por falta de peso o área. */
+    usaMagnitud: boolean;
+    coberturaMagnitud: number;
+    items: ItemRiesgo[];
+};
+
+export type FactorRiesgo = {
+    fase: Fase;
+    factor: string;
+    valor: string;
+    piezas: number;
+    rechazadas: number;
+    /** % de rechazo de la categoría. */
+    tasa: number;
+    /** % de rechazo de su etapa. */
+    base: number;
+    /** Riesgo relativo: cuántas veces la tasa de su etapa. */
+    rr: number;
+    p: number;
+    evidencia: 'confirmado' | 'indicio' | 'nada';
+};
+
+export type DimensionPerfil = 'soldador' | 'inspector' | 'obra' | 'modulo' | 'tipo';
+
+export type FilaPerfil = {
+    fase: Fase;
+    nombre: string;
+    piezas: number;
+    inspecciones: number;
+    defectos: number;
+    defPorPieza: number;
+    /** `null` = no llega al mínimo de piezas para publicar una tasa. */
+    rechazo: number | null;
+    minimo: number;
+    top: { defecto: string; n: number; share: number }[];
+    caracteristico: { defecto: string; indice: number } | null;
+};
+
+export type DiagnosticoTablero = {
+    usoCampos: CampoFormulario[];
+    mapas: MapaRiesgo[];
+    factores: FactorRiesgo[];
+    perfil: Record<DimensionPerfil, FilaPerfil[]>;
+};
+
 export type DatosTablero = {
     resumen: ResumenTablero;
     operacion: OperacionTablero;
     tasas: Record<BaseTasa, TasaNormalizada>;
     estadistica: EstadisticaTablero;
+    diagnostico: DiagnosticoTablero;
 };
 
 /** Por debajo de esta cobertura una tasa normalizada no se publica. */

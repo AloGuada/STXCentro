@@ -21,6 +21,12 @@ test('la normal acumulada coincide con las tablas', function () {
         ->and(Estadistica::normalAcumulada(-1.96))->toEqualWithDelta(0.025, 0.001);
 });
 
+test('la binomial exacta de dos colas', function () {
+    expect(Estadistica::pBinomialDosColas(4, 5, 0.4))->toEqualWithDelta(0.17408, 0.0001)
+        ->and(Estadistica::pBinomialDosColas(0, 5, 0.4))->toEqualWithDelta(0.15552, 0.0001)
+        ->and(Estadistica::pBinomialDosColas(5, 10, 0.5))->toEqual(1.0);
+});
+
 test('la descriptiva usa la sigma muestral y la mediana de en medio', function () {
     $descripcion = Estadistica::describir([9, 2, 4, 4, 5, 4, 7, 5]);
 

@@ -8,7 +8,8 @@ use Illuminate\Support\Collection;
 /**
  * Las cuentas del tablero de Calidad: el resumen ejecutivo, el de analítica, la
  * pestaña Operación y las tasas normalizadas que comparten. La pestaña
- * Estadística la calcula `EstadisticaDelTablero` sobre las mismas filas.
+ * Estadística y Diagnóstico las calculan `EstadisticaDelTablero` y
+ * `DiagnosticoDelTablero` sobre las mismas filas.
  *
  * Son las definiciones del tablero anterior, donde ya estaban discutidas:
  *
@@ -66,11 +67,12 @@ class TableroCalidad
     public function __construct(
         private readonly FilasDelTablero $filas,
         private readonly EstadisticaDelTablero $estadistica,
+        private readonly DiagnosticoDelTablero $diagnostico,
     ) {}
 
     /**
      * @param  array<string, string|null>  $filtros
-     * @return array{resumen: array<string, mixed>, operacion: array<string, mixed>, tasas: array<string, array<string, mixed>>, estadistica: array<string, mixed>}
+     * @return array{resumen: array<string, mixed>, operacion: array<string, mixed>, tasas: array<string, array<string, mixed>>, estadistica: array<string, mixed>, diagnostico: array<string, mixed>}
      */
     public function calcular(array $filtros): array
     {
@@ -85,6 +87,7 @@ class TableroCalidad
                 ->mapWithKeys(fn (string $base): array => [$base => $this->tasa($filas, $base)])
                 ->all(),
             'estadistica' => $this->estadistica->calcular($filas),
+            'diagnostico' => $this->diagnostico->calcular($filas, $filtros),
         ];
     }
 
@@ -172,29 +175,10 @@ class TableroCalidad
             // pintura ordena procesos distintos y no dice dónde actuar.
             'pareto' => [
                 'p2_deftypes' => $this->pareto($filas->where('fase', '2ª')->where('armado', false), 'defectos'),
-                'armado' => $this->pareto($filas->where('armado', true), 'fallasArmado'),
+                'armado' => $this->pareto($filas->where('armado', true), 'fallas'),
                 'p3_deftypes' => $this->pareto($filas->where('fase', '3ª'), 'defectos'),
             ],
         ];
-    }
-
-    /**
-     * Cada pieza con su historia, de la primera inspección a la última.
-     *
-     * @param  Collection<int, array<string, mixed>>  $filas
-     * @return Collection<int, array{primera: array<string, mixed>, ultima: array<string, mixed>, rechazos: int, conVeredicto: bool}>
-     */
-    private function porPieza(Collection $filas): Collection
-    {
-        return $filas
-            ->groupBy('pieza')
-            ->map(fn (Collection $historia): array => [
-                'primera' => $historia->first(),
-                'ultima' => $historia->last(),
-                'rechazos' => $historia->where('estatus', EstatusInspeccion::Rechazado->value)->count(),
-                'conVeredicto' => $historia->contains(fn (array $fila): bool => $this->tieneVeredicto($fila)),
-            ])
-            ->values();
     }
 
     /**
@@ -505,11 +489,5 @@ class TableroCalidad
         }
 
         return ($base === 'ton' ? $medida / 1000 : $medida) * $fila['muestra'];
-    }
-
-    /** @param  Collection<int, array<string, mixed>>  $piezas */
-    private function tasaDeRechazo(Collection $piezas): ?float
-    {
-        return $this->porcentaje($piezas->where('rechazos', '>', 0)->count(), $piezas->count());
     }
 }

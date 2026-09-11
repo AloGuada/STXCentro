@@ -99,6 +99,31 @@ class FilasDelTablero
     }
 
     /**
+     * Cuántas veces se contestó cada punto con cada resultado en las
+     * inspecciones filtradas. Las casillas en blanco no tienen fila: salen de
+     * restarle esto a las inspecciones donde el punto aplicaba.
+     *
+     * @param  array<string, string|null>  $filtros
+     * @return Collection<int, array{punto_id: int, resultado: string, n: int}>
+     */
+    public function respuestas(array $filtros): Collection
+    {
+        return InspeccionPunto::query()
+            ->whereIn('inspeccion_id', $this->consulta($filtros)->select('id'))
+            ->whereNotNull('resultado')
+            ->toBase()
+            ->select(['punto_id', 'resultado'])
+            ->selectRaw('count(*) as n')
+            ->groupBy('punto_id', 'resultado')
+            ->get()
+            ->map(fn (object $fila): array => [
+                'punto_id' => (int) $fila->punto_id,
+                'resultado' => (string) $fila->resultado,
+                'n' => (int) $fila->n,
+            ]);
+    }
+
+    /**
      * Lo que ofrece la barra de filtros: sólo lo que tiene inspecciones, y sin
      * acotar por los filtros puestos. Si no, elegir una obra dejaría la lista
      * de obras con una sola.
@@ -154,9 +179,10 @@ class FilasDelTablero
      * soldado tienen cada uno su veredicto.
      *
      * Los defectos que se cuentan son los de la fase: soldadura en 2ª, pintura
-     * en 3ª. Las fallas de armado son los puntos que no cumplen, sin los
-     * calculados —repetirían a los que los alimentan— y con los contadores por
-     * su número: cada elemento faltante es una falla.
+     * en 3ª. Las fallas —de armado y de 1ª, que no usan el catálogo de
+     * defectos— son los puntos que no cumplen, sin los calculados —repetirían
+     * a los que los alimentan— y con los contadores por su número: cada
+     * elemento faltante es una falla.
      *
      * @param  Collection<int, InspeccionDefecto>  $defectos
      * @param  Collection<int, InspeccionPunto>  $puntos
@@ -217,7 +243,7 @@ class FilasDelTablero
                 ->groupBy(fn (InspeccionDefecto $defecto): string => $defecto->defecto->nombre)
                 ->map(fn (Collection $mismos): int => (int) $mismos->sum('cantidad'))
                 ->all(),
-            'fallasArmado' => ! $armado ? [] : $puntos
+            'fallas' => ! $armado && $fase !== FaseTransformacion::Primera ? [] : $puntos
                 ->filter(fn (InspeccionPunto $respuesta): bool => $respuesta->resultado === ResultadoPunto::NoOk && ! $respuesta->punto->calculado)
                 ->groupBy(fn (InspeccionPunto $respuesta): string => $respuesta->punto->etiqueta)
                 ->map(fn (Collection $mismas): int => (int) $mismas->sum(

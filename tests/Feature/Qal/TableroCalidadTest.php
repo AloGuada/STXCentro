@@ -357,3 +357,114 @@ test('el chi-cuadrado compara el veredicto final dentro de una etapa', function 
         // Todo cayó en una semana: no hay tendencia que medir todavía.
         ->and($estadistica['tendencias']['2ª'])->toMatchArray(['estado' => 'pocas_semanas', 'semanas' => 1]);
 });
+
+test('el uso de campos cuenta los blancos aparte y no los mete en el defecto', function () {
+    $obra = ObraDelPortal::factory()->create();
+    $bisel = PuntoInspeccion::factory()->create([
+        'etiqueta' => 'Ángulo de bisel',
+        'seccion' => 'Preparación de juntas',
+        'fase' => FaseTransformacion::Segunda,
+    ]);
+    // Un punto que sólo describe no dice si hubo defecto: no se le pregunta.
+    PuntoInspeccion::factory()->create([
+        'etiqueta' => 'Tipo de desviación',
+        'fase' => FaseTransformacion::Segunda,
+        'opciones' => [['valor' => 'Flecha', 'resultado' => null]],
+    ]);
+
+    // Diez inspecciones: seis contestadas, cuatro en blanco.
+    $respuestas = ['ok', 'ok', 'ok', 'ok', 'no_ok', 'no_aplica'];
+    foreach (range(0, 9) as $n) {
+        $inspeccion = inspeccionDelTablero(piezaDelTablero($obra), FaseTransformacion::Segunda, EstatusInspeccion::Liberado);
+
+        if (isset($respuestas[$n])) {
+            $inspeccion->puntos()->create(['punto_id' => $bisel->id, 'resultado' => $respuestas[$n], 'valor_texto' => 'x']);
+        }
+    }
+
+    $campos = collect(propsDelTablero($this)['tablero']['diagnostico']['usoCampos']);
+
+    expect($campos->firstWhere('campo', 'Ángulo de bisel'))->toEqual([
+        'fase' => '2ª',
+        'bloque' => 'Preparación de juntas',
+        'campo' => 'Ángulo de bisel',
+        'n' => 10,
+        'ok' => 4,
+        'defecto' => 1,
+        'noAplica' => 1,
+        'vacio' => 4,
+    ])->and($campos->firstWhere('campo', 'Tipo de desviación'))->toBeNull();
+});
+
+test('los factores de riesgo comparan cada categoria con su propia etapa', function () {
+    $naveA = ObraDelPortal::factory()->create(['no' => 'NAVE A']);
+    $naveB = ObraDelPortal::factory()->create(['no' => 'NAVE B']);
+
+    foreach (range(1, 5) as $n) {
+        inspeccionDelTablero(piezaDelTablero($naveA), FaseTransformacion::Segunda, $n <= 4 ? EstatusInspeccion::Rechazado : EstatusInspeccion::Liberado);
+        inspeccionDelTablero(piezaDelTablero($naveB), FaseTransformacion::Segunda, EstatusInspeccion::Liberado);
+    }
+
+    $factores = collect(propsDelTablero($this)['tablero']['diagnostico']['factores']);
+
+    // La sub-etapa rechaza igual que su etapa (1×): no es señal y no sale.
+    expect($factores->pluck('valor')->all())->toBe(['NAVE A', 'NAVE B'])
+        ->and($factores->first())->toMatchArray([
+            'fase' => '2ª',
+            'factor' => 'Obra',
+            'piezas' => 5,
+            'rechazadas' => 4,
+            'tasa' => 80,
+            'base' => 40,
+            'rr' => 2,
+            // Cuatro de cinco puede ser azar: con tan pocas piezas no se afirma nada.
+            'evidencia' => 'nada',
+        ])
+        ->and($factores->first()['p'])->toEqualWithDelta(0.174, 0.001);
+});
+
+test('el perfil y el mapa de riesgo miden cada defecto contra la mezcla de su etapa', function () {
+    $t4 = ObraDelPortal::factory()->create(['no' => 'T4']);
+    $parks = ObraDelPortal::factory()->create(['no' => 'PARKS']);
+    $socavado = Defecto::factory()->create(['nombre' => 'Socavado']);
+    $poro = Defecto::factory()->create(['nombre' => 'Porosidad']);
+
+    $conDefectos = function (ObraDelPortal $obra, array $defectos): void {
+        $inspeccion = inspeccionDelTablero(piezaDelTablero($obra), FaseTransformacion::Segunda, EstatusInspeccion::Liberado);
+
+        foreach ($defectos as $defecto => $cantidad) {
+            $inspeccion->defectos()->create(['defecto_id' => $defecto, 'cantidad' => $cantidad]);
+        }
+    };
+    $conDefectos($t4, [$socavado->id => 3]);
+    $conDefectos($t4, [$socavado->id => 1, $poro->id => 1]);
+    $conDefectos($t4, [$poro->id => 1]);
+    $conDefectos($t4, []);
+    foreach (range(1, 4) as $n) {
+        $conDefectos($parks, [$poro->id => 3]);
+    }
+
+    $diagnostico = propsDelTablero($this)['tablero']['diagnostico'];
+    $t4Perfil = collect($diagnostico['perfil']['obra'])->firstWhere('nombre', 'T4');
+
+    // En la etapa el socavado es 4 de 18 defectos; en T4, 4 de 6: tres veces más.
+    expect($t4Perfil)->toMatchArray([
+        'fase' => '2ª',
+        'piezas' => 4,
+        'defectos' => 6,
+        'defPorPieza' => 1.5,
+        'rechazo' => 0,
+        'caracteristico' => ['defecto' => 'Socavado', 'indice' => 3],
+    ])
+        ->and($t4Perfil['top'][0])->toEqual(['defecto' => 'Socavado', 'n' => 4, 'share' => 66.7])
+        ->and($diagnostico['mapas'][0])->toMatchArray([
+            'fase' => '2ª',
+            'totalDefectos' => 18,
+            'tiposDefecto' => 2,
+            'piezasEtapa' => 8,
+            'usaMagnitud' => true,
+        ])
+        ->and(collect($diagnostico['mapas'][0]['items'])->map(fn (array $item): array => [$item['defecto'], $item['defectos'], $item['frecuencia']])->all())
+        ->toEqual([['Porosidad', 14, 77.8], ['Socavado', 4, 22.2]])
+        ->and($diagnostico['mapas'][1]['items'])->toBe([]);
+});
