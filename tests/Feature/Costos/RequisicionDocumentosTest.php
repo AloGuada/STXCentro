@@ -5,11 +5,13 @@ use App\Models\Media;
 use App\Models\User;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
+use Inertia\Testing\AssertableInertia as Assert;
 use Spatie\Permission\Models\Permission;
 
 beforeEach(function () {
     Storage::fake('public');
     Permission::firstOrCreate(['name' => 'costos.requisiciones.cotizar', 'guard_name' => 'web']);
+    Permission::firstOrCreate(['name' => 'costos.requisiciones.ver', 'guard_name' => 'web']);
     $this->user = User::factory()->create();
     $this->user->givePermissionTo('costos.requisiciones.cotizar');
 });
@@ -86,4 +88,27 @@ test('no elimina un documento de otra requisición', function () {
         ->assertNotFound();
 
     expect(Media::find($media->id))->not->toBeNull();
+});
+
+test('el solicitante sin permiso de cotizar recibe los documentos en el resumen', function () {
+    $solicitante = User::factory()->create();
+    $solicitante->givePermissionTo('costos.requisiciones.ver');
+    $req = Requisicion::factory()->create(['solicitante_id' => $solicitante->id]);
+    $req->media()->create([
+        'descripcion' => 'Cotización proveedor X',
+        'nombre_original' => 'cotizacion.pdf',
+        'path' => "costos/requisiciones/{$req->id}/cotizacion.pdf",
+        'mime' => 'application/pdf',
+        'size' => 100,
+    ]);
+
+    expect($solicitante->can('costos.requisiciones.cotizar'))->toBeFalse();
+
+    $this->actingAs($solicitante)
+        ->get("/admin/costos/requisiciones/{$req->id}")
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('requisicion.media', 1)
+            ->where('requisicion.media.0.descripcion', 'Cotización proveedor X')
+        );
 });

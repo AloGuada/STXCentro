@@ -4,6 +4,7 @@ import { Fragment, useMemo, useState } from 'react';
 import { ActivityTimeline } from '@/components/costos/activity-timeline';
 import { CancelarModal } from '@/components/costos/cancelar-modal';
 import { CotizacionMatriz } from '@/components/costos/cotizacion-matriz';
+import { DocumentosCotizacion } from '@/components/costos/documentos-cotizacion';
 import { LiberarRequisicionModal } from '@/components/costos/liberar-requisicion-modal';
 import { formatMoney as fmtMonto } from '@/components/costos/monto';
 import { OcBuilder } from '@/components/costos/oc-builder';
@@ -1537,6 +1538,16 @@ export default function RequisicionesShow({
                                 </div>
                             </div>
                         )}
+
+                        <div className="mt-4">
+                            <DocumentosCotizacion
+                                requisicion={requisicion}
+                                editable={
+                                    cotizable &&
+                                    can('costos.requisiciones.cotizar')
+                                }
+                            />
+                        </div>
                     </div>
                 )}
 
