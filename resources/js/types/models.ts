@@ -4523,6 +4523,34 @@ export type QalCatalogoSimple = {
     updated_at: string;
 };
 
+/** De dónde sale quien firma un lugar de la hoja: quien la elaboró o una persona fija. */
+export type QalOrigenFirmante = 'creador' | 'usuario';
+
+/** Un lugar de firma de los formatos PDF de Calidad, en su orden. */
+export type QalFirmante = {
+    id: number;
+    orden: number;
+    /** Lo que va sobre la firma: Elaboró, Revisó, Aprobó… */
+    etiqueta: string;
+    cargo: string;
+    origen: QalOrigenFirmante;
+    usuario_id: string | null;
+    /** Nombre de la persona fija; null si firma quien elaboró o todavía no se elige. */
+    usuario: string | null;
+    tiene_rubrica: boolean;
+};
+
+export type QalUsuarioFirmante = {
+    id: string;
+    nombre: string;
+    tiene_rubrica: boolean;
+};
+
+export type QalOpcionOrigenFirmante = {
+    valor: QalOrigenFirmante;
+    etiqueta: string;
+};
+
 /** A qué lista del catálogo de defectos pertenece uno; cada lista es de una etapa. */
 export type QalAmbitoDefecto =
     | 'soldadura'

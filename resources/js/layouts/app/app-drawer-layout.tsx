@@ -1492,14 +1492,12 @@ function SidebarContent({
                                 Cambiar contraseña
                             </button>
                         </li>
-                        {auth.es_aprobador_costos && (
-                            <li>
-                                <Link href="/admin/costos/firma" prefetch>
-                                    <PenTool className="size-4" />
-                                    Mi firma
-                                </Link>
-                            </li>
-                        )}
+                        <li>
+                            <Link href="/admin/mi-firma" prefetch>
+                                <PenTool className="size-4" />
+                                Mi firma
+                            </Link>
+                        </li>
                         <li>
                             <Link
                                 href="/logout"

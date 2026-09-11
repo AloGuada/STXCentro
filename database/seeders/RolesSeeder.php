@@ -221,6 +221,7 @@ class RolesSeeder extends Seeder
             'qal.accesorios.editar',
             'qal.modelos.ver',
             'qal.registros.ver',
+            'qal.firmantes.ver',
         ]);
 
         // Empleado tiene permisos básicos de lectura

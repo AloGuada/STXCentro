@@ -519,6 +519,10 @@ class RolesAndPermissionsSeeder extends Seeder
             'qal.defectos.ver',
             'qal.defectos.crear',
             'qal.defectos.editar',
+            // El orden de firma de los formatos PDF; sin crear/eliminar
+            // aparte: acomodar las firmas es una sola tarea.
+            'qal.firmantes.ver',
+            'qal.firmantes.editar',
             // PND es recurso aparte de reportes: son juntas soldadas evaluadas
             // por un laboratorio externo, no piezas revisadas a la vista, y las
             // captura otra persona.

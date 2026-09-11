@@ -1,6 +1,7 @@
 import { Head } from '@inertiajs/react';
 import { type ReactNode, useState } from 'react';
 import { CatalogoDefectos } from '@/components/qal/catalogo-defectos';
+import { CatalogoFirmantes } from '@/components/qal/catalogo-firmantes';
 import { CatalogoPanel, type CampoCatalogo, type FilaCatalogo } from '@/components/qal/catalogo-panel';
 import { useCan } from '@/hooks/use-can';
 import AppLayout from '@/layouts/app-layout';
@@ -8,10 +9,13 @@ import type { BreadcrumbItem } from '@/types';
 import type {
     QalCatalogoSimple,
     QalDefecto,
+    QalFirmante,
     QalLaboratorio,
     QalOpcionAmbitoDefecto,
+    QalOpcionOrigenFirmante,
     QalSoldador,
     QalTipoPieza,
+    QalUsuarioFirmante,
 } from '@/types/models';
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -30,6 +34,10 @@ type Props = {
     supervisoresPintura: QalCatalogoSimple[];
     defectos: QalDefecto[];
     ambitosDefecto: QalOpcionAmbitoDefecto[];
+    firmantes: QalFirmante[];
+    /** Vacía si el usuario no puede cambiar las firmas. */
+    usuariosFirmantes: QalUsuarioFirmante[];
+    origenesFirmante: QalOpcionOrigenFirmante[];
 };
 
 /** El campo que casi todos los catálogos comparten. */
@@ -159,6 +167,16 @@ export default function CatalogosCalidad(props: Props) {
             campos: [],
             filas: props.defectos as unknown as FilaCatalogo[],
         },
+        {
+            // No es una lista de valores: es el orden de firma de los PDF,
+            // con su panel propio. Todas sus filas cuentan como activas.
+            clave: 'firmantes',
+            permiso: 'firmantes',
+            titulo: 'Firmantes',
+            descripcion: 'Quién firma los formatos PDF y en qué orden.',
+            campos: [],
+            filas: props.firmantes.map((f) => ({ ...f, activo: true })),
+        },
     ];
 
     // Sólo se ofrecen las listas que el usuario puede consultar.
@@ -209,6 +227,13 @@ export default function CatalogosCalidad(props: Props) {
                                 puedeCrear={can('qal.defectos.crear')}
                                 puedeEditar={can('qal.defectos.editar')}
                             />
+                        ) : activa.clave === 'firmantes' ? (
+                            <CatalogoFirmantes
+                                firmantes={props.firmantes}
+                                usuarios={props.usuariosFirmantes}
+                                origenes={props.origenesFirmante}
+                                puedeEditar={can('qal.firmantes.editar')}
+                            />
                         ) : (
                             <CatalogoPanel
                                 key={activa.clave}
@@ -225,11 +250,13 @@ export default function CatalogosCalidad(props: Props) {
                     </>
                 )}
 
-                <p className="text-base-content/60 mt-6 text-sm">
-                    Ninguna lista tiene botón de borrar a propósito. <strong>Desactivar</strong> saca el valor de los
-                    desplegables pero no toca los registros que ya lo mencionan; borrarlo dejaría reportes citando algo
-                    que ya no existe.
-                </p>
+                {activa?.clave !== 'firmantes' && (
+                    <p className="text-base-content/60 mt-6 text-sm">
+                        Ninguna lista tiene botón de borrar a propósito. <strong>Desactivar</strong> saca el valor de
+                        los desplegables pero no toca los registros que ya lo mencionan; borrarlo dejaría reportes
+                        citando algo que ya no existe.
+                    </p>
+                )}
             </div>
         </AppLayout>
     );

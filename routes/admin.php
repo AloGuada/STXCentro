@@ -106,6 +106,7 @@ use App\Http\Controllers\Admin\Drive\DriveCarpetaAccesoController;
 use App\Http\Controllers\Admin\Drive\DriveCarpetaController;
 use App\Http\Controllers\Admin\Drive\DriveDashboardController as DriveAdminDashboardController;
 use App\Http\Controllers\Admin\Drive\DriveExternoController;
+use App\Http\Controllers\Admin\FirmaController as MiFirmaController;
 use App\Http\Controllers\Admin\Infra\RecorridoController as InfraRecorridoController;
 use App\Http\Controllers\Admin\Infra\TurnoController as InfraTurnoController;
 use App\Http\Controllers\Admin\Intra\AreaController as IntraAreaController;
@@ -136,6 +137,7 @@ use App\Http\Controllers\Admin\Qal\CatalogoController as QalCatalogoController;
 use App\Http\Controllers\Admin\Qal\DashboardController as QalDashboardController;
 use App\Http\Controllers\Admin\Qal\DefectoController as QalDefectoController;
 use App\Http\Controllers\Admin\Qal\EquipoController as QalEquipoController;
+use App\Http\Controllers\Admin\Qal\FirmanteController as QalFirmanteController;
 use App\Http\Controllers\Admin\Qal\IncidenciasController as QalIncidenciasController;
 use App\Http\Controllers\Admin\Qal\InspeccionController as QalInspeccionController;
 use App\Http\Controllers\Admin\Qal\LaboratorioController as QalLaboratorioController;
@@ -174,6 +176,11 @@ use App\Http\Controllers\Admin\UsuarioController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(function () {
+    // La rúbrica es de la persona, no de un módulo: cualquiera dibuja la suya.
+    Route::get('mi-firma', [MiFirmaController::class, 'edit'])->name('firma.edit');
+    Route::post('mi-firma', [MiFirmaController::class, 'update'])->name('firma.update');
+    Route::delete('mi-firma', [MiFirmaController::class, 'destroy'])->name('firma.destroy');
+
     Route::patch('usuarios/{usuario}/estado', [UsuarioController::class, 'estado'])->name('usuarios.estado');
     Route::resource('usuarios', UsuarioController::class);
     Route::resource('roles', RoleController::class);
@@ -1310,8 +1317,21 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         // cualquiera de los permisos de ver, y el front esconde las pestanas
         // que el usuario no puede consultar.
         Route::get('catalogos', [QalCatalogoController::class, 'index'])
-            ->middleware('permission:qal.soldadores.ver|qal.laboratorios.ver|qal.tipos-pieza.ver|qal.equipos.ver|qal.operadores.ver|qal.responsables.ver|qal.supervisores-pintura.ver|qal.defectos.ver')
+            ->middleware('permission:qal.soldadores.ver|qal.laboratorios.ver|qal.tipos-pieza.ver|qal.equipos.ver|qal.operadores.ver|qal.responsables.ver|qal.supervisores-pintura.ver|qal.defectos.ver|qal.firmantes.ver')
             ->name('catalogos.index');
+
+        // El orden de firma de los formatos PDF. Éste sí se borra: ningún
+        // registro cita a un firmante.
+        Route::middleware('permission:qal.firmantes.editar')->group(function () {
+            Route::post('catalogos/firmantes', [QalFirmanteController::class, 'store'])->name('catalogos.firmantes.store');
+            Route::put('catalogos/firmantes/orden', [QalFirmanteController::class, 'reordenar'])->name('catalogos.firmantes.reordenar');
+            Route::put('catalogos/firmantes/{firmante}', [QalFirmanteController::class, 'update'])
+                ->whereNumber('firmante')
+                ->name('catalogos.firmantes.update');
+            Route::delete('catalogos/firmantes/{firmante}', [QalFirmanteController::class, 'destroy'])
+                ->whereNumber('firmante')
+                ->name('catalogos.firmantes.destroy');
+        });
 
         // Escritura, un permiso por catalogo. Ninguno tiene destroy: aqui nada
         // se borra, se desactiva.

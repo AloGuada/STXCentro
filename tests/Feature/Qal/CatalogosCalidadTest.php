@@ -173,9 +173,12 @@ test('desactivar y reactivar es la unica baja que hay', function () {
     expect($equipo->refresh()->activo)->toBeTrue();
 });
 
-test('ningun catalogo expone una ruta de borrado', function () {
+test('ningun catalogo de valores expone una ruta de borrado', function () {
+    // Firmantes no es una lista de valores: ningún registro cita a un
+    // firmante, así que ése sí se quita.
     $rutas = collect(app('router')->getRoutes())
         ->filter(fn ($r) => str_starts_with($r->getName() ?? '', 'admin.qal.catalogos.'))
+        ->reject(fn ($r) => str_starts_with($r->getName(), 'admin.qal.catalogos.firmantes.'))
         ->filter(fn ($r) => in_array('DELETE', $r->methods(), true));
 
     expect($rutas)->toBeEmpty();
