@@ -137,6 +137,8 @@ use App\Http\Controllers\Admin\Qal\CatalogoController as QalCatalogoController;
 use App\Http\Controllers\Admin\Qal\DashboardController as QalDashboardController;
 use App\Http\Controllers\Admin\Qal\DefectoController as QalDefectoController;
 use App\Http\Controllers\Admin\Qal\DosierController as QalDosierController;
+use App\Http\Controllers\Admin\Qal\DossierArchivoController as QalDossierArchivoController;
+use App\Http\Controllers\Admin\Qal\DossierDescargaController as QalDossierDescargaController;
 use App\Http\Controllers\Admin\Qal\DossierPlantillaController as QalDossierPlantillaController;
 use App\Http\Controllers\Admin\Qal\EquipoController as QalEquipoController;
 use App\Http\Controllers\Admin\Qal\FirmanteController as QalFirmanteController;
@@ -1331,6 +1333,28 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
             Route::put('{plantilla}', [QalDossierPlantillaController::class, 'update'])->name('update');
             Route::patch('{plantilla}/toggle', [QalDossierPlantillaController::class, 'toggle'])->name('toggle');
             Route::put('{plantilla}/arbol', [QalDossierPlantillaController::class, 'arbol'])->name('arbol');
+        });
+        Route::middleware('permission:qal.dossier.ver')->group(function () {
+            Route::get('dosier/{dossier}', [QalDosierController::class, 'show'])->whereNumber('dossier')->name('dosier.show');
+            Route::get('dosier/{dossier}/descargar', QalDossierDescargaController::class)->whereNumber('dossier')->name('dosier.descargar');
+            Route::get('dosier/{dossier}/archivos/{archivo}', [QalDossierArchivoController::class, 'ver'])
+                ->whereNumber(['dossier', 'archivo'])
+                ->name('dosier.archivos.ver');
+        });
+        Route::middleware('permission:qal.dossier.editar')->group(function () {
+            Route::post('dosier', [QalDosierController::class, 'store'])->name('dosier.store');
+            Route::put('dosier/{dossier}', [QalDosierController::class, 'update'])->whereNumber('dossier')->name('dosier.update');
+            Route::delete('dosier/{dossier}', [QalDosierController::class, 'destroy'])->whereNumber('dossier')->name('dosier.destroy');
+            Route::put('dosier/{dossier}/secciones', [QalDosierController::class, 'secciones'])->whereNumber('dossier')->name('dosier.secciones');
+            Route::post('dosier/{dossier}/secciones/{seccion}/archivos', [QalDossierArchivoController::class, 'store'])
+                ->whereNumber(['dossier', 'seccion'])
+                ->name('dosier.archivos.store');
+            Route::put('dosier/{dossier}/secciones/{seccion}/archivos/orden', [QalDossierArchivoController::class, 'reordenar'])
+                ->whereNumber(['dossier', 'seccion'])
+                ->name('dosier.archivos.reordenar');
+            Route::delete('dosier/{dossier}/archivos/{archivo}', [QalDossierArchivoController::class, 'destroy'])
+                ->whereNumber(['dossier', 'archivo'])
+                ->name('dosier.archivos.destroy');
         });
 
         // El plan comprometido es contrato, no captura: lo edita quien

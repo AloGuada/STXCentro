@@ -9,6 +9,8 @@ use App\Models\Prod\Catalogo;
 use App\Models\Qal\Obra as ObraDeCalidad;
 use App\Models\Usuario;
 use App\Services\Alm\ResolvedorArticulo;
+use App\Services\Qal\Dosier\UnidorDePdf;
+use App\Services\Qal\Dosier\UnidorFpdi;
 use App\Services\Rh\Cv\OllamaClient;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Date;
@@ -30,6 +32,10 @@ class AppServiceProvider extends ServiceProvider
         // Singleton porque cachea la correspondencia producto => articulo, y un
         // import de layout resolveria el mismo producto cientos de veces.
         $this->app->singleton(ResolvedorArticulo::class);
+
+        // El motor que une los PDF del dosier está por decidirse; hoy es FPDI
+        // gratuito. Cambiarlo es cambiar esta línea.
+        $this->app->bind(UnidorDePdf::class, UnidorFpdi::class);
     }
 
     /**

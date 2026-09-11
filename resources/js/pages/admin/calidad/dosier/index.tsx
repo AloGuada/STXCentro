@@ -11,7 +11,8 @@
 import { Head } from '@inertiajs/react';
 import { useState } from 'react';
 import { CatalogoDePlantillas } from '@/components/qal/dosier/catalogo';
-import type { PlantillaDosier } from '@/components/qal/dosier/tipos';
+import { ListaDeDosieres } from '@/components/qal/dosier/lista';
+import type { DosierDeObra, PlantillaDosier } from '@/components/qal/dosier/tipos';
 import { useCan } from '@/hooks/use-can';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
@@ -28,11 +29,14 @@ type Props = {
     tab: Tab;
     plantillaElegida: number | null;
     plantillas: PlantillaDosier[];
+    dosieres: DosierDeObra[];
+    obrasSinDosier: { id: number; no: string | null; descripcion: string | null }[];
 };
 
-export default function Dosier({ tab, plantillaElegida, plantillas }: Props) {
+export default function Dosier({ tab, plantillaElegida, plantillas, dosieres, obrasSinDosier }: Props) {
     const { can } = useCan();
     const [actual, setActual] = useState<Tab>(tab);
+    const puedeEditar = can('qal.dossier.editar');
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -50,6 +54,7 @@ export default function Dosier({ tab, plantillaElegida, plantillas }: Props) {
                 <div role="tablist" className="tabs tabs-boxed mb-5">
                     <button type="button" role="tab" className={`tab ${actual === 'dosieres' ? 'tab-active' : ''}`} onClick={() => setActual('dosieres')}>
                         Dosieres
+                        <span className="text-base-content/50 ml-1.5 text-xs">{dosieres.length}</span>
                     </button>
                     <button type="button" role="tab" className={`tab ${actual === 'catalogo' ? 'tab-active' : ''}`} onClick={() => setActual('catalogo')}>
                         Catálogo
@@ -58,12 +63,9 @@ export default function Dosier({ tab, plantillaElegida, plantillas }: Props) {
                 </div>
 
                 {actual === 'dosieres' ? (
-                    <div className="rounded-box border-base-300 text-base-content/60 border border-dashed p-10 text-center text-sm">
-                        Los dosieres de obra llegan en la siguiente entrega: cada uno nacerá de una plantilla del catálogo y en
-                        cada sección se subirán sus PDF.
-                    </div>
+                    <ListaDeDosieres dosieres={dosieres} obras={obrasSinDosier} plantillas={plantillas} puedeEditar={puedeEditar} />
                 ) : (
-                    <CatalogoDePlantillas plantillas={plantillas} plantillaElegida={plantillaElegida} puedeEditar={can('qal.dossier.editar')} />
+                    <CatalogoDePlantillas plantillas={plantillas} plantillaElegida={plantillaElegida} puedeEditar={puedeEditar} />
                 )}
             </div>
         </AppLayout>
