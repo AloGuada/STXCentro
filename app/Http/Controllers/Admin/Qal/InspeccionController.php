@@ -30,7 +30,7 @@ class InspeccionController extends Controller
 
     public function create(Request $request): Response
     {
-        return $this->pantalla->mostrar($request->integer('obra') ?: null);
+        return $this->pantalla->mostrar($request->integer('obra') ?: null, conceptoId: $request->integer('marca') ?: null);
     }
 
     /**

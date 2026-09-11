@@ -28,6 +28,8 @@ use Inertia\Response;
  */
 class PantallaDeCaptura
 {
+    public function __construct(private readonly AvanceDeCaptura $avance) {}
+
     /**
      * Marcas y lotes llegan sólo con obra elegida y se recargan al cambiarla:
      * una obra trae cientos de marcas, y todas las obras juntas serían miles
@@ -35,13 +37,19 @@ class PantallaDeCaptura
      *
      * @param  array<string, mixed>|null  $precarga  ver PrecargaDeFormulario
      */
-    public function mostrar(?int $obraId, ?array $precarga = null): Response
+    public function mostrar(?int $obraId, ?array $precarga = null, ?int $conceptoId = null): Response
     {
         return Inertia::render('admin/calidad/formularios/index', [
             'obras' => fn () => Obra::opcionesDeSelector(),
             'obraId' => $obraId,
             'marcas' => fn () => $obraId ? $this->marcasDeLaObra($obraId) : [],
             'lotes' => fn () => $obraId ? $this->lotesDeLaObra($obraId) : [],
+            // La pestaña Registros: las marcas con su avance, y las piezas de
+            // la marca que se abrió.
+            'avance' => fn () => $obraId ? $this->avance->marcasDeLaObra($obraId) : [],
+            'piezasDeMarca' => fn () => $conceptoId
+                ? ['conceptoId' => $conceptoId, 'piezas' => $this->avance->piezasDeLaMarca($conceptoId)]
+                : null,
             'catalogos' => fn () => $this->catalogos(),
             'precarga' => $precarga,
         ]);

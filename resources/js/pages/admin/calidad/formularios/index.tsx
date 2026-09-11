@@ -33,6 +33,7 @@ import type { Evidencia, FotoGuardada } from '@/components/qal/captura/fotos';
 import { LoteAccesorios, type LoteDeObra } from '@/components/qal/captura/lote-accesorios';
 import { MUESTREO_VACIO, type EstadoMuestreo } from '@/components/qal/captura/muestreo';
 import { PiezaFisica, type PiezaResuelta } from '@/components/qal/captura/pieza-fisica';
+import { RegistrosDeCaptura, type MarcaConAvance, type PiezasDeMarca } from '@/components/qal/captura/registros';
 import {
     ESPESOR_MEDICIONES_BASE,
     ESPESOR_MEDICIONES_MAX,
@@ -113,6 +114,8 @@ type Props = {
     obraId: number | null;
     marcas: Marca[];
     lotes: LoteDeObra[];
+    avance: MarcaConAvance[];
+    piezasDeMarca: PiezasDeMarca | null;
     catalogos: Catalogos;
     precarga: Precarga | null;
 };
@@ -214,7 +217,7 @@ const aPares = (lista: Opcion[]): [string, string][] => lista.map((opcion) => [S
 const idsDe = (lista: Opcion[], nombres: string[]): number[] =>
     nombres.map((nombre) => lista.find((defecto) => defecto.nombre === nombre)?.id).filter((id): id is number => id !== undefined);
 
-export default function CapturaCalidad({ obras, obraId, marcas, lotes, catalogos, precarga }: Props) {
+export default function CapturaCalidad({ obras, obraId, marcas, lotes, avance, piezasDeMarca, catalogos, precarga }: Props) {
     const { auth } = usePage<SharedData>().props;
 
     const iniciales = useMemo(
@@ -313,7 +316,7 @@ export default function CapturaCalidad({ obras, obraId, marcas, lotes, catalogos
         setTipoDeducido('');
         setPieza(null);
         if (valor) {
-            router.reload({ only: ['marcas', 'lotes', 'obraId'], data: { obra: valor } });
+            router.reload({ only: ['marcas', 'lotes', 'avance', 'obraId'], data: { obra: valor, marca: null } });
         }
     };
 
@@ -332,6 +335,30 @@ export default function CapturaCalidad({ obras, obraId, marcas, lotes, catalogos
             }
             sugerirTipo(marca.marca);
         }
+    };
+
+    /**
+     * Desde Registros: la pieza que falta pasa a Capturar ya resuelta, como si
+     * se hubiera escaneado.
+     */
+    const capturarQr = async (qr: string) => {
+        setPestana('capturar');
+        if (esPrimera) {
+            campos.set('fase', '2ª');
+        }
+        try {
+            const respuesta = await fetch(`/admin/calidad/piezas/resolver?${new URLSearchParams({ codigo: qr, obra_id: campos.v('obra') })}`, {
+                headers: { Accept: 'application/json' },
+            });
+            if (respuesta.ok) {
+                elegirPieza((await respuesta.json()) as PiezaResuelta);
+            } else {
+                avisar('No se pudo cargar la pieza', 'error');
+            }
+        } catch {
+            avisar('No se pudo consultar la pieza. Revisa la conexión.', 'error');
+        }
+        window.scrollTo(0, 0);
     };
 
     /** 2ª y pintura: la pieza escaneada trae su obra, su marca y su peso. */
@@ -692,19 +719,35 @@ export default function CapturaCalidad({ obras, obraId, marcas, lotes, catalogos
                     )}
 
                     {pestana === 'registros' ? (
-                        <Tarjeta titulo="Registros">
-                            <Pista className="mb-0">
-                                Lo capturado se consulta en{' '}
-                                <Link href="/admin/calidad/registros" className="link">
-                                    Registros
-                                </Link>{' '}
-                                y el avance de cada lote de accesorios en la pestaña{' '}
-                                <Link href="/admin/calidad/dashboard?tab=accesorios" className="link">
-                                    Accesorios
-                                </Link>{' '}
-                                del Tablero. Desde ahí se corrige y se reinspecciona.
-                            </Pista>
-                        </Tarjeta>
+                        <>
+                            <Tarjeta titulo="Obra">
+                                <Campo label="Obra">
+                                    <Selector
+                                        value={campos.v('obra')}
+                                        onChange={cambiarObra}
+                                        opciones={opcionesObras}
+                                        vacio="— Elige la obra —"
+                                    />
+                                </Campo>
+                                <Pista className="mb-0">
+                                    El listado completo, con filtros y exportación, está en{' '}
+                                    <Link href="/admin/calidad/registros" className="link">
+                                        Registros
+                                    </Link>
+                                    ; los lotes de accesorios, en la pestaña{' '}
+                                    <Link href="/admin/calidad/dashboard?tab=accesorios" className="link">
+                                        Accesorios
+                                    </Link>{' '}
+                                    del Tablero.
+                                </Pista>
+                            </Tarjeta>
+                            <RegistrosDeCaptura
+                                obraId={campos.v('obra')}
+                                marcas={avance}
+                                piezasDeMarca={piezasDeMarca}
+                                onCapturar={capturarQr}
+                            />
+                        </>
                     ) : (
                         <>
                             <Tarjeta titulo="Transformación">
