@@ -133,6 +133,7 @@ use App\Http\Controllers\Admin\Prod\UbicacionController as ProdUbicacionControll
 use App\Http\Controllers\Admin\ProveedorController;
 use App\Http\Controllers\Admin\Qal\AccesorioController as QalAccesorioController;
 use App\Http\Controllers\Admin\Qal\CatalogoController as QalCatalogoController;
+use App\Http\Controllers\Admin\Qal\DashboardController as QalDashboardController;
 use App\Http\Controllers\Admin\Qal\DefectoController as QalDefectoController;
 use App\Http\Controllers\Admin\Qal\EquipoController as QalEquipoController;
 use App\Http\Controllers\Admin\Qal\IncidenciasController as QalIncidenciasController;
@@ -149,7 +150,6 @@ use App\Http\Controllers\Admin\Qal\ResponsableController as QalResponsableContro
 use App\Http\Controllers\Admin\Qal\SoldadorController as QalSoldadorController;
 use App\Http\Controllers\Admin\Qal\SupervisorPinturaController as QalSupervisorPinturaController;
 use App\Http\Controllers\Admin\Qal\TipoPiezaController as QalTipoPiezaController;
-use App\Http\Controllers\Admin\Qal\VistasController as QalVistasController;
 use App\Http\Controllers\Admin\RegimenFiscalController;
 use App\Http\Controllers\Admin\Rh\DashboardController as RhDashboardController;
 use App\Http\Controllers\Admin\Rh\OnboardingController as RhOnboardingController;
@@ -1156,7 +1156,7 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
     // nombre del modulo.
     Route::prefix('calidad')->name('qal.')->group(function () {
         // El tablero solo lee: resume lo que capturaron las demas pantallas.
-        Route::get('dashboard', [QalVistasController::class, 'dashboard'])
+        Route::get('dashboard', [QalDashboardController::class, 'index'])
             ->middleware('permission:qal.dashboard.ver')
             ->name('dashboard');
         // Captura de inspección: 1ª, 2ª con sus juntas y pintura en una sola

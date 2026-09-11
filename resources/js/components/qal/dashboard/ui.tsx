@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { cn } from '@/lib/utils';
-import type { Kpi } from './datos';
+import type { Kpi } from './tipos';
 
 /**
  * Las piezas del tablero: tarjeta de número, panel, tarjeta de gráfica y tabs.
