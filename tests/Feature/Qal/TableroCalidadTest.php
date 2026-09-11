@@ -15,6 +15,7 @@ use App\Models\Qal\Junta;
 use App\Models\Qal\PuntoInspeccion;
 use App\Models\Qal\Soldador;
 use App\Models\User;
+use Illuminate\Support\Carbon;
 use Spatie\Permission\Models\Permission;
 
 /**
@@ -250,7 +251,9 @@ test('sin inspecciones el tablero abre en cero, sin inventar porcentajes', funct
         ->and($tablero['resumen']['rechazo'])->toEqual(['2ª' => null, '3ª' => null])
         ->and($tablero['resumen']['juntas'])->toBeNull()
         ->and($tablero['tasas']['elem']['cobertura']['pct'])->toBeNull()
-        ->and($tablero['operacion']['resultadoPorObra'])->toBe([]);
+        ->and($tablero['operacion']['resultadoPorObra'])->toBe([])
+        ->and($tablero['estadistica']['cartaP'])->toBeNull()
+        ->and($tablero['estadistica']['capacidad'])->toBe([]);
 });
 
 test('defectos de pintura van al pareto de 3a y no al de soldadura', function () {
@@ -264,4 +267,93 @@ test('defectos de pintura van al pareto de 3a y no al de soldadura', function ()
 
     expect($pareto['p3_deftypes'])->toEqual([['causa' => 'Escurrimiento', 'n' => 2]])
         ->and($pareto['p2_deftypes'])->toBe([]);
+});
+
+/** Fecha con su año y semana ISO, que es como la guarda la captura. */
+function fechaDelTablero(string $fecha): array
+{
+    $dia = Carbon::parse($fecha);
+
+    return ['fecha' => $dia, 'anio' => $dia->isoWeekYear(), 'semana' => $dia->isoWeek()];
+}
+
+test('la carta-p cuenta inspecciones por semana', function () {
+    $obra = ObraDelPortal::factory()->create();
+
+    // Semana 33: una de dos rechazada. Semana 34: las dos liberadas.
+    inspeccionDelTablero(piezaDelTablero($obra), FaseTransformacion::Segunda, EstatusInspeccion::Rechazado, fechaDelTablero('2026-08-12'));
+    inspeccionDelTablero(piezaDelTablero($obra), FaseTransformacion::Segunda, EstatusInspeccion::Liberado, fechaDelTablero('2026-08-12'));
+    inspeccionDelTablero(piezaDelTablero($obra), FaseTransformacion::Segunda, EstatusInspeccion::Liberado, fechaDelTablero('2026-08-19'));
+    inspeccionDelTablero(piezaDelTablero($obra), FaseTransformacion::Segunda, EstatusInspeccion::Liberado, fechaDelTablero('2026-08-19'));
+
+    $carta = propsDelTablero($this)['tablero']['estadistica']['cartaP'];
+
+    expect($carta)->toMatchArray(['preliminar' => true, 'subgrupos' => 2, 'pbar' => 25])
+        ->and(collect($carta['puntos'])->map(fn (array $punto): array => [$punto['semana'], $punto['p'], $punto['n'], $punto['lcl']])->all())
+        ->toEqual([['2026-S33', 50, 2, 0], ['2026-S34', 0, 2, 0]]);
+});
+
+test('el espesor se lee en margen y el cpk va por espesor requerido', function () {
+    $obra = ObraDelPortal::factory()->create(['no' => 'T4']);
+
+    foreach ([12, 11, 9] as $mils) {
+        inspeccionDelTablero(piezaDelTablero($obra), FaseTransformacion::Tercera, EstatusInspeccion::Liberado)
+            ->pintura()->create(['espesor_requerido_mils' => 10, 'promedio_mils' => $mils]);
+    }
+    // Pintada sin registrar el espesor: cuenta en la cobertura, no en la media.
+    inspeccionDelTablero(piezaDelTablero($obra), FaseTransformacion::Tercera, EstatusInspeccion::Liberado);
+
+    $estadistica = propsDelTablero($this)['tablero']['estadistica'];
+
+    expect($estadistica['margen'])->toMatchArray(['piezas' => 3, 'piezasPintura' => 4])
+        ->and($estadistica['margen']['resumen'])->toMatchArray([
+            'medianaPct' => 10,
+            'medianaMils' => 1,
+            'minPct' => -10,
+            'maxPct' => 20,
+            'bajoMinimo' => 1,
+        ])
+        ->and($estadistica['capacidad'])->toEqual([[
+            'requerido' => 10,
+            'obras' => ['T4'],
+            'n' => 3,
+            'media' => 10.67,
+            'sigma' => 1.53,
+            'cpk' => 0.15,
+            'fuera' => 1,
+        ]])
+        ->and($estadistica['coberturaEspesor'])->toEqual(['con' => 3, 'total' => 4])
+        ->and(collect($estadistica['descriptiva'])->firstWhere('clave', 'espesor'))
+        ->toMatchArray(['conDato' => 3, 'universo' => 4]);
+});
+
+test('el chi-cuadrado compara el veredicto final dentro de una etapa', function () {
+    $obra = ObraDelPortal::factory()->create();
+
+    // Diez de armado, cinco rechazadas al cierre; diez de soldado, todas liberadas.
+    foreach (range(1, 10) as $n) {
+        inspeccionDelTablero(piezaDelTablero($obra), FaseTransformacion::Segunda, $n <= 5 ? EstatusInspeccion::Rechazado : EstatusInspeccion::Pendiente, [
+            'subetapa' => Subetapa::ArmadoVestido,
+        ]);
+        inspeccionDelTablero(piezaDelTablero($obra), FaseTransformacion::Segunda, EstatusInspeccion::Liberado);
+    }
+
+    $estadistica = propsDelTablero($this)['tablero']['estadistica'];
+    $prueba = $estadistica['pruebas']['2ª']['p2_subetapa'];
+
+    expect($prueba)->toMatchArray([
+        'estado' => 'ok',
+        'chi2' => 6.67,
+        'gl' => 1,
+        'piezas' => 20,
+        'base' => 25,
+        'v' => 0.58,
+        'celdasBajas' => 2,
+    ])
+        ->and($prueba['p'])->toBeLessThan(0.05)
+        ->and($prueba['detalle'][0])->toMatchArray(['categoria' => 'Armado / Vestido', 'n' => 10, 'rechazadas' => 5, 'pct' => 50])
+        // Sin piezas de pintura no hay nada que probar en 3ª.
+        ->and($estadistica['pruebas']['3ª']['obra']['estado'])->toBe('sin_muestra')
+        // Todo cayó en una semana: no hay tendencia que medir todavía.
+        ->and($estadistica['tendencias']['2ª'])->toMatchArray(['estado' => 'pocas_semanas', 'semanas' => 1]);
 });

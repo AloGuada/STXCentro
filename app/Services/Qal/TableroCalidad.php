@@ -7,7 +7,8 @@ use Illuminate\Support\Collection;
 
 /**
  * Las cuentas del tablero de Calidad: el resumen ejecutivo, el de analítica, la
- * pestaña Operación y las tasas normalizadas que comparten.
+ * pestaña Operación y las tasas normalizadas que comparten. La pestaña
+ * Estadística la calcula `EstadisticaDelTablero` sobre las mismas filas.
  *
  * Son las definiciones del tablero anterior, donde ya estaban discutidas:
  *
@@ -28,6 +29,8 @@ use Illuminate\Support\Collection;
  */
 class TableroCalidad
 {
+    use ReglasDeVeredicto;
+
     public const COBERTURA_MINIMA = 30;
 
     public const JUNTAS_MINIMAS = 20;
@@ -60,11 +63,14 @@ class TableroCalidad
 
     private const PERSONAS = ['soldador', 'inspector'];
 
-    public function __construct(private readonly FilasDelTablero $filas) {}
+    public function __construct(
+        private readonly FilasDelTablero $filas,
+        private readonly EstadisticaDelTablero $estadistica,
+    ) {}
 
     /**
      * @param  array<string, string|null>  $filtros
-     * @return array{resumen: array<string, mixed>, operacion: array<string, mixed>, tasas: array<string, array<string, mixed>>}
+     * @return array{resumen: array<string, mixed>, operacion: array<string, mixed>, tasas: array<string, array<string, mixed>>, estadistica: array<string, mixed>}
      */
     public function calcular(array $filtros): array
     {
@@ -78,6 +84,7 @@ class TableroCalidad
             'tasas' => collect(array_keys(self::TOPES))
                 ->mapWithKeys(fn (string $base): array => [$base => $this->tasa($filas, $base)])
                 ->all(),
+            'estadistica' => $this->estadistica->calcular($filas),
         ];
     }
 
@@ -187,20 +194,6 @@ class TableroCalidad
                 'rechazos' => $historia->where('estatus', EstatusInspeccion::Rechazado->value)->count(),
                 'conVeredicto' => $historia->contains(fn (array $fila): bool => $this->tieneVeredicto($fila)),
             ])
-            ->values();
-    }
-
-    /**
-     * La última inspección de cada pieza-etapa: la que dice cómo acabó.
-     *
-     * @param  Collection<int, array<string, mixed>>  $filas
-     * @return Collection<int, array<string, mixed>>
-     */
-    private function ultimaPorEtapa(Collection $filas): Collection
-    {
-        return $filas
-            ->groupBy('etapa')
-            ->map(fn (Collection $historia): array => $historia->sortBy('inspeccion')->last())
             ->values();
     }
 
@@ -514,28 +507,9 @@ class TableroCalidad
         return ($base === 'ton' ? $medida / 1000 : $medida) * $fila['muestra'];
     }
 
-    /** @param  array<string, mixed>  $fila */
-    private function tieneVeredicto(array $fila): bool
-    {
-        return $fila['armado'] || $fila['estatus'] !== EstatusInspeccion::Pendiente->value;
-    }
-
-    /** @param  array<string, mixed>  $fila */
-    private function salioBien(array $fila): bool
-    {
-        return $fila['estatus'] === EstatusInspeccion::Liberado->value
-            || ($fila['armado'] && $fila['estatus'] === EstatusInspeccion::Pendiente->value);
-    }
-
     /** @param  Collection<int, array<string, mixed>>  $piezas */
     private function tasaDeRechazo(Collection $piezas): ?float
     {
         return $this->porcentaje($piezas->where('rechazos', '>', 0)->count(), $piezas->count());
-    }
-
-    /** Con un decimal, o nulo cuando no hay base. */
-    private function porcentaje(int $parte, int $total): ?float
-    {
-        return $total > 0 ? round($parte * 100 / $total, 1) : null;
     }
 }

@@ -15,9 +15,9 @@
  * «Resultado final por obra» bajó del resumen ejecutivo a Operación: es una
  * respuesta a *dónde* falla, no uno de los números con los que se abre.
  *
- * Los resúmenes y Operación se calculan en el servidor (`TableroCalidad`) con
- * los filtros de la URL; Accesorios se pide al abrir su pestaña. Estadística y
- * Diagnóstico todavía pintan datos de ejemplo de `dashboard/datos.ts`.
+ * Los resúmenes, Operación y Estadística se calculan en el servidor
+ * (`TableroCalidad`) con los filtros de la URL; Accesorios se pide al abrir su
+ * pestaña. Diagnóstico todavía pinta datos de ejemplo de `dashboard/datos.ts`.
  */
 
 import { Head, router } from '@inertiajs/react';
@@ -164,7 +164,7 @@ export default function TableroCalidad({ tab: tabDeLaUrl, filtros: filtrosUrl, o
                             Cuánto se hizo, cuánto salió bien a la primera y dónde se está yendo el trabajo.
                         </p>
                     </div>
-                    {(tab === 'est' || tab === 'diag') && (
+                    {tab === 'diag' && (
                         <span className="badge badge-warning badge-sm">Esta pestaña · datos de ejemplo</span>
                     )}
                 </div>
@@ -416,7 +416,7 @@ export default function TableroCalidad({ tab: tabDeLaUrl, filtros: filtrosUrl, o
                         </Rejilla2>
                     )}
 
-                    {tab === 'est' && <TabEstadistica />}
+                    {tab === 'est' && <TabEstadistica datos={tablero.estadistica} />}
 
                     {tab === 'diag' && <TabDiagnostico />}
 

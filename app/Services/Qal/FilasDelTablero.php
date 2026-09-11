@@ -29,8 +29,8 @@ use Illuminate\Support\Collection;
  *
  * Es la tabla `registros` del tablero anterior, armada de las tablas nuevas:
  * los defectos salen de `qal_inspeccion_defectos`, los elementos del punto
- * `p2_elem`, el área de la pintura y el lote del muestreo. Aquí sólo se lee;
- * las cuentas viven en `TableroCalidad`.
+ * `p2_elem`, el área y el espesor de la pintura y el lote del muestreo. Aquí
+ * sólo se lee; las cuentas viven en `TableroCalidad`.
  */
 class FilasDelTablero
 {
@@ -58,7 +58,10 @@ class FilasDelTablero
             ->get()
             ->groupBy('inspeccion_id');
 
-        $areas = Pintura::query()->whereIn('inspeccion_id', $ids)->pluck('area_m2', 'inspeccion_id');
+        $pinturas = Pintura::query()
+            ->whereIn('inspeccion_id', $ids)
+            ->get(['inspeccion_id', 'area_m2', 'promedio_mils', 'espesor_requerido_mils'])
+            ->keyBy('inspeccion_id');
         $muestreos = Muestreo::query()->whereIn('inspeccion_id', $ids)->get()->keyBy('inspeccion_id');
 
         return $this->consulta($filtros)
@@ -70,7 +73,7 @@ class FilasDelTablero
                 $inspeccion,
                 $defectos->get($inspeccion->id, collect()),
                 $puntos->get($inspeccion->id, collect()),
-                $areas->get($inspeccion->id),
+                $pinturas->get($inspeccion->id),
                 $muestreos->get($inspeccion->id),
             ));
     }
@@ -159,7 +162,7 @@ class FilasDelTablero
      * @param  Collection<int, InspeccionPunto>  $puntos
      * @return array<string, mixed>
      */
-    private function fila(Inspeccion $inspeccion, Collection $defectos, Collection $puntos, mixed $area, ?Muestreo $muestreo): array
+    private function fila(Inspeccion $inspeccion, Collection $defectos, Collection $puntos, ?Pintura $pintura, ?Muestreo $muestreo): array
     {
         $fase = $inspeccion->fase;
         $armado = $inspeccion->subetapa === Subetapa::ArmadoVestido;
@@ -193,7 +196,10 @@ class FilasDelTablero
             'qr' => $inspeccion->qr,
             'kg' => $inspeccion->kg !== null ? (float) $inspeccion->kg : null,
             'elementos' => $elementos !== null ? (float) $elementos : null,
-            'area' => $area !== null ? (float) $area : null,
+            'area' => $pintura?->area_m2 !== null ? (float) $pintura->area_m2 : null,
+            // El promedio de película seca y el mínimo que pide el proyecto.
+            'espesor' => $pintura?->promedio_mils !== null ? (float) $pintura->promedio_mils : null,
+            'requerido' => $pintura?->espesor_requerido_mils !== null ? (float) $pintura->espesor_requerido_mils : null,
             // Un lote con muestreo ampara varias piezas, pero el inspector sólo
             // miró la muestra: lo liberado y lo inspeccionado no son lo mismo.
             'lote' => $lote,

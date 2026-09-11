@@ -93,10 +93,98 @@ export type TasaNormalizada = {
     porDimension: Record<DimensionTasa, { nombre: string; tasa: number; exposicion: number }[]>;
 };
 
+export type FactorPrueba = 'p2_subetapa' | 'tipo' | 'soldador' | 'obra' | 'inspector';
+export type EtapaPrueba = FaseReportada;
+
+export const ETIQUETA_FACTOR: Record<FactorPrueba, string> = {
+    tipo: 'tipo de pieza',
+    p2_subetapa: 'sub-etapa',
+    soldador: 'soldador',
+    obra: 'obra',
+    inspector: 'inspector',
+};
+
+/** Piezas mínimas para publicar un Cpk. Por debajo, la σ es la de la anécdota. */
+export const MIN_PIEZAS_CPK = 5;
+
+/**
+ * Chi-cuadrado sobre el veredicto final de cada pieza-etapa, dentro de una
+ * etapa. La V de Cramér mide la fuerza de la relación, no si existe.
+ */
+export type PruebaChi = {
+    estado: 'ok';
+    chi2: number;
+    gl: number;
+    p: number;
+    v: number;
+    piezas: number;
+    /** Tasa de rechazo del conjunto, en %. */
+    base: number;
+    /** Categorías con menos de 5 piezas, dejadas fuera para no distorsionar. */
+    fuera: number;
+    /** Celdas que esperaban menos de 5 casos: la prueba queda como indicio. */
+    celdasBajas: number;
+    detalle: { categoria: string; n: number; rechazadas: number; pct: number; esperadas: number; z: number }[];
+};
+
+type SinPrueba = { piezas: number; fuera: number };
+
+/** Cada estado sin prueba va aparte para que el tipo se estreche al descartarlos. */
+export type ResultadoPrueba =
+    | PruebaChi
+    | ({ estado: 'sin_muestra' } & SinPrueba)
+    | ({ estado: 'sin_rechazos' } & SinPrueba);
+
+type SemanaDeTendencia = { semana: string; n: number; rechazadas: number; pct: number };
+
+/** Cochran-Armitage: si la proporción sube o baja de forma sostenida. */
+export type TendenciaRechazo =
+    | { estado: 'ok'; z: number; p: number; semanas: number; puntos: SemanaDeTendencia[] }
+    | { estado: 'pocas_semanas' | 'plano'; semanas: number; puntos: SemanaDeTendencia[] };
+
+export type ClaveDescriptiva = 'peso' | 'elementos' | 'defectosSoldadura' | 'espesor' | 'margen' | 'area';
+
+export type EstadisticaTablero = {
+    /** Nula con menos de dos semanas: no hay carta que trazar. */
+    cartaP: {
+        preliminar: boolean;
+        subgrupos: number;
+        pbar: number;
+        puntos: { semana: string; p: number; ucl: number; lcl: number; n: number }[];
+    } | null;
+    margen: {
+        piezas: number;
+        piezasPintura: number;
+        resumen: { medianaPct: number; medianaMils: number; minPct: number; maxPct: number; bajoMinimo: number } | null;
+        bins: { desde: number; n: number }[];
+    };
+    capacidad: {
+        requerido: number;
+        obras: string[];
+        n: number;
+        media: number;
+        sigma: number;
+        /** Nulo sin variación entre piezas. */
+        cpk: number | null;
+        fuera: number;
+    }[];
+    coberturaEspesor: { con: number; total: number };
+    descriptiva: {
+        clave: ClaveDescriptiva;
+        conDato: number;
+        universo: number;
+        descartados: number;
+        estadistica: { media: number; mediana: number; sigma: number; cv: number | null; min: number; max: number } | null;
+    }[];
+    pruebas: Record<EtapaPrueba, Record<FactorPrueba, ResultadoPrueba>>;
+    tendencias: Record<EtapaPrueba, TendenciaRechazo>;
+};
+
 export type DatosTablero = {
     resumen: ResumenTablero;
     operacion: OperacionTablero;
     tasas: Record<BaseTasa, TasaNormalizada>;
+    estadistica: EstadisticaTablero;
 };
 
 /** Por debajo de esta cobertura una tasa normalizada no se publica. */
