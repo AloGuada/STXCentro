@@ -23,7 +23,7 @@
  */
 
 import { Head, Link, router, usePage } from '@inertiajs/react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { NivelMuestreo } from '@/components/qal/captura/datos';
 import { useCampos, type Junta, type PiezaRechazada } from '@/components/qal/captura/estado';
 import { FasePrimera } from '@/components/qal/captura/fase-primera';
@@ -178,6 +178,40 @@ const GENERALES = new Set([
     'p3_metodo',
 ]);
 
+/**
+ * Dónde cae la columna del formulario en pantalla, para pegarle debajo la
+ * barra de guardar. Va `fixed` y no `sticky` porque la página scrollea en el
+ * body y el `main` del layout lleva `overflow-auto`: un sticky se ancla a ese
+ * `main`, que mide lo que el contenido, y la barra acaba fuera de la vista.
+ * El sidebar cambia de ancho, así que la posición se mide, no se supone.
+ */
+function useColumna() {
+    const ref = useRef<HTMLDivElement>(null);
+    const [caja, setCaja] = useState<{ left: number; width: number } | null>(null);
+
+    useLayoutEffect(() => {
+        const medir = () => {
+            const rect = ref.current?.getBoundingClientRect();
+            if (rect) {
+                setCaja({ left: rect.left, width: rect.width });
+            }
+        };
+        medir();
+        const observador = new ResizeObserver(medir);
+        observador.observe(document.body);
+        if (ref.current) {
+            observador.observe(ref.current);
+        }
+        window.addEventListener('resize', medir);
+        return () => {
+            observador.disconnect();
+            window.removeEventListener('resize', medir);
+        };
+    }, []);
+
+    return [ref, caja] as const;
+}
+
 /** Rejilla de espesores vacía: 15 mediciones × 3 lecturas. */
 function lecturasVacias(): string[][] {
     return Array.from({ length: ESPESOR_MEDICIONES_MAX }, () => ['', '', '']);
@@ -234,6 +268,7 @@ export default function CapturaCalidad({ obras, obraId, marcas, lotes, avance, p
     const [campos, reiniciarCampos] = useCampos(iniciales);
 
     const [pestana, setPestana] = useState<'capturar' | 'registros'>('capturar');
+    const [columnaRef, cajaColumna] = useColumna();
     const [modo, setModo] = useState<'pieza' | 'acc'>(precarga?.modoCaptura ?? 'pieza');
     const [tecladoFolio, setTecladoFolio] = useState(false);
     const [tipoDeducido, setTipoDeducido] = useState('');
@@ -676,7 +711,7 @@ export default function CapturaCalidad({ obras, obraId, marcas, lotes, avance, p
             <Head title="Calidad — Captura de inspección" />
 
             <div className="bg-base-200 text-base-content">
-                <div className="mx-auto max-w-[820px] px-[14px] pt-4 pb-32">
+                <div ref={columnaRef} className="mx-auto max-w-[820px] px-[14px] pt-4 pb-32">
                     <div className="mb-[14px] rounded-xl bg-primary px-4 py-[14px] text-primary-content">
                         <div className="text-[22px] font-extrabold tracking-[.5px]">Captura de inspección</div>
                         <div className="text-xs opacity-85">Control de Calidad · {auth.user.name}</div>
@@ -1146,7 +1181,10 @@ export default function CapturaCalidad({ obras, obraId, marcas, lotes, avance, p
             </div>
 
             {pestana === 'capturar' && (
-                <div className="sticky bottom-0 z-50 mx-auto flex max-w-[820px] gap-[10px] border-t border-base-300 bg-base-100 px-[14px] py-3 shadow-[0_-2px_12px_rgba(18,35,61,.08)]">
+                <div
+                    className="fixed bottom-0 z-30 flex gap-[10px] border-t border-base-300 bg-base-100 px-[14px] py-3 shadow-[0_-2px_12px_rgba(18,35,61,.08)]"
+                    style={cajaColumna ? { left: cajaColumna.left, width: cajaColumna.width } : { left: 0, right: 0 }}
+                >
                     <button
                         type="button"
                         onClick={limpiar}
