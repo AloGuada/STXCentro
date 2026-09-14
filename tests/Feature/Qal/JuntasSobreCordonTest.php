@@ -158,6 +158,10 @@ test('el cordon se pinta con la ultima junta de cada pieza', function () {
         ->assertJsonPath('cordones.0.correctas', 1)
         ->assertJsonPath('cordones.0.con_defecto', 0)
         ->assertJsonPath('glb_url', $marca->glbUrl())
+        // Relativa al host: la tablet de planta entra por la IP de la red y una
+        // url con `localhost` le haría pedir el .glb a sí misma.
+        ->assertJsonPath('glb_url', "/storage/qal/modelos/{$marca->modelo_id}/marks/{$marca->archivo}.glb")
+        ->assertJsonPath('ficha_url', "/storage/qal/modelos/{$marca->modelo_id}/marks/{$marca->archivo}.json")
         // Lo que lleva el encabezado de la hoja imprimible.
         ->assertJsonPath('piezas', $marca->piezas)
         ->assertJsonPath('ensambles', $marca->ensambles)

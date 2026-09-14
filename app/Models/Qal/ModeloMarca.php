@@ -79,11 +79,26 @@ class ModeloMarca extends Model
 
     public function glbUrl(): string
     {
-        return Storage::disk('public')->url("qal/modelos/{$this->modelo_id}/marks/{$this->archivo}.glb");
+        return $this->urlDelArchivo('glb');
     }
 
     public function fichaUrl(): string
     {
-        return Storage::disk('public')->url("qal/modelos/{$this->modelo_id}/marks/{$this->archivo}.json");
+        return $this->urlDelArchivo('json');
+    }
+
+    /**
+     * La url del archivo de la marca, **relativa al host**.
+     *
+     * Quien la pide es el navegador, y ese navegador puede ser la tablet de
+     * planta entrando por la IP de la red: con la url absoluta que arma
+     * `APP_URL` la tablet pedía el .glb a su propio `localhost` y el visor sólo
+     * podía decir que no pudo cargar la geometría.
+     */
+    private function urlDelArchivo(string $extension): string
+    {
+        $url = Storage::disk('public')->url("qal/modelos/{$this->modelo_id}/marks/{$this->archivo}.{$extension}");
+
+        return parse_url($url, PHP_URL_PATH) ?: $url;
     }
 }
