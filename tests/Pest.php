@@ -288,7 +288,11 @@ function cfdiXml(array $overrides = []): string
         'IvaTrasladado' => '1600.00',
         'IvaRetenido' => '0.00',
         'IsrRetenido' => '0.00',
+        'TipoCambio' => null,
     ], $overrides);
+
+    // Sólo los CFDI en divisa lo llevan.
+    $tipoCambio = $attrs['TipoCambio'] !== null ? " TipoCambio=\"{$attrs['TipoCambio']}\"" : '';
 
     return <<<XML
 <?xml version="1.0" encoding="UTF-8"?>
@@ -300,7 +304,7 @@ function cfdiXml(array $overrides = []): string
     Folio="{$attrs['Folio']}"
     SubTotal="{$attrs['SubTotal']}"
     Total="{$attrs['Total']}"
-    Moneda="{$attrs['Moneda']}">
+    Moneda="{$attrs['Moneda']}"{$tipoCambio}>
   <cfdi:Emisor Rfc="{$attrs['RfcEmisor']}" Nombre="Emisor SA" RegimenFiscal="601"/>
   <cfdi:Receptor Rfc="{$attrs['RfcReceptor']}" Nombre="Receptor SA" UsoCFDI="G03"/>
   <cfdi:Impuestos TotalImpuestosTrasladados="{$attrs['IvaTrasladado']}" TotalImpuestosRetenidos="{$attrs['IvaRetenido']}">

@@ -23,6 +23,11 @@ use Illuminate\Validation\ValidationException;
  * recibiendo: es lo único que atrapa el XML de otra entrega, que de otro modo
  * pasaría sin ruido mientras quepa en el saldo de la orden.
  *
+ * Si el CFDI viene en otra moneda que la orden (cotizaron en dólares y
+ * facturan en pesos), aquí es donde se convierte: lo que entra dice cuánto
+ * esperaba cobrar la orden, y el total del CFDI entre ese esperado es el tipo
+ * de cambio que aplicó el proveedor. Ver {@see MonedaDelCfdi}.
+ *
  * Los rechazos salen como ValidationException con la llave del campo que los
  * provocó, para que la pantalla los pinte donde se pueden corregir.
  */
@@ -32,6 +37,7 @@ class FacturaDeLaRecepcion
         private readonly CfdiXmlParser $parser,
         private readonly RegistradorFacturaCfdi $registrador,
         private readonly RetencionCalculator $impuestos,
+        private readonly MonedaDelCfdi $moneda,
     ) {}
 
     /**
@@ -121,6 +127,15 @@ class FacturaDeLaRecepcion
 
             return $existente;
         }
+
+        if ($error = $this->moneda->error($orden, $fiscal, $esperado)) {
+            throw ValidationException::withMessages(['xml' => $error]);
+        }
+
+        // Con la orden en divisa el total ya sale cuadrado (el tipo de cambio se
+        // dedujo de él, y MonedaDelCfdi lo contrastó con el FIX); con la orden
+        // en pesos, el TipoCambio del XML sí puede dejarlo fuera de tolerancia.
+        $fiscal = $this->moneda->aMonedaDeLaOrden($orden, $fiscal, $esperado);
 
         $this->exigirQueCuadre((float) $fiscal['total'], $esperado, 'xml');
 

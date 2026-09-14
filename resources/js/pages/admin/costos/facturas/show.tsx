@@ -32,6 +32,9 @@ export default function FacturasShow({ factura }: Props) {
     const [aprobarProcessing, setAprobarProcessing] = useState(false);
     const [aceptarProcessing, setAceptarProcessing] = useState(false);
     const formatMoney = (n: number) => fmtMonto(n, factura.moneda);
+    // Timbrada en otra moneda que la orden: los importes de arriba están
+    // convertidos a la de la orden, y el CFDI dice otra cosa.
+    const otraMonedaCfdi = !!factura.moneda_cfdi && factura.moneda_cfdi !== factura.moneda;
 
     const fechaPago = useMemo(() => {
         const dias = factura.proveedor?.dias_credito_default;
@@ -108,6 +111,13 @@ export default function FacturasShow({ factura }: Props) {
                         <div>
                             <span className="text-sm text-base-content/60">Total</span>
                             <p className="font-medium text-lg">{formatMoney(factura.total)}</p>
+                            {otraMonedaCfdi && (
+                                <p className="text-sm text-base-content/60">
+                                    CFDI en {factura.moneda_cfdi?.toUpperCase()}:{' '}
+                                    {fmtMonto(Number(factura.total_cfdi ?? 0), factura.moneda_cfdi ?? 'mxn')}
+                                    {Number(factura.tipo_cambio_cfdi) > 1 && ` · TC ${Number(factura.tipo_cambio_cfdi).toFixed(4)}`}
+                                </p>
+                            )}
                         </div>
                         {factura.uuid_fiscal && (
                             <div>
@@ -207,7 +217,7 @@ export default function FacturasShow({ factura }: Props) {
                         {factura.impuestos_detalle && (
                             <details className="mt-3">
                                 <summary className="cursor-pointer text-sm text-base-content/70">
-                                    Ver detalle por concepto (CFDI)
+                                    Ver detalle por concepto (CFDI{otraMonedaCfdi ? `, en ${factura.moneda_cfdi?.toUpperCase()}` : ''})
                                 </summary>
                                 <div className="mt-2 space-y-3">
                                     {factura.impuestos_detalle.traslados.length > 0 && (

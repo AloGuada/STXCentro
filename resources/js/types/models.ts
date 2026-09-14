@@ -2679,6 +2679,11 @@ export type CostosFactura = {
     impuestos_detalle: CostosImpuestosDetalle | null;
     total: number;
     moneda: string;
+    /** Lo que dice el CFDI cuando se timbró en otra moneda que la orden. */
+    moneda_cfdi?: string | null;
+    total_cfdi?: number | null;
+    /** Pesos por unidad de la moneda de la orden, según la factura. */
+    tipo_cambio_cfdi?: number | null;
     metodo_pago?: 'PUE' | 'PPD' | null;
     forma_pago?: string | null;
     fecha_factura: string | null;

@@ -16,9 +16,16 @@ use Illuminate\Support\Facades\Storage;
  * valida UUID duplicado y saldo facturable, crea la Factura con los datos
  * fiscales del CFDI, adjunta los archivos y recalcula el estatus de la OC —
  * todo dentro de una transacción.
+ *
+ * El CFDI puede venir en otra moneda que la orden: antes de medir el saldo y
+ * de guardar se lleva a la moneda de la orden con {@see MonedaDelCfdi}. Quien
+ * ya lo convirtió (la recepción de almacén, que conoce lo que entra) lo pasa
+ * con `moneda_cfdi` y aquí no se vuelve a convertir.
  */
 class RegistradorFacturaCfdi
 {
+    public function __construct(private readonly MonedaDelCfdi $moneda) {}
+
     /**
      * Mensaje de error si el CFDI no puede registrarse contra la OC, o null si
      * es registrable (UUID no duplicado y total dentro del saldo facturable).
@@ -32,13 +39,18 @@ class RegistradorFacturaCfdi
             return 'Ya existe una factura registrada con ese UUID fiscal.';
         }
 
+        if (! isset($fiscal['moneda_cfdi']) && ($error = $this->moneda->error($oc, $fiscal))) {
+            return $error;
+        }
+
         $saldoFacturable = (float) $oc->saldo_facturable;
-        $totalCfdi = (float) ($fiscal['total'] ?? 0);
+        $totalCfdi = (float) ($this->enMonedaDeLaOrden($oc, $fiscal)['total'] ?? 0);
 
         if ($totalCfdi > $saldoFacturable + (float) config('costos.epsilon_monto')) {
             return sprintf(
-                'El total del CFDI ($%s) excede el saldo facturable de la OC ($%s). Verifica que el XML corresponda a esta orden.',
+                'El total del CFDI ($%s %s) excede el saldo facturable de la OC ($%s). Verifica que el XML corresponda a esta orden.',
                 number_format($totalCfdi, 2),
+                strtoupper((string) ($oc->moneda ?: 'mxn')),
                 number_format($saldoFacturable, 2),
             );
         }
@@ -57,6 +69,8 @@ class RegistradorFacturaCfdi
      */
     public function registrar(OrdenCompra $oc, array $fiscal, array $extra, ?Closure $adjuntar = null): Factura
     {
+        $fiscal = $this->enMonedaDeLaOrden($oc, $fiscal);
+
         return DB::transaction(function () use ($oc, $fiscal, $extra, $adjuntar): Factura {
             $factura = Factura::create([
                 'orden_compra_id' => $oc->id,
@@ -72,6 +86,9 @@ class RegistradorFacturaCfdi
                 'total' => $fiscal['total'] ?? 0,
                 'moneda' => $oc->moneda,
                 'tipo_cambio' => $oc->tipo_cambio,
+                'moneda_cfdi' => $fiscal['moneda_cfdi'],
+                'total_cfdi' => $fiscal['total_cfdi'],
+                'tipo_cambio_cfdi' => $fiscal['tipo_cambio_cfdi'],
                 'metodo_pago' => $fiscal['metodo_pago'] ?? null,
                 'forma_pago' => $fiscal['forma_pago'] ?? null,
                 'fecha_factura' => $fiscal['fecha_factura'] ?? null,
@@ -86,6 +103,15 @@ class RegistradorFacturaCfdi
 
             return $factura;
         });
+    }
+
+    /**
+     * @param  array<string, mixed>  $fiscal
+     * @return array<string, mixed>
+     */
+    private function enMonedaDeLaOrden(OrdenCompra $oc, array $fiscal): array
+    {
+        return isset($fiscal['moneda_cfdi']) ? $fiscal : $this->moneda->aMonedaDeLaOrden($oc, $fiscal);
     }
 
     /**

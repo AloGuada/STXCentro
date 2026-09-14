@@ -36,6 +36,7 @@ class ConfiguracionCostosController extends Controller
             'corte_hora' => ['required', 'date_format:H:i'],
             'dia_comprobante_recepcion' => ['nullable', 'integer', 'min:0', 'max:6'],
             'tolerancia_recepcion' => ['sometimes', 'required', 'numeric', 'min:0', 'max:100000', 'decimal:0,2'],
+            'tolerancia_tipo_cambio' => ['sometimes', 'required', 'numeric', 'min:0', 'max:100', 'decimal:0,2'],
             'gerente_compras_id' => ['nullable', 'uuid', 'exists:usuarios,id'],
         ]);
 
