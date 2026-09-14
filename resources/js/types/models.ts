@@ -669,6 +669,8 @@ export type ProdPendienteLiquidar = {
     grupo_trabajo: string | null;
     pagado: number;
     saldo: number;
+    /** El avance que se pagaría en este destajo: 1º, 2º... cuenta semanas, no capturas. */
+    numero_avance: number;
     porcentaje_sugerido: number;
 };
 

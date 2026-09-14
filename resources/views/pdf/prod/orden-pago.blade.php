@@ -31,8 +31,6 @@
         .text-right { text-align: right; }
         .text-center { text-align: center; }
         .total-row td { font-weight: bold; background-color: #f0f0f0; }
-        .obra-row td { font-weight: bold; background-color: #d9d9d9; text-transform: uppercase; }
-        .tipo-row td { font-weight: bold; background-color: #ececec; padding-left: 12px; }
         .subtotal-row td { font-weight: bold; font-style: italic; background-color: #f7f7f7; }
         .obra-total-row td { font-weight: bold; background-color: #e4e4e4; }
         .empty-cell { color: #666; font-style: italic; text-align: center; }
@@ -46,10 +44,6 @@
         .totales .label { font-weight: bold; background-color: #f0f0f0; }
         .totales .grand td { font-weight: bold; font-size: 11px; background-color: #e0e0e0; }
 
-        .firma { margin-top: 26px; text-align: center; width: 300px; }
-        .firma-line { border-top: 1px solid #000; padding-top: 3px; font-size: 9px; }
-        .firma-line .cargo { font-weight: bold; }
-
         .form-code { margin-top: 10px; font-size: 8px; color: #333; }
         .no-data { text-align: center; font-size: 12px; padding: 40px; color: #555; }
     </style>
@@ -58,6 +52,7 @@
 @php
     $periodo = trim(optional($destajo->fecha_inicio)->format('d/m/Y').' — '.optional($destajo->fecha_fin)->format('d/m/Y'), ' —');
     $mon = fn ($n) => ((float) $n < 0 ? '-$' : '$').number_format(abs((float) $n), 2);
+    $pct = fn ($n) => $n !== null ? rtrim(rtrim(number_format((float) $n, 2), '0'), '.').'%' : '-';
 @endphp
 
 @forelse($grupos as $g)
@@ -99,34 +94,32 @@
         </tr>
     </table>
 
-    {{-- Piezas fabricadas: por obra, y dentro de cada obra por tipo de pieza,
-         con el subtotal de cada tipo y el de la obra. Un renglon por marca. --}}
+    {{-- Piezas fabricadas: por obra, y dentro de cada obra por tipo de pieza.
+         Sin encabezado de obra ni de tipo: cada bloque cierra con su renglon de total.
+         Un renglon por marca y lote, partido por avance: Acum. es lo pagado de la
+         pieza con esta semana incluida. --}}
     <div class="section-title">Piezas fabricadas</div>
     <table class="grid">
         <thead>
             <tr>
-                <th style="width: 11%;">Marca</th>
-                <th style="width: 7%;">Etapa</th>
-                <th style="width: 13%;">Proceso</th>
+                <th style="width: 10%;">Marca</th>
+                <th style="width: 6%;">Etapa</th>
+                <th style="width: 11%;">Proceso</th>
                 <th>Descripción</th>
-                <th style="width: 6%;">Pzs</th>
+                <th style="width: 5%;">Pzs</th>
+                <th style="width: 5%;">Avance</th>
                 <th style="width: 5%;">%</th>
-                <th style="width: 8%;">Largo (mm)</th>
-                <th style="width: 9%;">Peso u. (kg)</th>
-                <th style="width: 9%;">Kilos</th>
-                <th style="width: 8%;">Precio u.</th>
-                <th style="width: 11%;">Importe</th>
+                <th style="width: 5%;">Acum.</th>
+                <th style="width: 7%;">Largo (mm)</th>
+                <th style="width: 8%;">Peso u. (kg)</th>
+                <th style="width: 8%;">Kilos</th>
+                <th style="width: 7%;">Precio u.</th>
+                <th style="width: 10%;">Importe</th>
             </tr>
         </thead>
         <tbody>
             @forelse($g['grupos_piezas'] as $ob)
-            <tr class="obra-row">
-                <td colspan="11">OBRA: {{ $ob['obra'] }}</td>
-            </tr>
             @foreach($ob['tipos'] as $t)
-            <tr class="tipo-row">
-                <td colspan="11">{{ strtoupper($t['tipo']) }}</td>
-            </tr>
             @foreach($t['piezas'] as $p)
             <tr>
                 <td>{{ $p['marca'] }}</td>
@@ -134,7 +127,9 @@
                 <td>{{ $p['proceso'] ?: '-' }}</td>
                 <td>{{ $p['descripcion'] }}</td>
                 <td class="text-right">{{ number_format($p['pzs']) }}</td>
-                <td class="text-right">{{ $p['porcentaje'] !== null ? rtrim(rtrim(number_format($p['porcentaje'], 2), '0'), '.').'%' : '-' }}</td>
+                <td class="text-center">{{ ($p['avance'] ?? null) !== null ? $p['avance'].'º' : '-' }}</td>
+                <td class="text-right">{{ $pct($p['porcentaje']) }}</td>
+                <td class="text-right">{{ $pct($p['acumulado'] ?? null) }}</td>
                 <td class="text-right">{{ $p['largo'] !== null ? number_format($p['largo']) : '-' }}</td>
                 <td class="text-right">{{ $p['peso_unitario'] !== null ? number_format($p['peso_unitario'], 3) : '-' }}</td>
                 <td class="text-right">{{ number_format($p['kilos'], 3) }}</td>
@@ -146,7 +141,7 @@
             <tr class="subtotal-row">
                 <td colspan="4" class="text-right">Total {{ $t['tipo'] }}</td>
                 <td class="text-right">{{ number_format($t['pzs']) }}</td>
-                <td colspan="3"></td>
+                <td colspan="5"></td>
                 <td class="text-right">{{ number_format($t['kilos'], 3) }}</td>
                 <td></td>
                 <td class="text-right">{{ $mon($t['importe']) }}</td>
@@ -155,18 +150,18 @@
             <tr class="obra-total-row">
                 <td colspan="4" class="text-right">Total obra {{ $ob['obra'] }}</td>
                 <td class="text-right">{{ number_format($ob['pzs']) }}</td>
-                <td colspan="3"></td>
+                <td colspan="5"></td>
                 <td class="text-right">{{ number_format($ob['kilos'], 3) }}</td>
                 <td></td>
                 <td class="text-right">{{ $mon($ob['importe']) }}</td>
             </tr>
             @empty
-            <tr><td colspan="11" class="empty-cell">Sin producción capturada</td></tr>
+            <tr><td colspan="13" class="empty-cell">Sin producción capturada</td></tr>
             @endforelse
         </tbody>
         <tfoot>
             <tr class="total-row">
-                <td colspan="8" class="text-right">TOTAL PRODUCCIÓN</td>
+                <td colspan="10" class="text-right">TOTAL PRODUCCIÓN</td>
                 <td class="text-right">{{ number_format($g['total_kilos'], 3) }}</td>
                 <td></td>
                 <td class="text-right">{{ $mon($g['total_produccion']) }}</td>
@@ -221,7 +216,7 @@
                 </table>
             </td>
 
-            {{-- Totales + distribución --}}
+            {{-- Totales; el reparto por empleado vive en la hoja siguiente. --}}
             <td class="col-right">
                 <div class="section-title">Resumen</div>
                 <table class="totales" style="width: 100%; border-collapse: collapse;">
@@ -229,42 +224,9 @@
                     <tr><td class="label">Pagos extra</td><td class="text-right">{{ $mon($g['total_extras']) }}</td></tr>
                     <tr class="grand"><td>TOTAL</td><td class="text-right">{{ $mon($g['total_final']) }}</td></tr>
                 </table>
-
-                <div class="section-title">Distribución a empleados</div>
-                <table class="grid">
-                    <thead>
-                        <tr>
-                            <th style="text-align: left;">Empleado</th>
-                            <th style="width: 20%;">%</th>
-                            <th style="width: 30%;">Monto</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @forelse($g['empleados'] as $emp)
-                        <tr>
-                            <td>{{ $emp['nombre'] }} <span style="color:#666;">({{ $emp['no_empleado'] ?: 's/n' }})</span></td>
-                            <td class="text-right">{{ number_format($emp['porcentaje'], 2) }}%</td>
-                            <td class="text-right">{{ $mon($emp['monto']) }}</td>
-                        </tr>
-                        @empty
-                        <tr><td colspan="3" class="empty-cell">Sin empleados en el grupo</td></tr>
-                        @endforelse
-                    </tbody>
-                </table>
             </td>
         </tr>
     </table>
-
-    <table style="width: 100%; margin-top: 20px;"><tr>
-        <td style="width: 50%;"></td>
-        <td style="width: 50%;">
-            <div class="firma">
-                <div class="firma-line">
-                    <span class="cargo">JEFE DE PRODUCCIÓN</span>
-                </div>
-            </div>
-        </td>
-    </tr></table>
 
     <div class="form-code">F-STX-PR-2T-06 · Revisión: 00</div>
 </div>
@@ -340,23 +302,6 @@
             </tr>
         </tfoot>
     </table>
-
-    <table style="width: 100%; margin-top: 24px;"><tr>
-        <td style="width: 50%;">
-            <div class="firma">
-                <div class="firma-line">
-                    <span class="cargo">ELABORÓ</span>
-                </div>
-            </div>
-        </td>
-        <td style="width: 50%;">
-            <div class="firma">
-                <div class="firma-line">
-                    <span class="cargo">JEFE DE PRODUCCIÓN</span>
-                </div>
-            </div>
-        </td>
-    </tr></table>
 
     <div class="form-code">F-STX-PR-2T-07 · Revisión: 00</div>
 </div>

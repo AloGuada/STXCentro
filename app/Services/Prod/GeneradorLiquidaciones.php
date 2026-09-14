@@ -20,6 +20,7 @@ class GeneradorLiquidaciones
     public function __construct(
         private RepartoDelGrupo $reparto,
         private ModalidadDePago $modalidad,
+        private AvanceDePiezas $avance,
     ) {}
 
     /**
@@ -240,7 +241,9 @@ class GeneradorLiquidaciones
             ->get()
             ->keyBy('id');
 
-        return $destajo->liquidaciones->map(function (Liquidacion $liq) use ($tipos, $pagosPorGrupo, $obras) {
+        $historial = $this->historialesDelDestajo($destajo);
+
+        return $destajo->liquidaciones->map(function (Liquidacion $liq) use ($tipos, $pagosPorGrupo, $obras, $historial) {
             // Todo sale del snapshot del renglon, nunca del catalogo vivo.
             $piezas = $this->agruparParaImprimir(
                 $liq->detalles->map(fn (LiquidacionDetalle $d) => [
@@ -251,6 +254,7 @@ class GeneradorLiquidaciones
                     'obra' => $this->etiquetaObra($d->obra_id !== null ? $obras->get($d->obra_id) : null),
                     'qs' => $d->qs,
                     'porcentaje' => (float) $d->porcentaje,
+                    ...$this->avanceDelRenglon($historial($d->obra_id), $d->pieza_id, $d->qr, (int) $d->proceso_id, $d->subproceso_id),
                     'largo' => $d->longitud,
                     'peso_unitario' => $d->peso_unitario !== null ? (float) $d->peso_unitario : null,
                     'kilos' => (float) $d->kilos,
@@ -300,8 +304,9 @@ class GeneradorLiquidaciones
     {
         $registrosPorGrupo = $this->registrosDelDestajo($destajo)->groupBy('grupo_trabajo_id');
         $grupoIds = $registrosPorGrupo->keys()->merge($pagosPorGrupo->keys())->unique();
+        $historial = $this->historialesDelDestajo($destajo);
 
-        return $grupoIds->map(function ($grupoId) use ($destajo, $registrosPorGrupo, $pagosPorGrupo, $tipos) {
+        return $grupoIds->map(function ($grupoId) use ($destajo, $registrosPorGrupo, $pagosPorGrupo, $tipos, $historial) {
             $grupoId = (int) $grupoId;
             $registrosGrupo = $registrosPorGrupo->get($grupoId, collect());
 
@@ -334,6 +339,7 @@ class GeneradorLiquidaciones
                     'obra' => $this->etiquetaObra($marca->obra),
                     'qs' => $pieza->qs,
                     'porcentaje' => $porcentaje,
+                    ...$this->avanceDelRenglon($historial($marca->obra_id), $pieza->id, $pieza->qr, $procesoId, $primero->subproceso_id),
                     'largo' => $marca->longitud,
                     'peso_unitario' => (float) $marca->peso_unitario,
                     'kilos' => $valor['kilos'],
@@ -384,15 +390,20 @@ class GeneradorLiquidaciones
 
     /**
      * La orden de pago se imprime por marca, no pieza por pieza: un renglon por
-     * marca dentro de su obra, con el conteo de piezas y sus totales sumados.
+     * marca y lote dentro de su obra, con el conteo de piezas y sus totales
+     * sumados. La misma marca en dos lotes son dos renglones.
      * El detalle por QS —y por proceso y subproceso, cada uno con su tarifa—
      * sigue guardado en la liquidacion para poder auditar exactamente que se
      * pago; aqui se junta porque en la hoja lo que se lee es "cuantas de esta
      * marca y cuanto valieron".
      *
-     * Cuando una misma marca paso por varios procesos o porcentajes en la
-     * semana, el renglon lo dice (los procesos separados por coma) y deja en
-     * blanco el precio unitario y el porcentaje, porque ya no hay uno solo.
+     * Las piezas de la marca que van en distinto avance, porcentaje o acumulado
+     * salen en renglones aparte: en un pago parcial lo que se lee es "2o avance,
+     * 40%, ya va al 100%", y juntarlas dejaria esas celdas sin un valor unico.
+     *
+     * Cuando una misma marca paso por varios procesos en la semana, el renglon
+     * lo dice (los procesos separados por coma) y deja en blanco el precio
+     * unitario, porque ya no hay uno solo.
      *
      * @param  Collection<int, array<string, mixed>>  $renglones
      * @return array<int, array<string, mixed>>
@@ -404,7 +415,10 @@ class GeneradorLiquidaciones
             : null;
 
         return $renglones
-            ->groupBy(fn (array $r) => implode('|', [$r['obra'], $r['categoria'] ?? '', $r['marca']]))
+            ->groupBy(fn (array $r) => implode('|', [
+                $r['obra'], $r['categoria'] ?? '', $r['marca'], $r['lote'] ?? '',
+                $r['avance'] ?? '', $r['porcentaje'], $r['acumulado'] ?? '',
+            ]))
             ->map(function (Collection $grupo) use ($unico) {
                 $primero = $grupo->first();
                 $procesos = $grupo
@@ -415,7 +429,7 @@ class GeneradorLiquidaciones
 
                 return [
                     'marca' => $primero['marca'],
-                    'lote' => $grupo->pluck('lote')->filter()->unique()->implode(', ') ?: null,
+                    'lote' => $primero['lote'] ?? null,
                     'proceso' => $procesos->implode(', '),
                     'subproceso' => null,
                     'descripcion' => $primero['descripcion'],
@@ -426,6 +440,8 @@ class GeneradorLiquidaciones
                     'pzs' => $grupo->pluck('pieza_id')->filter()->unique()->count() ?: $grupo->count(),
                     'qs' => $grupo->pluck('qs')->filter()->unique()->values()->all(),
                     'porcentaje' => $porcentaje === null ? null : (float) $porcentaje,
+                    'avance' => $primero['avance'] ?? null,
+                    'acumulado' => $primero['acumulado'] ?? null,
                     'largo' => $primero['largo'],
                     'peso_unitario' => $primero['peso_unitario'],
                     'kilos' => round((float) $grupo->sum('kilos'), 3),
@@ -434,7 +450,7 @@ class GeneradorLiquidaciones
                     'importe' => round((float) $grupo->sum('importe'), 2),
                 ];
             })
-            ->sortBy([['obra', 'asc'], ['categoria', 'asc'], ['marca', 'asc']])
+            ->sortBy([['obra', 'asc'], ['categoria', 'asc'], ['marca', 'asc'], ['lote', 'asc'], ['avance', 'asc'], ['porcentaje', 'desc']])
             ->values()
             ->all();
     }
@@ -533,6 +549,35 @@ class GeneradorLiquidaciones
                 'subtotal' => (float) $pagos->sum(fn (PagoExtra $p) => $p->monto),
             ];
         })->all();
+    }
+
+    /**
+     * El historial de avance se arma por obra y una sola vez por orden de pago.
+     *
+     * @return \Closure(?int): ?HistorialDeAvance
+     */
+    private function historialesDelDestajo(Destajo $destajo): \Closure
+    {
+        $cache = [];
+
+        return function (?int $obraId) use ($destajo, &$cache): ?HistorialDeAvance {
+            if ($obraId === null) {
+                return null;
+            }
+
+            return $cache[$obraId] ??= $this->avance->historialHasta($obraId, $destajo);
+        };
+    }
+
+    /**
+     * @return array{avance: ?int, acumulado: ?float}
+     */
+    private function avanceDelRenglon(?HistorialDeAvance $historial, ?int $piezaId, ?string $qr, int $procesoId, ?int $subprocesoId): array
+    {
+        return [
+            'avance' => $historial?->numeroDeAvance($piezaId, $qr, $procesoId, $subprocesoId),
+            'acumulado' => $historial?->porcentajeAcumulado($piezaId, $qr, $procesoId, $subprocesoId),
+        ];
     }
 
     private function etiquetaObra(?Obra $obra): string

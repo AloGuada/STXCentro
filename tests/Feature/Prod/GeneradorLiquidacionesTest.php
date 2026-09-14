@@ -156,6 +156,32 @@ test('ordenDePago junta la misma marca en un renglon aunque pase por varios proc
         ->and($piezas[0]['importe'])->toBe(140.0);
 });
 
+test('ordenDePago separa en renglones la misma marca de lotes distintos', function () {
+    $lote1 = marcaConPiezas(2, ['marca' => 'C-1', 'lote' => 'L1', 'peso_unitario' => 10.000]);
+    $lote2 = marcaConPiezas(3, ['marca' => 'C-1', 'lote' => 'L2', 'peso_unitario' => 10.000, 'obra_id' => $lote1->obra_id, 'catalogo_id' => $lote1->catalogo_id, 'categoria_id' => $lote1->categoria_id]);
+
+    obraPagaProcesos($lote1->obra_id);
+    $grupoPrecio = tarifaDeMarca($lote1, 5);
+    tarifaDeMarca($lote2, 5, null, $grupoPrecio);
+
+    GrupoEmpleado::factory()->create(['grupo_trabajo_id' => $this->grupo->id]);
+
+    capturarPiezas($lote1->piezas, $this->grupo, '2026-03-04');
+    capturarPiezas($lote2->piezas, $this->grupo, '2026-03-04');
+
+    $abierto = $this->service->ordenDePago($this->destajo)->first()['piezas'];
+
+    $this->service->generar($this->destajo);
+    $cerrado = $this->service->ordenDePago($this->destajo->fresh())->first()['piezas'];
+
+    foreach ([$abierto, $cerrado] as $piezas) {
+        expect($piezas)->toHaveCount(2)
+            ->and(collect($piezas)->pluck('lote')->all())->toBe(['L1', 'L2'])
+            ->and(collect($piezas)->pluck('pzs')->all())->toBe([2, 3])
+            ->and(collect($piezas)->pluck('importe')->all())->toBe([100.0, 150.0]);
+    }
+});
+
 test('ordenDePago agrupa las piezas por obra y tipo con subtotales', function () {
     $columna = App\Models\Prod\Categoria::factory()->create(['nombre' => 'Columna']);
     $viga = App\Models\Prod\Categoria::factory()->create(['nombre' => 'Viga']);
@@ -190,6 +216,21 @@ test('ordenDePago agrupa las piezas por obra y tipo con subtotales', function ()
         ->and($obraDeDos['tipos'][1]['importe'])->toBe(150.0)
         ->and($obraDeDos['importe'])->toBe(250.0)
         ->and($obraDeDos['kilos'])->toBe(50.0);
+
+    $html = view('pdf.prod.orden-pago', [
+        'destajo' => $this->destajo,
+        'grupos' => $this->service->ordenDePago($this->destajo),
+    ])->render();
+
+    // Sin renglon de encabezado por obra ni por tipo: solo sus totales.
+    expect($html)->not->toContain('OBRA:')
+        ->not->toContain('tipo-row')
+        ->toContain('Total Columna')
+        ->toContain('Total Viga')
+        ->toContain('Total obra')
+        // Tampoco lleva firmas ni la distribucion a empleados de la primera hoja.
+        ->not->toContain('firma')
+        ->not->toContain('Distribución a empleados');
 });
 
 test('ordenDePago (cerrado) lee de las liquidaciones inmutables', function () {

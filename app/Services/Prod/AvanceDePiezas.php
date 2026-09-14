@@ -3,11 +3,13 @@
 namespace App\Services\Prod;
 
 use App\Models\Prod\Catalogo;
+use App\Models\Prod\Destajo;
 use App\Models\Prod\GrupoPrecioSubproceso;
 use App\Models\Prod\LiquidacionDetalle;
 use App\Models\Prod\Pieza;
 use App\Models\Prod\Proceso;
 use App\Models\Prod\Registro;
+use Carbon\CarbonInterface;
 use Illuminate\Support\Collection;
 
 /**
@@ -102,6 +104,65 @@ class AvanceDePiezas
     }
 
     /**
+     * Número de avance y porcentaje acumulado de las piezas de la obra, vistos
+     * desde un destajo: lo de semanas anteriores define el número, y el
+     * acumulado suma además lo de la propia semana. Lo de semanas posteriores
+     * no cuenta, para que reimprimir una semana vieja diga lo que dijo entonces.
+     *
+     * Mismas fuentes que el tope: el snapshot de las liquidaciones para las
+     * semanas cerradas y los registros para las abiertas. Un registro suelto,
+     * sin destajo que lo cubra, cuenta como su propia semana por fecha.
+     */
+    public function historialHasta(int $obraId, Destajo $destajo): HistorialDeAvance
+    {
+        $raices = $this->raicesDeLinaje($obraId);
+        $inicio = $destajo->fecha_inicio->toDateString();
+        $semanasPrevias = [];
+        $acumulados = [];
+
+        $anotar = function (string $clave, string $semana, bool $esPrevia, float $equivalentes) use (&$semanasPrevias, &$acumulados): void {
+            if ($esPrevia) {
+                $semanasPrevias[$clave][$semana] = true;
+            }
+
+            $acumulados[$clave] = ($acumulados[$clave] ?? 0) + $equivalentes;
+        };
+
+        $detalles = LiquidacionDetalle::query()
+            ->with('liquidacion.destajo:id,fecha_inicio')
+            ->where('obra_id', $obraId)
+            ->whereHas('liquidacion.destajo', fn ($q) => $q->where('fecha_inicio', '<=', $destajo->fecha_inicio))
+            ->get(['id', 'liquidacion_id', 'pieza_id', 'qr', 'proceso_id', 'subproceso_id', 'porcentaje']);
+
+        foreach ($detalles as $detalle) {
+            $destajoDelPago = $detalle->liquidacion->destajo;
+
+            $anotar(
+                $this->clave($raices, $detalle->pieza_id, $detalle->qr, $detalle->proceso_id, $detalle->subproceso_id),
+                'destajo:'.$destajoDelPago->id,
+                $destajoDelPago->id !== $destajo->id,
+                (float) $detalle->porcentaje / 100,
+            );
+        }
+
+        $destajos = Destajo::query()->get(['id', 'fecha_inicio', 'fecha_fin']);
+
+        foreach ($this->registrosNoLiquidados($obraId, $destajo->fecha_fin) as $registro) {
+            $fecha = $registro->fecha->toDateString();
+            $semana = $destajos->first(fn (Destajo $d) => $d->fecha_inicio->toDateString() <= $fecha && $d->fecha_fin->toDateString() >= $fecha);
+
+            $anotar(
+                $this->clave($raices, $registro->pieza_id, $registro->pieza?->qr, $registro->proceso_id, $registro->subproceso_id),
+                $semana !== null ? 'destajo:'.$semana->id : 'fecha:'.$fecha,
+                $fecha < $inicio,
+                $registro->piezasEquivalentes(),
+            );
+        }
+
+        return new HistorialDeAvance($raices, $semanasPrevias, $acumulados);
+    }
+
+    /**
      * Mapa piezaId => id de la pieza raíz de su linaje, para toda la obra.
      *
      * @return array<int, int>
@@ -150,17 +211,18 @@ class AvanceDePiezas
      *
      * @return Collection<int, Registro>
      */
-    private function registrosNoLiquidados(int $obraId): Collection
+    private function registrosNoLiquidados(int $obraId, ?CarbonInterface $hasta = null): Collection
     {
         return Registro::query()
             ->with('pieza:id,qr')
             ->whereHas('pieza.catalogo', fn ($q) => $q->where('obra_id', $obraId))
+            ->when($hasta !== null, fn ($q) => $q->where('fecha', '<=', $hasta))
             ->whereNotExists(fn ($q) => $q->selectRaw('1')
                 ->from('prod_destajos')
                 ->where('prod_destajos.cerrado', true)
                 ->whereColumn('prod_destajos.fecha_inicio', '<=', 'prod_registros.fecha')
                 ->whereColumn('prod_destajos.fecha_fin', '>=', 'prod_registros.fecha'))
-            ->get(['id', 'pieza_id', 'proceso_id', 'subproceso_id', 'porcentaje']);
+            ->get(['id', 'fecha', 'pieza_id', 'proceso_id', 'subproceso_id', 'porcentaje']);
     }
 
     /**

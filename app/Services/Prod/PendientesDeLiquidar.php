@@ -34,6 +34,7 @@ class PendientesDeLiquidar
      *     grupo_trabajo: string|null,
      *     pagado: float,
      *     saldo: float,
+     *     numero_avance: int,
      *     porcentaje_sugerido: float
      * }>
      */
@@ -57,12 +58,16 @@ class PendientesDeLiquidar
             ->filter()
             ->mapWithKeys(fn (int $obraId) => [$obraId => $this->avance->mapaDeObra($obraId)]);
 
+        $historialPorObra = $capturadoPorObra
+            ->keys()
+            ->mapWithKeys(fn (int $obraId) => [$obraId => $this->avance->historialHasta($obraId, $destajo)]);
+
         return $parciales
             // Una fila por pieza, proceso y subproceso: el último parcial manda
             // para sugerir grupo. Un "Armado" a medias no se cierra capturando
             // "Punteado", así que cada paso arrastra su propio saldo.
             ->unique(fn (Registro $registro) => $registro->pieza_id.'|'.$registro->proceso_id.'|'.($registro->subproceso_id ?? 0))
-            ->map(function (Registro $registro) use ($capturadoPorObra) {
+            ->map(function (Registro $registro) use ($capturadoPorObra, $historialPorObra) {
                 $pieza = $registro->pieza;
                 $marca = $pieza->marca;
                 $obraId = (int) $pieza->catalogo?->obra_id;
@@ -92,6 +97,8 @@ class PendientesDeLiquidar
                     'grupo_trabajo' => $registro->grupoTrabajo?->descripcion,
                     'pagado' => $pagado,
                     'saldo' => $saldo,
+                    // El que se pagaria en este destajo: cuenta semanas, no capturas.
+                    'numero_avance' => $historialPorObra->get($obraId)?->numeroDeAvance($pieza->id, $pieza->qr, $procesoId, $subprocesoId) ?? 1,
                     // Cerrar el saldo completo es lo que se ofrece por default.
                     'porcentaje_sugerido' => round($saldo * 100, 2),
                 ];

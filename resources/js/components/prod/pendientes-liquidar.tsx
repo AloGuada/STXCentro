@@ -72,6 +72,7 @@ export function PendientesLiquidar({ destajo, pendientes, gruposTrabajo }: Props
                         <tr>
                             <th>Pieza</th>
                             <th>Proceso</th>
+                            <th className="text-center">Avance</th>
                             <th className="text-right">Pagado</th>
                             <th className="text-right">Saldo</th>
                             <th>Grupo</th>
@@ -103,6 +104,7 @@ export function PendientesLiquidar({ destajo, pendientes, gruposTrabajo }: Props
                                             <span className="badge badge-sm badge-info ml-1">{p.subproceso}</span>
                                         )}
                                     </td>
+                                    <td className="text-center font-mono">{p.numero_avance}º</td>
                                     <td className="text-right font-mono">{pct(p.pagado)}</td>
                                     <td className="text-right font-mono font-semibold">{pct(p.saldo)}</td>
                                     <td className="min-w-[9rem]">
