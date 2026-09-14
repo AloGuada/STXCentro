@@ -13,6 +13,7 @@ use App\Models\Costos\Rubro;
 use App\Models\Costos\TipoRubro;
 use App\Models\Obra;
 use App\Models\Proyecto;
+use App\Services\Costos\HistorialDeCargos;
 use App\Support\OrdenaColumnas;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Database\Eloquent\Builder;
@@ -145,7 +146,7 @@ class PresupuestoController extends Controller
             ->with('success', 'Proyecto de planta creado.');
     }
 
-    public function edit(Presupuesto $presupuesto): Response
+    public function edit(Presupuesto $presupuesto, HistorialDeCargos $historial): Response
     {
         Gate::authorize('costos.obra-rubros.editar');
 
@@ -176,6 +177,7 @@ class PresupuestoController extends Controller
             'presupuesto' => $this->presentarDetalle($presupuesto),
             'rubros' => $rubros,
             'presupuestables' => $opciones->values()->all(),
+            'cargos' => Inertia::defer(fn () => $historial->de($presupuesto)),
         ]);
     }
 

@@ -1,6 +1,7 @@
-import { Head, Link, router } from '@inertiajs/react';
+import { Deferred, Head, Link, router } from '@inertiajs/react';
 import { ArrowDownIcon, ArrowLeftIcon, ArrowUpDownIcon, ArrowUpIcon, CheckIcon, FileTextIcon, ListPlusIcon, LockIcon, LockOpenIcon, Loader2Icon, PencilIcon, PlusIcon, Trash2Icon, UploadIcon, XIcon } from 'lucide-react';
 import { useRef, useState, type FormEvent } from 'react';
+import { HistorialCargos } from '@/components/costos/historial-cargos';
 import { FormField } from '@/components/form';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,7 +10,7 @@ import { Select } from '@/components/ui/select';
 import AppLayout from '@/layouts/app-layout';
 import { MAX_FILE_SIZE_MB } from '@/lib/uploads';
 import type { BreadcrumbItem } from '@/types';
-import type { CostosObraRubro, CostosPresupuestoEstatus, CostosRubro, PresupuestableTipo, PresupuestoRow } from '@/types/models';
+import type { CostosCargoHistorial, CostosObraRubro, CostosPresupuestoEstatus, CostosRubro, PresupuestableTipo, PresupuestoRow } from '@/types/models';
 
 const TIPO_LABELS: Record<PresupuestableTipo, string> = {
     proyecto: 'Proyecto',
@@ -35,9 +36,12 @@ type Props = {
     presupuesto: PresupuestoDetalle;
     rubros: CostosRubro[];
     presupuestables: { value: string; label: string }[];
+    /** Diferido: llega después de pintar la página. */
+    cargos?: CostosCargoHistorial[];
 };
 
-export default function PresupuestosEdit({ presupuesto, rubros, presupuestables }: Props) {
+export default function PresupuestosEdit({ presupuesto, rubros, presupuestables, cargos }: Props) {
+    const [tab, setTab] = useState<'centros' | 'historial'>('centros');
     const [newRubroId, setNewRubroId] = useState('');
     const [newPresupuestado, setNewPresupuestado] = useState('');
     const [addingRubro, setAddingRubro] = useState(false);
@@ -389,6 +393,31 @@ export default function PresupuestosEdit({ presupuesto, rubros, presupuestables 
                     </div>
                 </form>
 
+                <div role="tablist" className="tabs tabs-bordered">
+                    <button type="button" role="tab" className={`tab ${tab === 'centros' ? 'tab-active' : ''}`} onClick={() => setTab('centros')}>
+                        Centros de costos ({currentRubros.length})
+                    </button>
+                    <button type="button" role="tab" className={`tab ${tab === 'historial' ? 'tab-active' : ''}`} onClick={() => setTab('historial')}>
+                        Historial de cargos{cargos ? ` (${cargos.length})` : ''}
+                    </button>
+                </div>
+
+                {tab === 'historial' && (
+                    <Deferred
+                        data="cargos"
+                        fallback={
+                            <div className="space-y-2">
+                                {Array.from({ length: 5 }).map((_, i) => (
+                                    <div key={i} className="h-10 animate-pulse rounded bg-base-200" />
+                                ))}
+                            </div>
+                        }
+                    >
+                        <HistorialCargos cargos={cargos ?? []} />
+                    </Deferred>
+                )}
+
+                {tab === 'centros' && (<>
                 {/* Tabla de rubros */}
                 {currentRubros.length > 0 ? (
                     <div className="overflow-x-auto">
@@ -489,6 +518,7 @@ export default function PresupuestosEdit({ presupuesto, rubros, presupuestables 
                 ) : (
                     <p className="text-sm text-base-content/60">Todos los centros de costos ya estan asignados a este presupuesto.</p>
                 )}
+                </>)}
             </div>
         </AppLayout>
     );

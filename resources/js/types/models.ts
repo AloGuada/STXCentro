@@ -1698,6 +1698,23 @@ export type CostosDocumento = {
     updated_at: string;
 };
 
+/** Un cargo vivo a un centro de costo del presupuesto (HistorialDeCargos). */
+export type CostosCargoHistorial = {
+    id: number;
+    fecha: string | null;
+    centro: { codigo: string | null; descripcion: string | null };
+    descripcion: string | null;
+    afectacion: 'ejercido' | 'apartado';
+    /** El documento se canceló y el ledger ya revirtió el cargo. */
+    revertido: boolean;
+    monto: number;
+    moneda: string | null;
+    monto_origen: number | null;
+    documento: { tipo: 'requisicion' | 'afectacion'; id: number; folio: string | null } | null;
+    orden_compra: { id: number; folio: string | null } | null;
+    solicitudes_pago: { id: number; folio: string | null; estatus: string }[];
+};
+
 export type CostosObraRubro = {
     id: number;
     presupuesto_id: number;
