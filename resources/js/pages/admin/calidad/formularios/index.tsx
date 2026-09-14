@@ -711,7 +711,7 @@ export default function CapturaCalidad({ obras, obraId, marcas, lotes, avance, p
             <Head title="Calidad — Captura de inspección" />
 
             <div className="bg-base-200 text-base-content">
-                <div ref={columnaRef} className="mx-auto max-w-[820px] px-[14px] pt-4 pb-32">
+                <div ref={columnaRef} className="w-full px-[14px] pt-4 pb-32">
                     <div className="mb-[14px] rounded-xl bg-primary px-4 py-[14px] text-primary-content">
                         <div className="text-[22px] font-extrabold tracking-[.5px]">Captura de inspección</div>
                         <div className="text-xs opacity-85">Control de Calidad · {auth.user.name}</div>

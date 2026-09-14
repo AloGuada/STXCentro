@@ -1,23 +1,51 @@
 /**
- * Mapeo de soldaduras — junta por junta.
+ * Mapeo de soldaduras — la matriz de juntas de la pieza.
  *
- * Es un sub-formulario de la pieza, no una pantalla aparte: las juntas se van
- * añadiendo a una lista y se guardan todas al registrar la pieza. Sólo aplica
- * en 2ª · Soldado, porque antes de soldar no hay junta que revisar.
+ * Las juntas son los cordones que trae el modelo 3D de la marca: el renglón
+ * existe desde que se abre el mapeo y se llena **ahí mismo**, celda por celda,
+ * como el formato de papel. No hay sub-formulario aparte ni botón de «añadir»:
+ * tocar una celda crea la junta, y todas se guardan al registrar la pieza —que
+ * era el tropiezo de antes, una junta a medio llenar se perdía al guardar.
  *
- * Cuando la marca tiene modelo 3D, la junta se abre desde su cordón en el
- * visor y llega aquí ya numerada (S y el número del cordón). Sin modelo se
- * numera a mano. Por eso la junta que se está llenando vive en quien usa el
- * mapeo: el visor también la escribe.
+ * Sin modelo —o para una junta que el modelo no trae— se añade un renglón a
+ * mano y se numera en su propia celda.
+ *
+ * Elegir un renglón elige el cordón en el visor, que lo encuadra. Es el mismo
+ * estado en los dos sentidos: tocar el cordón en el visor trae aquí su renglón.
  */
 
-import type { Dispatch, ReactNode, SetStateAction } from 'react';
+import { useEffect, useRef, type ReactNode } from 'react';
+import { cn } from '@/lib/utils';
+import type { CordonVisor } from '../juntas3d/tipos';
 import { PUNTOS_MAPEO } from './datos';
 import type { Junta } from './estado';
 import { evaluarFilete, PUNTO_PERFIL } from './reglas';
-import { Boton, Campo, Pastilla, Pista, Rejilla, Selector, SiNo, Tarjeta, Texto } from './ui';
+import { Boton, Pastilla, Pista, Tarjeta } from './ui';
 
-const PUNTO_OPCIONES = ['OK', 'Defecto', 'n/a'];
+const TIPOS = ['Filete', 'Ranura'];
+
+/** El cordón del modelo dicho como lo nombra el formato de mapeo. */
+const TIPO_CORDON: Record<CordonVisor['tipo'], string> = { filete: 'Filete', costura: 'Ranura' };
+
+/** Lo que admite un punto, en el orden en que rota su celda al tocarla. */
+const RESPUESTAS = ['', 'OK', 'Defecto', 'n/a'];
+
+const GLIFO: Record<string, string> = { '': '·', OK: '✓', Defecto: '✗', 'n/a': '–' };
+
+const TONO_PUNTO: Record<string, string> = {
+    '': 'border-base-300 bg-base-100 text-base-content/40',
+    OK: 'border-success bg-success/15 text-success',
+    Defecto: 'border-error bg-error/15 text-error',
+    'n/a': 'border-base-300 bg-base-200 text-base-content/50',
+};
+
+const CELDA = 'border-b border-base-300 px-1.5 py-1 align-middle';
+
+/**
+ * Encabezado pegado arriba. La línea va como sombra y no como borde: un borde
+ * de tabla colapsada se pierde al scrollear una celda `sticky`.
+ */
+const ENCABEZADO = 'sticky top-0 z-20 bg-base-100 px-1.5 py-2 shadow-[inset_0_-1px_0_0_var(--color-base-300)]';
 
 export const JUNTA_VACIA: Junta = {
     junta: '',
@@ -35,289 +63,407 @@ export function estadoJunta(junta: Junta): 'Con defecto' | 'Junta Correcta' {
     return Object.values(junta.puntos).includes('Defecto') ? 'Con defecto' : 'Junta Correcta';
 }
 
+/** Un renglón existe desde el principio; sin una sola respuesta no está revisado. */
+function sinLlenar(junta: Junta): boolean {
+    return !Object.values(junta.puntos).some((valor) => valor === 'OK' || valor === 'Defecto');
+}
+
+/**
+ * Un renglón de la matriz: un cordón del modelo —con su junta si ya se
+ * empezó— o una junta numerada a mano.
+ */
+type Renglon = {
+    clave: string;
+    etiqueta: string;
+    tipo: string;
+    cordon: CordonVisor | null;
+    junta: Junta | null;
+    /** Su posición en `juntas`, para escribir sobre ella o quitarla. */
+    indice: number | null;
+};
+
 export function Mapeo({
     juntas,
     onJuntas,
-    borrador,
-    onBorrador,
     soldadores,
     onAviso,
     modelo3d,
+    cordones = [],
+    seleccionado = null,
+    onSeleccionar,
 }: {
     juntas: Junta[];
     onJuntas: (juntas: Junta[]) => void;
-    /** La junta que se está llenando. */
-    borrador: Junta;
-    onBorrador: Dispatch<SetStateAction<Junta>>;
     /** [id, «NOMBRE (CLAVE)»] del padrón. */
     soldadores: [string, string][];
     onAviso: (mensaje: string, tono?: 'ok' | 'error') => void;
-    /** El visor de la pieza con sus cordones, o por qué no lo hay. Va arriba de la junta. */
+    /** El visor de la pieza con sus cordones, o por qué no lo hay. Va arriba de la matriz. */
     modelo3d?: ReactNode;
+    /** Los cordones que trae la marca en el modelo 3D: son las juntas de la pieza. */
+    cordones?: CordonVisor[];
+    /** El cordón elegido, compartido con el visor. */
+    seleccionado?: number | null;
+    onSeleccionar?: (id: number | null) => void;
 }) {
-    const punto = (clave: string) => borrador.puntos[clave] ?? '';
-    const setPunto = (clave: string, valor: string) =>
-        onBorrador((previo) => ({ ...previo, puntos: { ...previo.puntos, [clave]: valor } }));
+    const renglonRef = useRef<Record<number, HTMLTableRowElement | null>>({});
 
-    const filete = evaluarFilete(borrador.espesorRequerido, borrador.espesorMedido);
-    const esFilete = borrador.tipo === 'Filete';
-    const nombreSoldador = (id: string) => soldadores.find(([clave]) => clave === id)?.[1] ?? '—';
+    // Elegir un cordón en el visor trae su renglón a la vista: la matriz es
+    // ancha y el renglón puede estar fuera de la pantalla.
+    useEffect(() => {
+        if (seleccionado !== null) {
+            renglonRef.current[seleccionado]?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+        }
+    }, [seleccionado]);
 
-    const cambiarTipo = (tipo: string) => {
-        onBorrador((previo) => ({
-            ...previo,
+    const nombreSoldador = (id: string) => soldadores.find(([clave]) => clave === id)?.[1] ?? '';
+
+    /**
+     * La matriz la manda el modelo: un renglón por cordón de la marca, con la
+     * junta que lleva en esta inspección si ya se empezó. Lo numerado a mano
+     * —y las juntas de una pieza sin modelo— va al final, que también se guarda.
+     */
+    const deCordones: Renglon[] = cordones.map((cordon) => {
+        const indice = juntas.findIndex((junta) => junta.cordonId === cordon.id);
+        const junta = indice >= 0 ? juntas[indice] : null;
+        return {
+            clave: `cordon-${cordon.id}`,
+            etiqueta: cordon.identificador,
+            tipo: junta?.tipo || TIPO_CORDON[cordon.tipo],
+            cordon,
+            junta,
+            indice: indice >= 0 ? indice : null,
+        };
+    });
+
+    const aMano: Renglon[] = juntas.flatMap((junta, indice) =>
+        cordones.some((cordon) => cordon.id === junta.cordonId)
+            ? []
+            : [{ clave: `mano-${indice}`, etiqueta: junta.junta, tipo: junta.tipo, cordon: null, junta, indice }],
+    );
+
+    const renglones = [...deCordones, ...aMano];
+    const empezadas = juntas.filter((junta) => !sinLlenar(junta));
+    const conDefecto = empezadas.filter((junta) => estadoJunta(junta) === 'Con defecto').length;
+    const porRevisar = renglones.length - empezadas.length;
+
+    /** La junta del renglón, o la que le toca si todavía no existe. */
+    const juntaDe = (renglon: Renglon): Junta =>
+        renglon.junta ?? {
+            ...JUNTA_VACIA,
+            junta: renglon.cordon?.identificador ?? '',
+            tipo: renglon.cordon ? TIPO_CORDON[renglon.cordon.tipo] : '',
+            cordonId: renglon.cordon?.id ?? null,
+        };
+
+    /** Escribir en un renglón crea su junta la primera vez. */
+    const escribir = (renglon: Renglon, cambios: Partial<Junta>) => {
+        const junta = { ...juntaDe(renglon), ...cambios };
+        onJuntas(
+            renglon.indice !== null ? juntas.map((previa, i) => (i === renglon.indice ? junta : previa)) : [...juntas, junta],
+        );
+    };
+
+    const escribirPunto = (renglon: Renglon, clave: string, valor: string) =>
+        escribir(renglon, { puntos: { ...juntaDe(renglon).puntos, [clave]: valor } });
+
+    /** La celda rota entre las respuestas en vez de abrir un desplegable. */
+    const rotarPunto = (renglon: Renglon, clave: string) => {
+        const actual = juntaDe(renglon).puntos[clave] ?? '';
+        escribirPunto(renglon, clave, RESPUESTAS[(RESPUESTAS.indexOf(actual) + 1) % RESPUESTAS.length]);
+    };
+
+    const cambiarTipo = (renglon: Renglon, tipo: string) => {
+        const junta = juntaDe(renglon);
+        escribir(renglon, {
             tipo,
             puntos: {
-                ...previo.puntos,
+                ...junta.puntos,
                 // El tipo de junta decide qué preparación aplica: la otra no se revisa.
                 ...(tipo === 'Filete' ? { m_prepranura: 'n/a' } : {}),
                 ...(tipo === 'Ranura' ? { m_prepfilete: 'n/a' } : {}),
             },
-            espesorRequerido: tipo === 'Filete' ? previo.espesorRequerido : '',
-            espesorMedido: tipo === 'Filete' ? previo.espesorMedido : '',
-        }));
-    };
-
-    const medirFilete = (campo: 'espesorRequerido' | 'espesorMedido', valor: string) => {
-        onBorrador((previo) => {
-            const siguiente = { ...previo, [campo]: valor };
-            const resultado = evaluarFilete(siguiente.espesorRequerido, siguiente.espesorMedido);
-            // Un filete por debajo del nominal es un defecto de perfil, y se marca solo.
-            if (resultado && !resultado.cumple) {
-                siguiente.puntos = { ...siguiente.puntos, [PUNTO_PERFIL]: 'Defecto' };
-            }
-            return siguiente;
+            espesorRequerido: tipo === 'Filete' ? junta.espesorRequerido : '',
+            espesorMedido: tipo === 'Filete' ? junta.espesorMedido : '',
         });
     };
 
-    const marcarCorrecta = () => {
+    const medirFilete = (renglon: Renglon, campo: 'espesorRequerido' | 'espesorMedido', valor: string) => {
+        const junta = { ...juntaDe(renglon), [campo]: valor };
+        const resultado = evaluarFilete(junta.espesorRequerido, junta.espesorMedido);
+        escribir(renglon, {
+            [campo]: valor,
+            // Un filete por debajo del nominal es un defecto de perfil, y se marca solo.
+            ...(resultado && !resultado.cumple ? { puntos: { ...junta.puntos, [PUNTO_PERFIL]: 'Defecto' } } : {}),
+        });
+    };
+
+    const todoOk = (renglon: Renglon) => {
+        const junta = juntaDe(renglon);
         const puntos: Record<string, string> = {};
         PUNTOS_MAPEO.forEach(([clave]) => (puntos[clave] = 'OK'));
-        onBorrador((previo) => ({
-            ...previo,
+        escribir(renglon, {
             puntos: {
                 ...puntos,
-                ...(previo.tipo === 'Filete' ? { m_prepranura: 'n/a' } : {}),
-                ...(previo.tipo === 'Ranura' ? { m_prepfilete: 'n/a' } : {}),
+                ...(junta.tipo === 'Filete' ? { m_prepranura: 'n/a' } : {}),
+                ...(junta.tipo === 'Ranura' ? { m_prepfilete: 'n/a' } : {}),
             },
-        }));
-        onAviso('Junta marcada correcta — ajusta lo que no cumpla');
+        });
+        onAviso(`Junta ${junta.junta || 'sin número'} marcada correcta — ajusta lo que no cumpla`);
     };
 
-    const anadir = () => {
-        const identificador = borrador.junta.trim();
-        if (!identificador) {
-            onAviso('Falta el N.º de junta', 'error');
+    /** Limpiar deja el renglón del cordón en «por revisar»; el de mano desaparece. */
+    const limpiar = (renglon: Renglon) => {
+        if (renglon.indice === null) {
             return;
         }
-        if (!borrador.tipo) {
-            onAviso('Elige si la junta es de filete o de ranura', 'error');
-            return;
-        }
-        if (juntas.some((junta) => junta.junta === identificador)) {
-            onAviso(`La junta ${identificador} ya está en la lista — edítala`, 'error');
-            return;
-        }
-        onJuntas([...juntas, { ...borrador, junta: identificador }]);
-        onBorrador(JUNTA_VACIA);
-        onAviso(`Junta ${identificador} añadida a la lista`, 'ok');
+        onJuntas(juntas.filter((_, i) => i !== renglon.indice));
     };
 
-    /** Editar saca la junta de la lista y la devuelve al formulario. */
-    const editar = (indice: number) => {
-        onBorrador(juntas[indice]);
-        onJuntas(juntas.filter((_, i) => i !== indice));
+    const anadirAMano = () => {
+        onJuntas([...juntas, { ...JUNTA_VACIA }]);
+        onAviso('Renglón añadido: ponle número y tipo');
     };
-
-    const conDefecto = juntas.filter((junta) => estadoJunta(junta) === 'Con defecto').length;
 
     return (
         <Tarjeta titulo="Mapeo de soldaduras · junta por junta">
             <Pista>
-                Subapartado de la pieza. Añade cada junta a la lista; <b>todas se guardan al pulsar Guardar</b> abajo
-                (con el resto de la pieza).
+                Las juntas son los <b>cordones del modelo</b>: cada renglón se llena en la misma tabla. Toca una celda
+                para rotar entre <b>✓ OK</b>, <b>✗ defecto</b> y <b>– n/a</b>. Todo se guarda al pulsar Guardar, con el
+                resto de la pieza.
             </Pista>
 
             {modelo3d && <div className="mb-4">{modelo3d}</div>}
 
-            {borrador.cordonId !== null && (
-                <div className="mb-3 flex flex-wrap items-center gap-2 rounded-[9px] bg-info/10 px-3 py-2 text-xs">
-                    <span>
-                        Junta sobre el cordón <b>{borrador.junta}</b> del modelo 3D.
-                    </span>
-                    <button
-                        type="button"
-                        onClick={() => onBorrador((previo) => ({ ...previo, cordonId: null }))}
-                        className="link"
-                    >
-                        Numerarla a mano
-                    </button>
-                </div>
-            )}
-
-            <Rejilla>
-                <Campo label="Junta N.º">
-                    <Texto
-                        value={borrador.junta}
-                        onChange={(valor) => onBorrador((previo) => ({ ...previo, junta: valor }))}
-                        readOnly={borrador.cordonId !== null}
-                        placeholder="Ej. J1"
-                        mayusculas
-                    />
-                </Campo>
-                <Campo label="Tipo de junta">
-                    <Selector value={borrador.tipo} onChange={cambiarTipo} opciones={['Filete', 'Ranura']} />
-                </Campo>
-            </Rejilla>
-
-            <div className="mt-3">
-                <Rejilla>
-                    <Campo label="Soldador de la Junta">
-                        <Selector
-                            value={borrador.soldador}
-                            onChange={(valor) => onBorrador((previo) => ({ ...previo, soldador: valor }))}
-                            opciones={soldadores}
-                        />
-                    </Campo>
-                    <Campo label="¿Es empate?" ayuda="Une dos tramos del mismo miembro.">
-                        <SiNo
-                            value={borrador.esEmpate ? 'si' : ''}
-                            onChange={(valor) => onBorrador((previo) => ({ ...previo, esEmpate: valor === 'si' }))}
-                            si={{ valor: 'si', texto: 'Empate' }}
-                            no={{ valor: 'no', texto: 'No' }}
-                        />
-                    </Campo>
-                </Rejilla>
-            </div>
-
-            {esFilete && (
-                <div className="mt-3 rounded-[10px] border border-warning/40 bg-warning/5 px-[14px] py-3">
-                    <label className="text-[13px] font-bold text-primary">Tamaño de la soldadura de filete</label>
-                    <div className="mt-2">
-                        <Rejilla cols={3}>
-                            <Campo label="Espesor requerido (mm)">
-                                <Texto
-                                    tipo="number"
-                                    paso="0.5"
-                                    value={borrador.espesorRequerido}
-                                    onChange={(valor) => medirFilete('espesorRequerido', valor)}
-                                    placeholder="del plano · ej. 8"
-                                />
-                            </Campo>
-                            <Campo label="Espesor medido (mm)">
-                                <Texto
-                                    tipo="number"
-                                    paso="0.5"
-                                    value={borrador.espesorMedido}
-                                    onChange={(valor) => medirFilete('espesorMedido', valor)}
-                                    placeholder="ej. 7.5"
-                                />
-                            </Campo>
-                            <Campo label="¿Cumple?">
-                                <Texto
-                                    value={filete ? (filete.cumple ? 'CUMPLE' : 'NO CUMPLE') : ''}
-                                    readOnly
-                                    placeholder="—"
-                                    className={filete ? (filete.cumple ? 'font-extrabold text-success' : 'font-extrabold text-error') : ''}
-                                />
-                            </Campo>
-                        </Rejilla>
+            {renglones.length === 0 ? (
+                <Pista className="mb-0">
+                    La pieza no trae cordones del modelo 3D. Añade el renglón de la junta a mano y numérala en su celda.
+                </Pista>
+            ) : (
+                <>
+                    <div className="my-2 flex flex-wrap items-baseline gap-x-2 font-bold text-primary">
+                        <span>
+                            {cordones.length > 0 ? 'Juntas del modelo' : 'Juntas de esta pieza'} ({empezadas.length} de{' '}
+                            {renglones.length})
+                        </span>
+                        {conDefecto > 0 && <span className="text-error">· {conDefecto} con defecto</span>}
+                        {porRevisar > 0 && <span className="text-warning">· {porRevisar} por revisar</span>}
                     </div>
-                    {filete && <Pista className="mt-2 mb-0">{filete.mensaje}</Pista>}
-                </div>
-            )}
 
-            <div className="mt-3">
-                <Rejilla cols={3}>
-                    {PUNTOS_MAPEO.map(([clave, etiqueta]) => (
-                        <Campo key={clave} label={etiqueta}>
-                            <Selector value={punto(clave)} onChange={(valor) => setPunto(clave, valor)} opciones={PUNTO_OPCIONES} />
-                        </Campo>
-                    ))}
-                </Rejilla>
-            </div>
+                    {/* La matriz es ancha (18 puntos) y larga (un renglón por cordón):
+                        el encabezado y la columna de la junta se quedan fijos para no
+                        perder de vista qué se está respondiendo. */}
+                    <div className="max-h-[80vh] overflow-auto rounded-box border border-base-300">
+                        {/* `w-full` sobre el ancho natural: si la pantalla da, las columnas
+                            se reparten el sobrante; si no, la tabla manda y se scrollea. */}
+                        <table className="w-full border-collapse text-[13px]">
+                            <thead>
+                                <tr className="text-[11px] tracking-[.5px] text-primary uppercase">
+                                    <th className={cn(ENCABEZADO, 'sticky left-0 z-30 px-2 text-left')}>Junta</th>
+                                    <th className={cn(ENCABEZADO, 'text-left')}>Tipo</th>
+                                    <th className={cn(ENCABEZADO, 'text-left')}>Soldador</th>
+                                    <th className={cn(ENCABEZADO, 'text-left')}>Empate</th>
+                                    <th className={cn(ENCABEZADO, 'text-left')}>Req.</th>
+                                    <th className={cn(ENCABEZADO, 'text-left')}>Medido</th>
+                                    {PUNTOS_MAPEO.map(([clave, etiqueta]) => (
+                                        <th key={clave} className={cn(ENCABEZADO, 'px-1 align-bottom')} title={etiqueta}>
+                                            <div className="mx-auto h-[120px] w-5 rotate-180 text-left leading-tight normal-case [writing-mode:vertical-rl]">
+                                                {etiqueta}
+                                            </div>
+                                        </th>
+                                    ))}
+                                    <th className={cn(ENCABEZADO, 'text-left')}>Resultado</th>
+                                    <th className={ENCABEZADO} />
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {renglones.map((renglon) => {
+                                    const junta = renglon.junta;
+                                    const elegido = renglon.cordon !== null && renglon.cordon.id === seleccionado;
+                                    const esFilete = (junta?.tipo || renglon.tipo) === 'Filete';
+                                    const medida = junta && evaluarFilete(junta.espesorRequerido, junta.espesorMedido);
+                                    const falta = junta && (!junta.junta.trim() || !junta.tipo);
 
-            <div className="mt-[14px] flex flex-wrap gap-2">
-                <Boton tono="ok" onClick={marcarCorrecta}>
-                    ✓ Junta Correcta (todo OK)
-                </Boton>
-                <Boton tono="claro" onClick={anadir}>
-                    ➕ Añadir junta a la lista
-                </Boton>
-            </div>
-
-            <div className="mt-[14px]">
-                {!juntas.length ? (
-                    <Pista>Aún no hay juntas en la lista. Llena una junta y pulsa «Añadir junta a la lista».</Pista>
-                ) : (
-                    <>
-                        <div className="my-2 font-bold text-primary">
-                            Juntas de esta pieza ({juntas.length})
-                            {conDefecto > 0 && <span className="text-error"> · {conDefecto} con defecto</span>}
-                        </div>
-                        <div className="overflow-x-auto">
-                            <table className="w-full border-collapse text-[13px]">
-                                <thead>
-                                    <tr className="text-[11px] tracking-[.5px] text-primary uppercase">
-                                        <th className="border-b border-base-300 px-[6px] py-2 text-left">Junta</th>
-                                        <th className="border-b border-base-300 px-[6px] py-2 text-left">Tipo</th>
-                                        <th className="border-b border-base-300 px-[6px] py-2 text-left">Filete</th>
-                                        <th className="border-b border-base-300 px-[6px] py-2 text-left">Soldador</th>
-                                        <th className="border-b border-base-300 px-[6px] py-2 text-left">Resultado</th>
-                                        <th className="border-b border-base-300" />
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {juntas.map((junta, indice) => {
-                                        const resultado = estadoJunta(junta);
-                                        const medida = evaluarFilete(junta.espesorRequerido, junta.espesorMedido);
-                                        return (
-                                            <tr key={`${junta.junta}-${indice}`}>
-                                                <td className="border-b border-base-300 px-[6px] py-2">
-                                                    {junta.junta}
-                                                    {junta.cordonId !== null && <span className="ml-1 text-xs text-info">3D</span>}
-                                                    {junta.esEmpate && <span className="ml-1 text-xs text-base-content/60">(empate)</span>}
-                                                </td>
-                                                <td className="border-b border-base-300 px-[6px] py-2">{junta.tipo}</td>
-                                                <td className="border-b border-base-300 px-[6px] py-2">
-                                                    {junta.espesorMedido ? (
-                                                        <>
-                                                            {junta.espesorMedido}/{junta.espesorRequerido || '?'} mm{' '}
-                                                            <Pastilla tono={medida?.cumple ? 'lib' : 'rej'}>
-                                                                {medida?.cumple ? 'ok' : 'no cumple'}
-                                                            </Pastilla>
-                                                        </>
-                                                    ) : (
-                                                        '—'
-                                                    )}
-                                                </td>
-                                                <td className="border-b border-base-300 px-[6px] py-2">{nombreSoldador(junta.soldador)}</td>
-                                                <td className="border-b border-base-300 px-[6px] py-2">
-                                                    <Pastilla tono={resultado === 'Con defecto' ? 'rej' : 'lib'}>{resultado}</Pastilla>
-                                                </td>
-                                                <td className="border-b border-base-300 px-[6px] py-2 text-right whitespace-nowrap">
-                                                    <button type="button" onClick={() => editar(indice)} title="Editar" className="mr-2">
-                                                        ✏️
-                                                    </button>
+                                    return (
+                                        <tr
+                                            key={renglon.clave}
+                                            ref={(nodo) => {
+                                                if (renglon.cordon) {
+                                                    renglonRef.current[renglon.cordon.id] = nodo;
+                                                }
+                                            }}
+                                            className={cn(elegido && 'bg-info/10')}
+                                        >
+                                            <td
+                                                className={cn(
+                                                    CELDA,
+                                                    'sticky left-0 z-10 border-l-4 bg-base-100 px-2 whitespace-nowrap',
+                                                    elegido ? 'border-l-info' : 'border-l-transparent',
+                                                )}
+                                            >
+                                                {renglon.cordon ? (
                                                     <button
                                                         type="button"
-                                                        onClick={() => onJuntas(juntas.filter((_, i) => i !== indice))}
-                                                        title="Quitar"
+                                                        onClick={() => onSeleccionar?.(elegido ? null : renglon.cordon!.id)}
+                                                        className={cn('font-bold', elegido ? 'text-info' : 'text-primary')}
+                                                        title="Verla en el modelo 3D"
                                                     >
-                                                        🗑️
+                                                        {renglon.etiqueta}
                                                     </button>
-                                                </td>
-                                            </tr>
-                                        );
-                                    })}
-                                </tbody>
-                            </table>
-                        </div>
-                        <Pista className="mt-2">
-                            Estas juntas se guardarán al pulsar <b>Guardar registro</b>, junto con el resto de la pieza.
-                        </Pista>
-                    </>
-                )}
+                                                ) : (
+                                                    <input
+                                                        value={junta?.junta ?? ''}
+                                                        onChange={(e) => escribir(renglon, { junta: e.target.value.toUpperCase() })}
+                                                        placeholder="J1"
+                                                        className="input input-bordered input-sm w-20 text-[13px] font-bold"
+                                                    />
+                                                )}
+                                                {renglon.cordon && <span className="ml-1 text-[10px] text-info">3D</span>}
+                                            </td>
+
+                                            <td className={CELDA}>
+                                                <select
+                                                    value={junta?.tipo ?? renglon.tipo}
+                                                    onChange={(e) => cambiarTipo(renglon, e.target.value)}
+                                                    className="select select-bordered select-sm w-24 text-[13px]"
+                                                >
+                                                    <option value="">—</option>
+                                                    {TIPOS.map((tipo) => (
+                                                        <option key={tipo} value={tipo}>
+                                                            {tipo}
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                            </td>
+
+                                            <td className={CELDA}>
+                                                <select
+                                                    value={junta?.soldador ?? ''}
+                                                    onChange={(e) => escribir(renglon, { soldador: e.target.value })}
+                                                    className="select select-bordered select-sm w-36 text-[13px]"
+                                                    title={nombreSoldador(junta?.soldador ?? '')}
+                                                >
+                                                    <option value="">—</option>
+                                                    {soldadores.map(([id, nombre]) => (
+                                                        <option key={id} value={id}>
+                                                            {nombre}
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                            </td>
+
+                                            <td className={CELDA}>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => escribir(renglon, { esEmpate: !junta?.esEmpate })}
+                                                    title="Une dos tramos del mismo miembro"
+                                                    className={cn(
+                                                        'h-8 w-16 rounded-lg border-2 text-xs font-bold',
+                                                        junta?.esEmpate
+                                                            ? 'border-primary bg-primary text-primary-content'
+                                                            : 'border-base-300 bg-base-100 text-base-content/50',
+                                                    )}
+                                                >
+                                                    {junta?.esEmpate ? 'Empate' : 'No'}
+                                                </button>
+                                            </td>
+
+                                            <td className={CELDA}>
+                                                <input
+                                                    type="number"
+                                                    step="0.5"
+                                                    inputMode="decimal"
+                                                    disabled={!esFilete}
+                                                    value={junta?.espesorRequerido ?? ''}
+                                                    onChange={(e) => medirFilete(renglon, 'espesorRequerido', e.target.value)}
+                                                    placeholder="plano"
+                                                    className="input input-bordered input-sm w-20 text-[13px]"
+                                                />
+                                            </td>
+
+                                            <td className={CELDA}>
+                                                <div className="flex items-center gap-1">
+                                                    <input
+                                                        type="number"
+                                                        step="0.5"
+                                                        inputMode="decimal"
+                                                        disabled={!esFilete}
+                                                        value={junta?.espesorMedido ?? ''}
+                                                        onChange={(e) => medirFilete(renglon, 'espesorMedido', e.target.value)}
+                                                        placeholder="mm"
+                                                        className="input input-bordered input-sm w-20 text-[13px]"
+                                                    />
+                                                    {medida && (
+                                                        <Pastilla tono={medida.cumple ? 'lib' : 'rej'}>
+                                                            {medida.cumple ? 'ok' : 'no'}
+                                                        </Pastilla>
+                                                    )}
+                                                </div>
+                                            </td>
+
+                                            {PUNTOS_MAPEO.map(([clave, etiqueta]) => {
+                                                const valor = junta?.puntos[clave] ?? '';
+                                                return (
+                                                    <td key={clave} className={cn(CELDA, 'px-0.5 text-center')}>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => rotarPunto(renglon, clave)}
+                                                            title={`${etiqueta}: ${valor || 'sin responder'}`}
+                                                            className={cn(
+                                                                'size-9 rounded-lg border-2 text-base font-extrabold',
+                                                                TONO_PUNTO[valor] ?? TONO_PUNTO[''],
+                                                            )}
+                                                        >
+                                                            {GLIFO[valor] ?? GLIFO['']}
+                                                        </button>
+                                                    </td>
+                                                );
+                                            })}
+
+                                            <td className={cn(CELDA, 'whitespace-nowrap')}>
+                                                {falta ? (
+                                                    <Pastilla tono="rej">Falta número o tipo</Pastilla>
+                                                ) : !junta || sinLlenar(junta) ? (
+                                                    <Pastilla tono="pen">Por revisar</Pastilla>
+                                                ) : (
+                                                    <Pastilla tono={estadoJunta(junta) === 'Con defecto' ? 'rej' : 'lib'}>
+                                                        {estadoJunta(junta)}
+                                                    </Pastilla>
+                                                )}
+                                            </td>
+
+                                            <td className={cn(CELDA, 'text-right whitespace-nowrap')}>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => todoOk(renglon)}
+                                                    title="Marcar todo OK"
+                                                    className="mr-1 h-8 w-8 rounded-lg border-2 border-success bg-success/10 font-extrabold text-success"
+                                                >
+                                                    ✓
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => limpiar(renglon)}
+                                                    disabled={renglon.indice === null}
+                                                    title={renglon.cordon ? 'Dejarla por revisar' : 'Quitar el renglón'}
+                                                    className="h-8 w-8 rounded-lg border-2 border-base-300 disabled:opacity-30"
+                                                >
+                                                    🗑️
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                    </div>
+                </>
+            )}
+
+            <div className="mt-[14px] flex flex-wrap items-center gap-2">
+                <Boton tono="claro" onClick={anadirAMano}>
+                    ➕ Junta a mano
+                </Boton>
+                <span className="text-xs text-base-content/60">Para una junta que el modelo 3D no trae.</span>
             </div>
         </Tarjeta>
     );

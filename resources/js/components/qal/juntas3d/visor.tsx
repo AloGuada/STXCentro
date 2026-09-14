@@ -27,24 +27,68 @@ import { COLOR_ESTADO, COLOR_SELECCION, ETIQUETA_ESTADO, type EstadoCordon } fro
 
 export type CordonDibujo = { id: number; puntos: number[][]; estado: EstadoCordon };
 
+/** Dónde mira la cámara: su posición y el punto al que apunta. */
+type Vista = { posicion: THREE.Vector3; objetivo: THREE.Vector3 };
+
 type Escena = {
     raiz: THREE.Group;
     material: LineMaterial;
     lineas: LineSegments2 | null;
     /** Índice de segmento → id del cordón al que pertenece. */
     segmentos: number[];
+    camara: THREE.PerspectiveCamera;
+    controles: OrbitControls;
+    /** La pieza entera, para volver de un acercamiento. */
+    caja: THREE.Box3 | null;
+    /** Viaje de cámara en curso, si se está encuadrando algo. */
+    viaje: { desde: Vista; hasta: Vista; inicio: number } | null;
 };
 
 /** Un toque que se mueve más que esto es un arrastre para girar, no una selección. */
 const TOLERANCIA_TOQUE_PX = 6;
 
-function encuadrar(camara: THREE.PerspectiveCamera, controles: OrbitControls, caja: THREE.Box3): void {
+/** Lo que tarda en encuadrar un cordón. Un salto seco desorienta. */
+const VIAJE_MS = 420;
+
+/** Desde dónde se ve una caja completa, en el eje de siempre (Z arriba). */
+function vistaDe(caja: THREE.Box3): Vista {
     const tamano = caja.getSize(new THREE.Vector3());
     const centro = caja.getCenter(new THREE.Vector3());
     const distancia = Math.max(tamano.x, tamano.y, tamano.z, 0.3) * 1.5;
-    controles.target.copy(centro);
-    camara.position.set(centro.x + distancia, centro.y - distancia, centro.z + distancia * 0.45);
-    controles.update();
+
+    return {
+        objetivo: centro,
+        posicion: new THREE.Vector3(centro.x + distancia, centro.y - distancia, centro.z + distancia * 0.45),
+    };
+}
+
+/** Lleva la cámara a una vista: de golpe al cargar, animada cuando ya se está viendo. */
+function irA(escena: Escena, vista: Vista, animado: boolean): void {
+    if (!animado) {
+        escena.viaje = null;
+        escena.camara.position.copy(vista.posicion);
+        escena.controles.target.copy(vista.objetivo);
+        escena.controles.update();
+        return;
+    }
+    escena.viaje = {
+        desde: { posicion: escena.camara.position.clone(), objetivo: escena.controles.target.clone() },
+        hasta: vista,
+        inicio: performance.now(),
+    };
+}
+
+/** Caja que encierra al cordón, holgada para que se vea con algo de pieza alrededor. */
+function cajaDelCordon(puntos: number[][]): THREE.Box3 | null {
+    if (puntos.length === 0) {
+        return null;
+    }
+    const caja = new THREE.Box3();
+    puntos.forEach(([x, y, z]) => caja.expandByPoint(new THREE.Vector3(x, y, z)));
+    const tamano = caja.getSize(new THREE.Vector3());
+    caja.expandByScalar(Math.max(tamano.x, tamano.y, tamano.z, 0.2) * 0.8);
+
+    return caja;
 }
 
 export function Visor({
@@ -63,12 +107,16 @@ export function Visor({
     const contenedor = useRef<HTMLDivElement>(null);
     const escena = useRef<Escena | null>(null);
     const alSeleccionar = useRef(onSeleccionar);
+    const cordonesRef = useRef(cordones);
     const [cargando, setCargando] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
         alSeleccionar.current = onSeleccionar;
-    }, [onSeleccionar]);
+        // El encuadre lee los cordones de aquí: si dependiera de ellos volvería
+        // a encuadrar cada vez que se responde una celda del mapeo.
+        cordonesRef.current = cordones;
+    }, [onSeleccionar, cordones]);
 
     // La escena se arma una vez por marca; quien usa el visor le pone `key`
     // con la url para que cambiar de marca empiece de cero.
@@ -114,7 +162,7 @@ export function Visor({
         // viendo, y se puede elegir sin girar la pieza.
         const material = new LineMaterial({ linewidth: 4, vertexColors: true, dashed: false, depthTest: false, transparent: true });
 
-        escena.current = { raiz, material, lineas: null, segmentos: [] };
+        escena.current = { raiz, material, lineas: null, segmentos: [], camara, controles, caja: null, viaje: null };
 
         const ajustar = () => {
             const ancho = div.clientWidth;
@@ -130,6 +178,17 @@ export function Visor({
 
         let cuadro = 0;
         const pintar = () => {
+            const viaje = escena.current?.viaje;
+            if (viaje) {
+                const avance = Math.min(1, (performance.now() - viaje.inicio) / VIAJE_MS);
+                // Suavizado en las dos puntas: arranca y frena sin tirones.
+                const paso = avance < 0.5 ? 2 * avance * avance : 1 - 2 * (1 - avance) ** 2;
+                camara.position.lerpVectors(viaje.desde.posicion, viaje.hasta.posicion, paso);
+                controles.target.lerpVectors(viaje.desde.objetivo, viaje.hasta.objetivo, paso);
+                if (avance === 1 && escena.current) {
+                    escena.current.viaje = null;
+                }
+            }
             controles.update();
             renderer.render(scene, camara);
             cuadro = requestAnimationFrame(pintar);
@@ -150,13 +209,20 @@ export function Visor({
                     }
                 });
                 raiz.add(gltf.scene);
-                encuadrar(camara, controles, new THREE.Box3().setFromObject(gltf.scene));
+                const caja = new THREE.Box3().setFromObject(gltf.scene);
+                if (escena.current) {
+                    escena.current.caja = caja;
+                    irA(escena.current, vistaDe(caja), false);
+                }
                 setCargando(false);
             },
             undefined,
-            () => {
+            (fallo: unknown) => {
                 if (vivo) {
-                    setError('No se pudo cargar la geometría de la marca.');
+                    // Con la url y el motivo: el visor se usa en la tablet, donde no
+                    // hay consola que abrir para saber qué archivo faltó.
+                    const motivo = fallo instanceof Error ? fallo.message : '';
+                    setError(`No se pudo cargar la geometría de la marca: ${glbUrl}${motivo ? ` — ${motivo}` : ''}`);
                     setCargando(false);
                 }
             },
@@ -168,6 +234,10 @@ export function Visor({
 
         const alPresionar = (evento: PointerEvent) => {
             inicio = { x: evento.clientX, y: evento.clientY };
+            // Tocar la pieza manda sobre el encuadre en curso.
+            if (escena.current) {
+                escena.current.viaje = null;
+            }
         };
         const alSoltar = (evento: PointerEvent) => {
             const lineas = escena.current?.lineas;
@@ -253,13 +323,48 @@ export function Visor({
         actual.lineas = lineas;
     }, [cordones, seleccionado]);
 
+    // Elegir un cordón lo encuadra: en una marca con cientos de cordones, el
+    // color no basta para encontrarlo. Al soltar la selección se ve toda la pieza.
+    useEffect(() => {
+        const actual = escena.current;
+        if (!actual || cargando) {
+            return;
+        }
+        const cordon = cordonesRef.current.find((candidato) => candidato.id === seleccionado);
+        const caja = cordon ? cajaDelCordon(cordon.puntos) : actual.caja;
+        if (caja) {
+            irA(actual, vistaDe(caja), true);
+        }
+    }, [seleccionado, cargando]);
+
+    /** Volver a la pieza completa sin perder la junta que se está capturando. */
+    const verTodo = () => {
+        const actual = escena.current;
+        if (actual?.caja) {
+            irA(actual, vistaDe(actual.caja), true);
+        }
+    };
+
     return (
         <div className={cn('relative h-[420px] overflow-hidden rounded-box border border-base-300', className)}>
             <div ref={contenedor} className="size-full touch-none" />
             {cargando && (
                 <div className="absolute inset-0 flex items-center justify-center text-sm text-white/70">Cargando la marca…</div>
             )}
-            {error && <div className="absolute inset-0 flex items-center justify-center text-sm text-error">{error}</div>}
+            {error && (
+                <div className="absolute inset-0 flex items-center justify-center px-4 text-center text-sm break-words text-error">
+                    {error}
+                </div>
+            )}
+            {!cargando && !error && (
+                <button
+                    type="button"
+                    onClick={verTodo}
+                    className="absolute top-2 right-2 rounded-lg bg-black/60 px-2 py-1 text-[11px] font-semibold text-white"
+                >
+                    ⤢ Toda la pieza
+                </button>
+            )}
             <div className="pointer-events-none absolute bottom-2 left-2 flex flex-wrap gap-2 rounded-lg bg-black/60 px-2 py-1 text-[11px] text-white">
                 {(Object.keys(COLOR_ESTADO) as EstadoCordon[]).map((estado) => (
                     <span key={estado} className="flex items-center gap-1">

@@ -12,7 +12,7 @@ import { PanelCordon } from '../juntas3d/panel-cordon';
 import { cargarMarca, type CordonVisor, type EstadoCordon, type MarcaVisor } from '../juntas3d/tipos';
 import { Visor } from '../juntas3d/visor';
 import type { Campos, Junta } from './estado';
-import { estadoJunta, JUNTA_VACIA, Mapeo } from './mapeo';
+import { estadoJunta, Mapeo } from './mapeo';
 import type { Estado3d } from './pieza-fisica';
 import { calcularDimensional } from './reglas';
 import {
@@ -74,7 +74,6 @@ export function FaseSegunda({
 }) {
     const modeloMarcaId = modelo3d?.marcaId ?? null;
     const [mapeoAbierto, setMapeoAbierto] = useState(false);
-    const [borrador, setBorrador] = useState<Junta>(JUNTA_VACIA);
     const [marca3d, setMarca3d] = useState<MarcaVisor | null>(null);
     const [error3d, setError3d] = useState<{ id: number; mensaje: string } | null>(null);
     const [cordonSel, setCordonSel] = useState<number | null>(null);
@@ -120,35 +119,18 @@ export function FaseSegunda({
             return [];
         }
         const porCordon = new Map<number, EstadoCordon>();
-        [...juntas, borrador].forEach((junta) => {
-            if (junta.cordonId !== null && junta.junta) {
+        juntas.forEach((junta) => {
+            // Una junta sin una sola respuesta sigue «sin revisar» en el visor,
+            // aunque su renglón ya exista en la matriz.
+            if (junta.cordonId !== null && Object.values(junta.puntos).some((valor) => valor === 'OK' || valor === 'Defecto')) {
                 porCordon.set(junta.cordonId, estadoJunta(junta) === 'Con defecto' ? 'defecto' : 'correcta');
             }
         });
         return marcaVisible.cordones.map((cordon) => ({ ...cordon, estado: porCordon.get(cordon.id) ?? 'sin' }));
-    }, [marcaVisible, juntas, borrador]);
+    }, [marcaVisible, juntas]);
 
     const cordonElegido = cordonesCaptura.find((cordon) => cordon.id === cordonSel) ?? null;
-    const conJunta = juntas.filter((junta) => junta.cordonId !== null).length;
-
-    /** Abre la junta del cordón: la que ya estaba en la lista, o una nueva numerada como el cordón. */
-    const abrirCordon = (cordon: CordonVisor) => {
-        const existente = juntas.findIndex((junta) => junta.cordonId === cordon.id);
-        if (existente >= 0) {
-            setBorrador(juntas[existente]);
-            onJuntas(juntas.filter((_, i) => i !== existente));
-        } else {
-            const tipo = cordon.tipo === 'filete' ? 'Filete' : 'Ranura';
-            setBorrador({
-                ...JUNTA_VACIA,
-                junta: cordon.identificador,
-                tipo,
-                cordonId: cordon.id,
-                puntos: tipo === 'Filete' ? { m_prepranura: 'n/a' } : { m_prepfilete: 'n/a' },
-            });
-        }
-        setMapeoAbierto(true);
-    };
+    const conJunta = cordonesCaptura.filter((cordon) => cordon.estado !== 'sin').length;
 
     /** Lo primero del mapeo: la pieza con sus cordones, o por qué no está. */
     const visor3d = !modelo3d ? (
@@ -162,8 +144,8 @@ export function FaseSegunda({
     ) : (
         <>
             <Pista>
-                Toca un cordón de la pieza para capturar su junta. Naranja: falta revisarlo; verde: correcta; rojo:
-                con defecto.
+                Toca un cordón para encuadrarlo y saltar a su renglón en la tabla. Naranja: falta revisarlo; verde:
+                correcta; rojo: con defecto.
             </Pista>
             {falla3d && <p className="text-sm text-error">{falla3d}</p>}
             {!marcaVisible && !falla3d && <Pista>Cargando el modelo de la marca…</Pista>}
@@ -178,17 +160,13 @@ export function FaseSegunda({
                         className="h-[360px]"
                     />
                     <Pista className="mt-2 mb-0">
-                        {conJunta} de {marcaVisible.cordones.length} cordones con junta en esta inspección.
+                        {conJunta} de {marcaVisible.cordones.length} cordones revisados en esta inspección.
                     </Pista>
                     {cordonElegido && (
                         <div className="mt-3">
-                            <PanelCordon cordon={cordonElegido}>
-                                <Boton tono="acero" onClick={() => abrirCordon(cordonElegido)}>
-                                    {juntas.some((junta) => junta.cordonId === cordonElegido.id)
-                                        ? `Editar la junta ${cordonElegido.identificador}`
-                                        : `Capturar la junta ${cordonElegido.identificador}`}
-                                </Boton>
-                            </PanelCordon>
+                            {/* La ficha del cordón es su geometría: lo que se captura vive
+                                en el renglón de la tabla, que ya quedó a la vista. */}
+                            <PanelCordon cordon={cordonElegido} />
                         </div>
                     )}
                 </>
@@ -270,11 +248,12 @@ export function FaseSegunda({
                 <Mapeo
                     juntas={juntas}
                     onJuntas={onJuntas}
-                    borrador={borrador}
-                    onBorrador={setBorrador}
                     soldadores={soldadores}
                     onAviso={onAviso}
                     modelo3d={visor3d}
+                    cordones={cordonesCaptura}
+                    seleccionado={cordonSel}
+                    onSeleccionar={setCordonSel}
                 />
             )}
 
