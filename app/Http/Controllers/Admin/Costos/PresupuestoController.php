@@ -567,6 +567,9 @@ class PresupuestoController extends Controller
     {
         Gate::authorize('costos.obra-rubros.ver');
 
+        ini_set('memory_limit', '1024M');
+        set_time_limit(300);
+
         $tipos = TipoRubro::with(['rubros' => fn ($q) => $q->where('ambito', 'obra')
             ->where('ocultar_en_reporte', false)
             ->orderBy('codigo')])
