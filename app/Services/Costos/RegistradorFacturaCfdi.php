@@ -3,6 +3,7 @@
 namespace App\Services\Costos;
 
 use App\Enums\Costos\DocumentoTipo;
+use App\Models\Costos\ConfiguracionCostos;
 use App\Models\Costos\Factura;
 use App\Models\Costos\OrdenCompra;
 use Closure;
@@ -46,7 +47,16 @@ class RegistradorFacturaCfdi
         $saldoFacturable = (float) $oc->saldo_facturable;
         $totalCfdi = (float) ($this->enMonedaDeLaOrden($oc, $fiscal)['total'] ?? 0);
 
-        if ($totalCfdi > $saldoFacturable + (float) config('costos.epsilon_monto')) {
+        // La misma holgura que la recepcion: el proveedor redondea el IVA a su
+        // manera y su total puede rebasar el de la orden por centavos. Con solo
+        // el epsilon, un centavo de mas (o el ruido de sumar dos flotantes)
+        // detenia la factura aunque la recepcion ya la hubiera aceptado.
+        $tolerancia = max(
+            (float) config('costos.epsilon_monto'),
+            (float) ConfiguracionCostos::actual()->tolerancia_recepcion,
+        );
+
+        if ($totalCfdi > $saldoFacturable + $tolerancia) {
             return sprintf(
                 'El total del CFDI ($%s %s) excede el saldo facturable de la OC ($%s). Verifica que el XML corresponda a esta orden.',
                 number_format($totalCfdi, 2),
