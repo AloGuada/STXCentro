@@ -7,6 +7,7 @@ use App\Models\Alm\Movimiento;
 use App\Models\Costos\Entrega;
 use App\Models\Costos\EntregaDetalle;
 use App\Models\Costos\Producto;
+use App\Services\Costos\TipoCambioService;
 
 /**
  * Aplica al kardex una recepción de `costos_entregas`.
@@ -23,7 +24,10 @@ use App\Models\Costos\Producto;
  */
 class RegistradorEntradaAlmacen
 {
-    public function __construct(private readonly AlmacenLedger $ledger) {}
+    public function __construct(
+        private readonly AlmacenLedger $ledger,
+        private readonly TipoCambioService $tiposDeCambio,
+    ) {}
 
     /**
      * Carga al kardex los renglones de una recepción ya guardada.
@@ -46,7 +50,8 @@ class RegistradorEntradaAlmacen
         // La partida de la orden y su centro de costos, de una vez: de ahí salen
         // el artículo y la obra de cada renglón, y sin esto serían dos consultas
         // por renglón recibido.
-        $entrega->loadMissing('detalles.ordenCompraDetalle.obraRubro');
+        $entrega->loadMissing(['detalles.ordenCompraDetalle.obraRubro', 'ordenCompra', 'factura']);
+        $pesosPorUnidad = $this->pesosPorUnidad($entrega);
 
         foreach ($entrega->detalles as $detalle) {
             $productoId = $this->productoDe($detalle);
@@ -63,7 +68,7 @@ class RegistradorEntradaAlmacen
                 productoId: $productoId,
                 tipo: MovimientoTipo::Entrada,
                 cantidad: (float) $detalle->cantidad_recibida,
-                costoUnitario: $this->costoDe($detalle),
+                costoUnitario: $this->costoDe($detalle, $pesosPorUnidad),
                 documento: $entrega,
                 referencia: $entrega->folio,
                 observaciones: $detalle->observaciones,
@@ -157,12 +162,41 @@ class RegistradorEntradaAlmacen
      * orden si no se corrigió. `precio_unitario_efectivo` ya resuelve esa
      * herencia, y devuelve 0 cuando no hay ninguno — que para el ledger es «sin
      * costo», no «gratis».
+     *
+     * Ese precio está en la moneda de la orden; el kardex vive en pesos.
      */
-    private function costoDe(EntregaDetalle $detalle): ?float
+    private function costoDe(EntregaDetalle $detalle, float $pesosPorUnidad): ?float
     {
         $costo = (float) $detalle->precio_unitario_efectivo;
 
-        return $costo > 0 ? $costo : null;
+        return $costo > 0 ? round($costo * $pesosPorUnidad, 4) : null;
+    }
+
+    /**
+     * Cuántos pesos vale cada unidad de la moneda de la orden para costear esta
+     * recepción. Manda la factura que la ampara, porque es lo que se va a pagar:
+     * el TipoCambio de su XML, o el que resultó de facturar en pesos una orden en
+     * dólares. Sin eso, el que se guardó en la orden; y si la orden en divisa se
+     * quedó con el 1 de default, el del día de la recepción.
+     */
+    private function pesosPorUnidad(Entrega $entrega): float
+    {
+        $orden = $entrega->ordenCompra;
+        $moneda = strtolower((string) ($orden?->moneda ?: 'mxn'));
+
+        if ($moneda === 'mxn') {
+            return 1.0;
+        }
+
+        if ((float) $entrega->factura?->tipo_cambio_cfdi > 0) {
+            return (float) $entrega->factura->tipo_cambio_cfdi;
+        }
+
+        if ((float) $orden->tipo_cambio > 1) {
+            return (float) $orden->tipo_cambio;
+        }
+
+        return $this->tiposDeCambio->mxnPorUnidad($moneda, $entrega->fecha_entrega);
     }
 
     private function yaAplicada(Entrega $entrega): bool

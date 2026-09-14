@@ -148,7 +148,7 @@ function ComprobanteUpload({
     );
 }
 
-function ParcialidadesTable({ parciales }: { parciales: CostosPago[] }) {
+function ParcialidadesTable({ parciales, tcDeLaFactura }: { parciales: CostosPago[]; tcDeLaFactura: number | null }) {
     return (
         <div className="mt-6">
             <h3 className="mb-3 font-medium">Parcialidades</h3>
@@ -189,7 +189,7 @@ function ParcialidadesTable({ parciales }: { parciales: CostosPago[] }) {
                                             label="Comprobante"
                                             moneda={p.moneda}
                                             montoPago={p.monto_pago}
-                                            tipoCambio={p.tipo_cambio}
+                                            tipoCambio={tcDeLaFactura ?? p.tipo_cambio}
                                         />
                                     )}
                                     {p.media?.path && (
@@ -228,6 +228,13 @@ export default function PagosShow({ pago }: Props) {
     const puedeCancelar = can('costos.pagos.cancelar') && !['pagado', 'cancelado'].includes(pago.estatus) && !pago.media;
 
     const proveedor = pago.pagable && 'proveedor' in pago.pagable ? pago.pagable.proveedor : null;
+    // La factura dice con qué tipo de cambio cobra el proveedor (el de su XML, o
+    // el que resultó de timbrar en pesos una orden en dólares): es mejor punto
+    // de partida para los pesos reales que el TC con que se hizo la orden.
+    const tcDeLaFactura =
+        pago.pagable && 'tipo_cambio_cfdi' in pago.pagable && Number(pago.pagable.tipo_cambio_cfdi) > 1
+            ? Number(pago.pagable.tipo_cambio_cfdi)
+            : null;
     const diasCredito = proveedor?.dias_credito_default ?? 0;
 
     const fechaPagoEstimada = useMemo(() => {
@@ -353,7 +360,7 @@ export default function PagosShow({ pago }: Props) {
                                 label="Pagar en Una Exhibición"
                                 moneda={pago.moneda}
                                 montoPago={pago.monto_pago}
-                                tipoCambio={pago.tipo_cambio}
+                                tipoCambio={tcDeLaFactura ?? pago.tipo_cambio}
                             />
                         </div>
                     </div>
@@ -373,7 +380,7 @@ export default function PagosShow({ pago }: Props) {
 
                 {/* Tabla de parcialidades */}
                 {parciales.length > 0 && (
-                    <ParcialidadesTable parciales={parciales} />
+                    <ParcialidadesTable tcDeLaFactura={tcDeLaFactura} parciales={parciales} />
                 )}
 
                 {/* Notas */}

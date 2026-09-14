@@ -13,6 +13,7 @@ use SimpleXMLElement;
  * - folio_fiscal (atributo Folio del Comprobante)
  * - fecha_factura (atributo Fecha)
  * - subtotal, total
+ * - moneda (en minúsculas, como las guarda el sistema) y tipo_cambio (null en MXN)
  * - iva_trasladado (suma de impuestos trasladados IVA)
  * - iva_retenido, isr_retenido
  * - impuestos_detalle (snapshot JSON con traslados y retenciones)
@@ -31,6 +32,8 @@ class CfdiXmlParser
      *   fecha_factura: ?string,
      *   subtotal: float,
      *   total: float,
+     *   moneda: string,
+     *   tipo_cambio: ?float,
      *   iva_trasladado: float,
      *   iva_retenido: float,
      *   isr_retenido: float,
@@ -53,6 +56,8 @@ class CfdiXmlParser
         $fechaRaw = $this->attr($xml, 'Fecha');
         $fecha = $fechaRaw !== null ? substr($fechaRaw, 0, 10) : null;
         $folioFiscal = $this->attr($xml, 'Folio');
+        $moneda = strtolower($this->attr($xml, 'Moneda') ?? 'MXN');
+        $tipoCambio = $this->attr($xml, 'TipoCambio');
 
         [$rfcEmisor, $rfcReceptor] = $this->extractRfcs($xml, $cfdi);
         [$ivaTrasladado, $ivaRetenido, $isrRetenido, $impuestosDetalle] = $this->extractImpuestos($xml, $cfdi);
@@ -64,6 +69,9 @@ class CfdiXmlParser
             'fecha_factura' => $fecha,
             'subtotal' => $subtotal,
             'total' => $total,
+            'moneda' => $moneda,
+            // En MXN el SAT lo omite o lo fija en 1: no dice nada.
+            'tipo_cambio' => $moneda !== 'mxn' && (float) $tipoCambio > 0 ? (float) $tipoCambio : null,
             'iva_trasladado' => $ivaTrasladado,
             'iva_retenido' => $ivaRetenido,
             'isr_retenido' => $isrRetenido,

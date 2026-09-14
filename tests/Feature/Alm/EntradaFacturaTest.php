@@ -115,6 +115,29 @@ test('un CFDI que no cuadra con lo recibido se rechaza y no deja factura a media
         ->and(Factura::count())->toBe(0);
 });
 
+test('la tolerancia también cubre el centavo con que el CFDI rebasa el total de la orden', function () {
+    // Caso real (Merida_F3707): 19,802.95 × 1.16 = 22,971.422 en la orden y el
+    // proveedor redondeó el IVA hacia arriba: 22,971.43. Con la holgura en 0.85
+    // la recepción lo aceptaba, pero el saldo facturable lo detenía por 0.01.
+    ConfiguracionCostos::actual()->update(['tolerancia_recepcion' => 0.85]);
+    // Los montos reales: en flotante 22,971.42 + 0.01 da 22,971.429999…
+    $this->orden->update(['total' => 22971.42]);
+    $this->partida->update(['cantidad' => 5, 'precio_unitario' => 3960.59, 'subtotal' => 19802.95]);
+
+    $todo = [['orden_compra_detalle_id' => $this->partida->id, 'cantidad_recibida' => 5]];
+    $archivos = cfdiParaRecibir($this->orden, $todo, null, [
+        'SubTotal' => '19802.95',
+        'Total' => '22971.43',
+        'IvaTrasladado' => '3168.48',
+    ]);
+
+    $this->actingAs($this->almacenista)
+        ->post('/admin/almacen/entradas', ($this->capturar)([...$archivos, 'tipo' => 'completa', 'detalles' => $todo]))
+        ->assertSessionHasNoErrors();
+
+    expect((float) Factura::sole()->total)->toBe(22971.43);
+});
+
 test('una diferencia dentro de la tolerancia configurada pasa y la recepción no se toca', function () {
     // Entran 60 x 45 = 2,700 + IVA = 3,132.00 y el proveedor redondeó: cobra
     // 3 centavos de mas.

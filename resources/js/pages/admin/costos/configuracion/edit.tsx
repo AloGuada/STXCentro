@@ -18,6 +18,7 @@ type Configuracion = {
     corte_hora: string;
     dia_comprobante_recepcion: number | null;
     tolerancia_recepcion: number;
+    tolerancia_tipo_cambio: number;
     gerente_compras_id: string | null;
 };
 
@@ -60,6 +61,7 @@ export default function ConfiguracionCostosEdit({ configuracion, usuarios }: Pro
         corte_hora: string;
         dia_comprobante_recepcion: number | '';
         tolerancia_recepcion: number;
+        tolerancia_tipo_cambio: number;
         gerente_compras_id: string;
     }>({
         dias_apartado: configuracion.dias_apartado,
@@ -70,6 +72,7 @@ export default function ConfiguracionCostosEdit({ configuracion, usuarios }: Pro
         corte_hora: configuracion.corte_hora,
         dia_comprobante_recepcion: configuracion.dia_comprobante_recepcion ?? '',
         tolerancia_recepcion: Number(configuracion.tolerancia_recepcion ?? 0.01),
+        tolerancia_tipo_cambio: Number(configuracion.tolerancia_tipo_cambio ?? 5),
         gerente_compras_id: configuracion.gerente_compras_id ?? '',
     });
 
@@ -243,6 +246,31 @@ export default function ConfiguracionCostosEdit({ configuracion, usuarios }: Pro
                                     Hasta cuántos pesos puede diferir el total del CFDI de lo que se está recibiendo en
                                     Almacén sin que la entrada se rechace. La recepción guarda lo que entró tal cual; la
                                     diferencia se acepta como redondeo del proveedor.
+                                </p>
+                            </FormField>
+                        </div>
+
+                        <div className="rounded-lg border border-base-300 p-4">
+                            <FormField
+                                label="Tolerancia del tipo de cambio de la factura (%)"
+                                htmlFor="tolerancia_tipo_cambio"
+                                error={errors.tolerancia_tipo_cambio}
+                                required
+                            >
+                                <Input
+                                    id="tolerancia_tipo_cambio"
+                                    type="number"
+                                    step="0.01"
+                                    min={0}
+                                    max={100}
+                                    value={data.tolerancia_tipo_cambio}
+                                    onChange={(e) => setData('tolerancia_tipo_cambio', parseFloat(e.target.value) || 0)}
+                                />
+                                <p className="mt-1 text-xs text-base-content/60">
+                                    Cuando una orden en dólares se factura en pesos, el tipo de cambio que aplicó el
+                                    proveedor sale de dividir la factura entre lo que ampara. Si se aleja más de este
+                                    porcentaje del FIX de Banxico del día de la factura, el CFDI se rechaza: casi seguro
+                                    no es de esta orden.
                                 </p>
                             </FormField>
                         </div>
