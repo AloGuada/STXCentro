@@ -50,6 +50,17 @@ test('el usuario de costos ve solicitudes y facturas pendientes de costos', func
         );
 });
 
+test('la fecha de pago viaja como fecha de calendario, sin hora ni zona', function () {
+    SolicitudPago::factory()->aprobada()->create(['fecha_pago_solicitada' => '2026-09-18']);
+
+    $this->actingAs($this->costos)
+        ->get(route('admin.costos.confirmaciones.index'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('costos.0.fecha', '2026-09-18')
+        );
+});
+
 test('el usuario de contabilidad ve créditos confirmados por costos y facturas en pendiente de pago', function () {
     SolicitudPago::factory()->aprobada()->create([
         'tipo_pago' => 'credito',

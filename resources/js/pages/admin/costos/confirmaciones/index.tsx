@@ -1,4 +1,5 @@
 import AppLayout from '@/layouts/app-layout';
+import { formatFecha } from '@/lib/fechas';
 import type { BreadcrumbItem } from '@/types';
 import type { CostosPuntoControl } from '@/types/models';
 import { Head, Link, router } from '@inertiajs/react';
@@ -16,8 +17,7 @@ type Props = {
     contabilidad: CostosPuntoControl[];
 };
 
-const fmtDate = (date: string | null) =>
-    date ? new Date(date).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '-';
+const fmtDate = (date: string | null) => formatFecha(date);
 
 const fmtMoney = (n: number, moneda: string) =>
     `$${Number(n).toLocaleString('es-MX', { minimumFractionDigits: 2 })} ${moneda.toUpperCase()}`;

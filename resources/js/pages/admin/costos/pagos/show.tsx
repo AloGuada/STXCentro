@@ -313,7 +313,7 @@ export default function PagosShow({ pago }: Props) {
                         </div>
                         <div>
                             <span className="text-sm text-base-content/60">Fecha Programada</span>
-                            <p className="font-medium">{pago.fecha_pago_programada ? new Date(pago.fecha_pago_programada).toLocaleDateString() : '-'}</p>
+                            <p className="font-medium">{formatDate(pago.fecha_pago_programada) ?? '-'}</p>
                         </div>
                         {pago.fecha_pago_maxima && (
                             <div>
