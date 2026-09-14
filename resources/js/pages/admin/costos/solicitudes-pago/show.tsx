@@ -72,6 +72,7 @@ export default function SolicitudesPagoShow({ solicitud, documentosPrevios = [],
     const currentStep = getStepIndex(solicitud.estatus);
     const [showCancelarModal, setShowCancelarModal] = useState(false);
     const [showReasignarModal, setShowReasignarModal] = useState(false);
+    const [cargandoCatalogo, setCargandoCatalogo] = useState(false);
 
     const puedeReasignar =
         Boolean(solicitud.puede_reasignar) &&
@@ -82,6 +83,19 @@ export default function SolicitudesPagoShow({ solicitud, documentosPrevios = [],
     // solicitud: son dos números distintos y el desglose puede sumar menos (se
     // comprueba por partes).
     const cargadoCostos = (solicitud.detalles ?? []).reduce((acumulado, d) => acumulado + Number(d.subtotal ?? 0), 0);
+
+    // El catálogo de centros de costos no viaja con el show (pesa demasiado):
+    // se pide al abrir el modal, una sola vez por visita.
+    const abrirReasignar = () => {
+        setShowReasignarModal(true);
+
+        if (obraRubros.length > 0) {
+            return;
+        }
+
+        setCargandoCatalogo(true);
+        router.reload({ only: ['presupuestos', 'obraRubros'], onFinish: () => setCargandoCatalogo(false) });
+    };
 
     const handleConfirmarCostos = () => {
         if (confirm('¿Confirmar esta solicitud por costos?')) {
@@ -157,7 +171,7 @@ export default function SolicitudesPagoShow({ solicitud, documentosPrevios = [],
                             </Button>
                         )}
                         {puedeReasignar && (
-                            <Button variant="outline" onClick={() => setShowReasignarModal(true)}>Reasignar centros de costos</Button>
+                            <Button variant="outline" onClick={abrirReasignar}>Reasignar centros de costos</Button>
                         )}
                         {puedeCancelar && (
                             <Button variant="destructive" onClick={() => setShowCancelarModal(true)}>Cancelar</Button>
@@ -463,6 +477,7 @@ export default function SolicitudesPagoShow({ solicitud, documentosPrevios = [],
                         url={`/admin/costos/solicitudes-pago/${solicitud.id}/reasignar`}
                         presupuestos={presupuestos}
                         obraRubros={obraRubros}
+                        cargandoCatalogo={cargandoCatalogo}
                         detallesActuales={solicitud.detalles ?? []}
                         totalBloqueado={solicitud.estatus === 'pagada'}
                         montoSolicitud={Number(solicitud.monto_total)}

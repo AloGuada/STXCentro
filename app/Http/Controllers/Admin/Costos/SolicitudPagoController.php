@@ -206,16 +206,20 @@ class SolicitudPagoController extends Controller
 
     /**
      * Catálogo de centros de costos (obra-rubro) para los selectores de detalle
-     * en create/edit y en el modal de reasignación del show.
+     * en create/edit y en el modal de reasignación del show. Trae sólo lo que
+     * pintan los selectores: el catálogo completo son miles de renglones.
      *
      * @return \Illuminate\Database\Eloquent\Collection<int, ObraRubro>
      */
     private function obraRubrosParaSelector(): \Illuminate\Database\Eloquent\Collection
     {
-        return ObraRubro::with([
-            'rubro',
-            'presupuesto:id,estatus',
-        ])->get();
+        return ObraRubro::query()
+            ->select(['id', 'presupuesto_id', 'rubro_id', 'presupuestado', 'acumulado'])
+            ->with([
+                'rubro:id,codigo,descripcion',
+                'presupuesto:id,estatus',
+            ])
+            ->get();
     }
 
     public function create(): Response
@@ -459,17 +463,18 @@ class SolicitudPagoController extends Controller
 
         $solicitudPago->append('puede_reasignar');
 
-        // El catálogo de centros de costos solo se carga si la solicitud admite
-        // reasignación y el usuario tiene el permiso privilegiado, para no inflar
-        // el show del resto de solicitudes.
+        // El catálogo de centros de costos pesa (miles de renglones), así que no
+        // viaja con el show: el modal de reasignación lo pide con un reload
+        // parcial al abrirse, y sólo si la solicitud admite reasignación y el
+        // usuario tiene el permiso privilegiado.
         $puedeReasignar = $solicitudPago->puede_reasignar
             && $user->can('costos.centros-costos.reasignar');
 
         return Inertia::render('admin/costos/solicitudes-pago/show', [
             'solicitud' => $solicitudPago,
             'documentosPrevios' => $this->documentosPrevios($solicitudPago),
-            'presupuestos' => $puedeReasignar ? app(OpcionesPresupuestales::class)->presupuestos() : [],
-            'obraRubros' => $puedeReasignar ? $this->obraRubrosParaSelector() : [],
+            'presupuestos' => Inertia::optional(fn () => $puedeReasignar ? app(OpcionesPresupuestales::class)->presupuestos() : []),
+            'obraRubros' => Inertia::optional(fn () => $puedeReasignar ? $this->obraRubrosParaSelector() : []),
         ]);
     }
 

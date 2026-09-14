@@ -11,6 +11,8 @@ type Props = {
     url: string;
     presupuestos: PresupuestoOption[];
     obraRubros: CostosObraRubro[];
+    /** El catálogo se pide al abrir el modal; mientras llega no se captura. */
+    cargandoCatalogo?: boolean;
     detallesActuales: CostosSolicitudPagoDetalle[];
     /**
      * En una solicitud pagada el reparto además tiene que cuadrar con lo que
@@ -23,7 +25,7 @@ type Props = {
 
 const fmtMoney = (n: number) => n.toLocaleString('es-MX', { minimumFractionDigits: 2 });
 
-export function ReasignarModal({ open, onClose, url, presupuestos, obraRubros, detallesActuales, totalBloqueado = false, montoSolicitud }: Props) {
+export function ReasignarModal({ open, onClose, url, presupuestos, obraRubros, cargandoCatalogo = false, detallesActuales, totalBloqueado = false, montoSolicitud }: Props) {
     const [motivo, setMotivo] = useState('');
     const [detalles, setDetalles] = useState<CentroCostoRow[]>([]);
     const [processing, setProcessing] = useState(false);
@@ -110,7 +112,13 @@ export function ReasignarModal({ open, onClose, url, presupuestos, obraRubros, d
                     {totalBloqueado && ' La solicitud está pagada: la suma debe conservar el monto pagado.'}
                 </p>
 
-                <DetallesCentroCostoGrid presupuestos={presupuestos} obraRubros={obraRubros} detalles={detalles} onChange={setDetalles} disabled={processing} />
+                {cargandoCatalogo && (
+                    <p className="mb-2 flex items-center gap-2 text-sm text-base-content/60">
+                        <Loader2Icon className="size-4 animate-spin" /> Cargando centros de costos...
+                    </p>
+                )}
+
+                <DetallesCentroCostoGrid presupuestos={presupuestos} obraRubros={obraRubros} detalles={detalles} onChange={setDetalles} disabled={processing || cargandoCatalogo} />
 
                 {montoSolicitud != null && (
                     <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-sm">
@@ -150,7 +158,7 @@ export function ReasignarModal({ open, onClose, url, presupuestos, obraRubros, d
                     <Button variant="outline" onClick={onClose} disabled={processing}>
                         Volver
                     </Button>
-                    <Button onClick={submit} disabled={processing || motivo.trim().length < 10}>
+                    <Button onClick={submit} disabled={processing || cargandoCatalogo || motivo.trim().length < 10}>
                         {processing && <Loader2Icon className="size-4 animate-spin" />}
                         Reasignar
                     </Button>

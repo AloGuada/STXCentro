@@ -289,6 +289,46 @@ describe('admin costos solicitudes pago', function () {
         );
     });
 
+    test('el catálogo de centros de costos no viaja con el show: se pide al abrir el modal de reasignar', function () {
+        \Spatie\Permission\Models\Permission::firstOrCreate(['name' => 'costos.centros-costos.reasignar', 'guard_name' => 'web']);
+        $this->user->givePermissionTo('costos.centros-costos.reasignar');
+
+        $obraRubro = ObraRubro::factory()->create();
+        $solicitud = SolicitudPago::factory()->aprobada()->create(['solicitante_id' => $this->user->id, 'orden_compra_id' => null]);
+        SolicitudPagoDetalle::factory()->create(['solicitud_id' => $solicitud->id, 'obra_rubro_id' => $obraRubro->id]);
+
+        $this->actingAs($this->user)
+            ->get(route('admin.costos.solicitudes-pago.show', $solicitud))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->where('solicitud.puede_reasignar', true)
+                ->missing('presupuestos')
+                ->missing('obraRubros')
+                ->reloadOnly(['presupuestos', 'obraRubros'], fn ($reload) => $reload
+                    ->where('obraRubros.0.id', $obraRubro->id)
+                    ->where('obraRubros.0.presupuesto_id', $obraRubro->presupuesto_id)
+                    ->has('obraRubros.0.rubro.codigo')
+                    ->has('presupuestos', 1)
+                )
+            );
+    });
+
+    test('sin permiso de reasignar el reload del catálogo llega vacío', function () {
+        $obraRubro = ObraRubro::factory()->create();
+        $solicitud = SolicitudPago::factory()->aprobada()->create(['solicitante_id' => $this->user->id, 'orden_compra_id' => null]);
+        SolicitudPagoDetalle::factory()->create(['solicitud_id' => $solicitud->id, 'obra_rubro_id' => $obraRubro->id]);
+
+        $this->actingAs($this->user)
+            ->get(route('admin.costos.solicitudes-pago.show', $solicitud))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->reloadOnly(['presupuestos', 'obraRubros'], fn ($reload) => $reload
+                    ->where('presupuestos', [])
+                    ->where('obraRubros', [])
+                )
+            );
+    });
+
     test('el show incluye la OP, la descripción y el presupuesto del centro de costo en cada detalle', function () {
         $obra = Obra::factory()->create(['no' => 'OP-123', 'descripcion' => 'Nave Industrial']);
         $presupuesto = Presupuesto::factory()->paraObra($obra)->create([
