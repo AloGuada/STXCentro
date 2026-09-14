@@ -28,6 +28,10 @@ type Props = {
     detalles: CentroCostoRow[];
     onChange: (detalles: CentroCostoRow[]) => void;
     disabled?: boolean;
+    /** Aviso de que un renglón eligió presupuesto, para cargar sus centros de costos bajo demanda. */
+    onPresupuestoChange?: (presupuestoId: string) => void;
+    /** Presupuestos cuyos centros de costos todavía vienen en camino. */
+    presupuestosCargando?: string[];
 };
 
 /**
@@ -35,7 +39,15 @@ type Props = {
  * auto-append de una fila vacía al final. Reutilizable en formularios de captura
  * y en el modal de reasignación.
  */
-export function DetallesCentroCostoGrid({ presupuestos, obraRubros, detalles, onChange, disabled = false }: Props) {
+export function DetallesCentroCostoGrid({
+    presupuestos,
+    obraRubros,
+    detalles,
+    onChange,
+    disabled = false,
+    onPresupuestoChange,
+    presupuestosCargando = [],
+}: Props) {
     // Por presupuesto, no por obra: los centros de costos de un proyecto o
     // de una partida no tienen obra_id y por obra nunca aparecerían.
     const rubrosDe = (presupuestoId: string) =>
@@ -59,6 +71,7 @@ export function DetallesCentroCostoGrid({ presupuestos, obraRubros, detalles, on
         // Cambiar el presupuesto invalida el centro de costos elegido.
         if (field === 'presupuesto_id') {
             updated[index].obra_rubro_id = '';
+            onPresupuestoChange?.(value);
         }
         // Al usar la última fila, deja una vacía debajo para seguir capturando.
         if (index === updated.length - 1 && filaCentroCostoTieneDatos(updated[index])) {
@@ -96,6 +109,7 @@ export function DetallesCentroCostoGrid({ presupuestos, obraRubros, detalles, on
                             const monto = parseFloat(det.monto) || 0;
                             const disponible = getDisponible(det.obra_rubro_id);
                             const excede = disponible !== null && monto > disponible;
+                            const cargandoRubros = presupuestosCargando.includes(det.presupuesto_id);
 
                             return (
                                 <tr key={index} className="align-top">
@@ -116,8 +130,14 @@ export function DetallesCentroCostoGrid({ presupuestos, obraRubros, detalles, on
                                         <SearchSelect
                                             value={det.obra_rubro_id}
                                             onValueChange={(v) => updateDetalle(index, 'obra_rubro_id', v)}
-                                            placeholder={det.presupuesto_id ? 'Buscar centro de costos...' : 'Seleccione presupuesto primero'}
-                                            disabled={disabled || !det.presupuesto_id}
+                                            placeholder={
+                                                !det.presupuesto_id
+                                                    ? 'Seleccione presupuesto primero'
+                                                    : cargandoRubros
+                                                      ? 'Cargando centros de costos...'
+                                                      : 'Buscar centro de costos...'
+                                            }
+                                            disabled={disabled || !det.presupuesto_id || cargandoRubros}
                                             options={rubrosDe(det.presupuesto_id).map((or) => ({
                                                 value: String(or.id),
                                                 label: `${or.rubro?.codigo ?? ''} - ${or.rubro?.descripcion ?? ''}`,

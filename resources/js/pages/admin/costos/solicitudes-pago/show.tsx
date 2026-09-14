@@ -85,11 +85,12 @@ export default function SolicitudesPagoShow({ solicitud, documentosPrevios = [],
     const cargadoCostos = (solicitud.detalles ?? []).reduce((acumulado, d) => acumulado + Number(d.subtotal ?? 0), 0);
 
     // El catálogo de centros de costos no viaja con el show (pesa demasiado):
-    // se pide al abrir el modal, una sola vez por visita.
+    // al abrir el modal se piden los presupuestos y los centros de los que la
+    // solicitud ya usa, una sola vez por visita.
     const abrirReasignar = () => {
         setShowReasignarModal(true);
 
-        if (obraRubros.length > 0) {
+        if (presupuestos.length > 0) {
             return;
         }
 
@@ -475,6 +476,7 @@ export default function SolicitudesPagoShow({ solicitud, documentosPrevios = [],
                         open={showReasignarModal}
                         onClose={() => setShowReasignarModal(false)}
                         url={`/admin/costos/solicitudes-pago/${solicitud.id}/reasignar`}
+                        centrosCostosUrl={`/admin/costos/solicitudes-pago/${solicitud.id}/centros-costos`}
                         presupuestos={presupuestos}
                         obraRubros={obraRubros}
                         cargandoCatalogo={cargandoCatalogo}

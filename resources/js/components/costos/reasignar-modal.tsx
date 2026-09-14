@@ -1,6 +1,6 @@
 import { router } from '@inertiajs/react';
 import { Loader2Icon } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import type { CostosObraRubro, CostosSolicitudPagoDetalle, PresupuestoOption } from '@/types/models';
 import { blankCentroCostoRow, type CentroCostoRow, DetallesCentroCostoGrid, filaCentroCostoTieneDatos } from './detalles-centro-costo-grid';
@@ -9,7 +9,10 @@ type Props = {
     open: boolean;
     onClose: () => void;
     url: string;
+    /** Endpoint con los centros de costos de un presupuesto: `${centrosCostosUrl}/${presupuestoId}`. */
+    centrosCostosUrl: string;
     presupuestos: PresupuestoOption[];
+    /** Sólo los centros de los presupuestos que la solicitud ya usa; los demás se piden al elegirlos. */
     obraRubros: CostosObraRubro[];
     /** El catálogo se pide al abrir el modal; mientras llega no se captura. */
     cargandoCatalogo?: boolean;
@@ -25,11 +28,53 @@ type Props = {
 
 const fmtMoney = (n: number) => n.toLocaleString('es-MX', { minimumFractionDigits: 2 });
 
-export function ReasignarModal({ open, onClose, url, presupuestos, obraRubros, cargandoCatalogo = false, detallesActuales, totalBloqueado = false, montoSolicitud }: Props) {
+export function ReasignarModal({
+    open,
+    onClose,
+    url,
+    centrosCostosUrl,
+    presupuestos,
+    obraRubros,
+    cargandoCatalogo = false,
+    detallesActuales,
+    totalBloqueado = false,
+    montoSolicitud,
+}: Props) {
     const [motivo, setMotivo] = useState('');
     const [detalles, setDetalles] = useState<CentroCostoRow[]>([]);
     const [processing, setProcessing] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [rubrosPedidos, setRubrosPedidos] = useState<CostosObraRubro[]>([]);
+    const [presupuestosPedidos, setPresupuestosPedidos] = useState<string[]>([]);
+    const [presupuestosCargando, setPresupuestosCargando] = useState<string[]>([]);
+
+    const catalogo = useMemo(() => [...obraRubros, ...rubrosPedidos], [obraRubros, rubrosPedidos]);
+
+    // Los centros de un presupuesto que la solicitud no usa se piden la primera
+    // vez que se elige en algún renglón y se quedan para el resto de la captura.
+    const cargarCentrosCostos = (presupuestoId: string) => {
+        const yaEsta =
+            !presupuestoId ||
+            presupuestosPedidos.includes(presupuestoId) ||
+            obraRubros.some((or) => String(or.presupuesto_id) === presupuestoId);
+
+        if (yaEsta) {
+            return;
+        }
+
+        setPresupuestosPedidos((previos) => [...previos, presupuestoId]);
+        setPresupuestosCargando((previos) => [...previos, presupuestoId]);
+
+        fetch(`${centrosCostosUrl}/${presupuestoId}`, { headers: { Accept: 'application/json' } })
+            .then((r) => (r.ok ? r.json() : Promise.reject(new Error())))
+            .then((rubros: CostosObraRubro[]) => setRubrosPedidos((previos) => [...previos, ...rubros]))
+            .catch(() => {
+                // Se puede reintentar eligiendo el presupuesto otra vez.
+                setPresupuestosPedidos((previos) => previos.filter((id) => id !== presupuestoId));
+                setError('No se pudieron cargar los centros de costos de ese presupuesto.');
+            })
+            .finally(() => setPresupuestosCargando((previos) => previos.filter((id) => id !== presupuestoId)));
+    };
 
     // Precargar los detalles actuales cada vez que se abre el modal.
     useEffect(() => {
@@ -46,6 +91,9 @@ export function ReasignarModal({ open, onClose, url, presupuestos, obraRubros, c
         setDetalles(rows);
         setMotivo('');
         setError(null);
+        // El disponible de lo pedido antes pudo cambiar (p. ej. tras reasignar).
+        setRubrosPedidos([]);
+        setPresupuestosPedidos([]);
         // Solo al abrir; no reaccionar a cambios de referencia de props mientras está abierto.
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [open]);
@@ -118,7 +166,15 @@ export function ReasignarModal({ open, onClose, url, presupuestos, obraRubros, c
                     </p>
                 )}
 
-                <DetallesCentroCostoGrid presupuestos={presupuestos} obraRubros={obraRubros} detalles={detalles} onChange={setDetalles} disabled={processing || cargandoCatalogo} />
+                <DetallesCentroCostoGrid
+                    presupuestos={presupuestos}
+                    obraRubros={catalogo}
+                    detalles={detalles}
+                    onChange={setDetalles}
+                    disabled={processing || cargandoCatalogo}
+                    onPresupuestoChange={cargarCentrosCostos}
+                    presupuestosCargando={presupuestosCargando}
+                />
 
                 {montoSolicitud != null && (
                     <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-sm">
@@ -158,7 +214,7 @@ export function ReasignarModal({ open, onClose, url, presupuestos, obraRubros, c
                     <Button variant="outline" onClick={onClose} disabled={processing}>
                         Volver
                     </Button>
-                    <Button onClick={submit} disabled={processing || cargandoCatalogo || motivo.trim().length < 10}>
+                    <Button onClick={submit} disabled={processing || cargandoCatalogo || presupuestosCargando.length > 0 || motivo.trim().length < 10}>
                         {processing && <Loader2Icon className="size-4 animate-spin" />}
                         Reasignar
                     </Button>

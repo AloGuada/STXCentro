@@ -17,6 +17,7 @@ use App\Models\Costos\AprobacionDepartamento;
 use App\Models\Costos\ConfiguracionCostos;
 use App\Models\Costos\ObraRubro;
 use App\Models\Costos\Pago;
+use App\Models\Costos\Presupuesto;
 use App\Models\Costos\Requisicion;
 use App\Models\Costos\SolicitudArchivo;
 use App\Models\Costos\SolicitudPago;
@@ -34,6 +35,7 @@ use App\Services\Costos\ReasignacionCentroCostos;
 use App\Support\OrdenaColumnas;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -207,14 +209,17 @@ class SolicitudPagoController extends Controller
     /**
      * Catálogo de centros de costos (obra-rubro) para los selectores de detalle
      * en create/edit y en el modal de reasignación del show. Trae sólo lo que
-     * pintan los selectores: el catálogo completo son miles de renglones.
+     * pintan los selectores: el catálogo completo son miles de renglones, así
+     * que el modal lo pide acotado a ciertos presupuestos.
      *
+     * @param  array<int, int>|null  $presupuestoIds  null = todos
      * @return \Illuminate\Database\Eloquent\Collection<int, ObraRubro>
      */
-    private function obraRubrosParaSelector(): \Illuminate\Database\Eloquent\Collection
+    private function obraRubrosParaSelector(?array $presupuestoIds = null): \Illuminate\Database\Eloquent\Collection
     {
         return ObraRubro::query()
             ->select(['id', 'presupuesto_id', 'rubro_id', 'presupuestado', 'acumulado'])
+            ->when($presupuestoIds !== null, fn (Builder $q) => $q->whereIn('presupuesto_id', $presupuestoIds))
             ->with([
                 'rubro:id,codigo,descripcion',
                 'presupuesto:id,estatus',
@@ -464,9 +469,11 @@ class SolicitudPagoController extends Controller
         $solicitudPago->append('puede_reasignar');
 
         // El catálogo de centros de costos pesa (miles de renglones), así que no
-        // viaja con el show: el modal de reasignación lo pide con un reload
-        // parcial al abrirse, y sólo si la solicitud admite reasignación y el
-        // usuario tiene el permiso privilegiado.
+        // viaja con el show: el modal de reasignación pide con un reload parcial
+        // la lista de presupuestos y sólo los centros de los presupuestos que la
+        // solicitud ya usa; los de otro presupuesto llegan al elegirlo
+        // (centrosCostosParaReasignar). Todo, sólo si la solicitud admite
+        // reasignación y el usuario tiene el permiso privilegiado.
         $puedeReasignar = $solicitudPago->puede_reasignar
             && $user->can('costos.centros-costos.reasignar');
 
@@ -474,8 +481,23 @@ class SolicitudPagoController extends Controller
             'solicitud' => $solicitudPago,
             'documentosPrevios' => $this->documentosPrevios($solicitudPago),
             'presupuestos' => Inertia::optional(fn () => $puedeReasignar ? app(OpcionesPresupuestales::class)->presupuestos() : []),
-            'obraRubros' => Inertia::optional(fn () => $puedeReasignar ? $this->obraRubrosParaSelector() : []),
+            'obraRubros' => Inertia::optional(fn () => $puedeReasignar
+                ? $this->obraRubrosParaSelector($solicitudPago->detalles->pluck('obraRubro.presupuesto_id')->filter()->unique()->values()->all())
+                : []),
         ]);
+    }
+
+    /**
+     * Centros de costos de un presupuesto para el modal de reasignación: se
+     * piden cuando el usuario elige en un renglón un presupuesto que la
+     * solicitud todavía no usa.
+     */
+    public function centrosCostosParaReasignar(SolicitudPago $solicitudPago, Presupuesto $presupuesto): JsonResponse
+    {
+        Gate::authorize('costos.centros-costos.reasignar');
+        abort_unless($solicitudPago->puedeReasignarCentroCostos(), 403);
+
+        return response()->json($this->obraRubrosParaSelector([$presupuesto->id]));
     }
 
     /**

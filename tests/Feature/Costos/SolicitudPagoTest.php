@@ -313,6 +313,53 @@ describe('admin costos solicitudes pago', function () {
             );
     });
 
+    test('el modal de reasignar sólo recibe los centros de costos de los presupuestos que la solicitud usa', function () {
+        \Spatie\Permission\Models\Permission::firstOrCreate(['name' => 'costos.centros-costos.reasignar', 'guard_name' => 'web']);
+        $this->user->givePermissionTo('costos.centros-costos.reasignar');
+
+        $usado = ObraRubro::factory()->create();
+        ObraRubro::factory()->count(3)->create(); // de otros presupuestos: no deben viajar
+        $solicitud = SolicitudPago::factory()->aprobada()->create(['solicitante_id' => $this->user->id, 'orden_compra_id' => null]);
+        SolicitudPagoDetalle::factory()->create(['solicitud_id' => $solicitud->id, 'obra_rubro_id' => $usado->id]);
+
+        $this->actingAs($this->user)
+            ->get(route('admin.costos.solicitudes-pago.show', $solicitud))
+            ->assertInertia(fn ($page) => $page
+                ->reloadOnly(['presupuestos', 'obraRubros'], fn ($reload) => $reload
+                    ->has('obraRubros', 1)
+                    ->where('obraRubros.0.id', $usado->id)
+                    ->has('presupuestos', 4)
+                )
+            );
+    });
+
+    test('los centros de costos de otro presupuesto se piden al elegirlo en el modal', function () {
+        \Spatie\Permission\Models\Permission::firstOrCreate(['name' => 'costos.centros-costos.reasignar', 'guard_name' => 'web']);
+        $this->user->givePermissionTo('costos.centros-costos.reasignar');
+
+        $usado = ObraRubro::factory()->create();
+        $otro = ObraRubro::factory()->create();
+        ObraRubro::factory()->create(['presupuesto_id' => $otro->presupuesto_id]);
+        $solicitud = SolicitudPago::factory()->aprobada()->create(['solicitante_id' => $this->user->id, 'orden_compra_id' => null]);
+        SolicitudPagoDetalle::factory()->create(['solicitud_id' => $solicitud->id, 'obra_rubro_id' => $usado->id]);
+
+        $this->actingAs($this->user)
+            ->getJson(route('admin.costos.solicitudes-pago.centros-costos', [$solicitud, $otro->presupuesto_id]))
+            ->assertOk()
+            ->assertJsonCount(2)
+            ->assertJsonPath('0.presupuesto_id', $otro->presupuesto_id)
+            ->assertJsonStructure([['id', 'presupuesto_id', 'presupuestado', 'acumulado', 'rubro' => ['codigo', 'descripcion'], 'presupuesto' => ['estatus']]]);
+    });
+
+    test('sin permiso de reasignar no se pueden pedir centros de costos', function () {
+        $obraRubro = ObraRubro::factory()->create();
+        $solicitud = SolicitudPago::factory()->aprobada()->create(['solicitante_id' => $this->user->id, 'orden_compra_id' => null]);
+
+        $this->actingAs($this->user)
+            ->getJson(route('admin.costos.solicitudes-pago.centros-costos', [$solicitud, $obraRubro->presupuesto_id]))
+            ->assertForbidden();
+    });
+
     test('sin permiso de reasignar el reload del catálogo llega vacío', function () {
         $obraRubro = ObraRubro::factory()->create();
         $solicitud = SolicitudPago::factory()->aprobada()->create(['solicitante_id' => $this->user->id, 'orden_compra_id' => null]);
