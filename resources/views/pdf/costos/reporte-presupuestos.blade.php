@@ -4,6 +4,9 @@
     <meta charset="UTF-8">
     <title>Reporte de Presupuestos</title>
     <style>
+        @page {
+            margin: {{ \App\Services\Costos\HojaReportePresupuestos::MARGEN_PAGINA_PT }}pt;
+        }
         body {
             margin: 0;
             font-family: Arial, Helvetica, sans-serif;
@@ -164,10 +167,10 @@
     {{-- Header de 2 niveles --}}
     <thead>
         <tr>
-            <th rowspan="2" style="width: 55px;">PROYECTO</th>
-            <th rowspan="2" style="width: 130px;">NOMBRE DEL PROYECTO</th>
-            <th rowspan="2" style="width: 20px;"></th>
-            <th colspan="1" rowspan="2" class="th-ingresos" style="width: 70px;">INGRESOS</th>
+            <th rowspan="2" style="width: {{ $hoja->columnas['proyecto'] }}px;">PROYECTO</th>
+            <th rowspan="2" style="width: {{ $hoja->columnas['nombre'] }}px;">NOMBRE DEL PROYECTO</th>
+            <th rowspan="2" style="width: {{ $hoja->columnas['etiqueta'] }}px;"></th>
+            <th colspan="1" rowspan="2" class="th-ingresos" style="width: {{ $hoja->columnas['dinero'] }}px;">INGRESOS</th>
             @foreach($tipos as $tipo)
                 <th colspan="{{ 2 + $tipo->rubros->count() }}" class="th-materiales">
                     {{ strtoupper($tipo->descripcion) }}
@@ -177,20 +180,20 @@
         </tr>
         <tr>
             @foreach($tipos as $tipo)
-                <th class="th-sub" style="width: 60px;">TOTAL {{ strtoupper($tipo->descripcion) }}</th>
-                <th class="th-sub" style="width: 30px;">%</th>
+                <th class="th-sub" style="width: {{ $hoja->columnas['dinero'] }}px;">TOTAL {{ strtoupper($tipo->descripcion) }}</th>
+                <th class="th-sub" style="width: {{ $hoja->columnas['porcentaje'] }}px;">%</th>
                 @foreach($tipo->rubros as $rubro)
-                    <th class="th-sub" style="width: 55px;" title="{{ $rubro->descripcion }}">
+                    <th class="th-sub" style="width: {{ $hoja->columnas['rubros'][$rubro->id] }}px;" title="{{ $rubro->descripcion }}">
                         {{ strtoupper($rubro->codigo) }}
                     </th>
                 @endforeach
             @endforeach
-            <th class="th-sub" style="width: 60px;">TOTAL</th>
-            <th class="th-sub" style="width: 30px;">%</th>
-            <th class="th-sub" style="width: 60px;">Utilidad</th>
-            <th class="th-sub" style="width: 35px;">% UTIL VTS</th>
-            <th class="th-sub" style="width: 30px;">Gtos. 5.5%</th>
-            <th class="th-sub" style="width: 35px;">% UTILIDAD</th>
+            <th class="th-sub" style="width: {{ $hoja->columnas['dinero'] }}px;">TOTAL</th>
+            <th class="th-sub" style="width: {{ $hoja->columnas['porcentaje'] }}px;">%</th>
+            <th class="th-sub" style="width: {{ $hoja->columnas['dinero'] }}px;">Utilidad</th>
+            <th class="th-sub" style="width: {{ $hoja->columnas['porcentaje'] }}px;">% UTIL VTS</th>
+            <th class="th-sub" style="width: {{ $hoja->columnas['porcentaje'] }}px;">Gtos. 5.5%</th>
+            <th class="th-sub" style="width: {{ $hoja->columnas['porcentaje'] }}px;">% UTILIDAD</th>
         </tr>
     </thead>
 

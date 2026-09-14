@@ -14,6 +14,7 @@ use App\Models\Costos\TipoRubro;
 use App\Models\Obra;
 use App\Models\Proyecto;
 use App\Services\Costos\HistorialDeCargos;
+use App\Services\Costos\HojaReportePresupuestos;
 use App\Support\OrdenaColumnas;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Database\Eloquent\Builder;
@@ -647,15 +648,14 @@ class PresupuestoController extends Controller
             ];
         });
 
+        $hoja = HojaReportePresupuestos::para($tipos, $filas);
+
         $pdf = Pdf::loadView('pdf.costos.reporte-presupuestos', [
             'tipos' => $tipos,
             'filas' => $filas,
+            'hoja' => $hoja,
             'fechaGeneracion' => now(),
-        ])->setPaper('tabloid', 'landscape')
-            ->setOption('margin-top', 20)
-            ->setOption('margin-bottom', 20)
-            ->setOption('margin-left', 20)
-            ->setOption('margin-right', 20);
+        ])->setPaper($hoja->papel, 'portrait');
 
         return $pdf->download('reporte-presupuestos-'.now()->format('Y-m-d').'.pdf');
     }
