@@ -583,6 +583,40 @@ describe('import del layout por QR', function () {
             ->and(session('errors')->first('csv_file'))->toContain('la numeración «de 3» trae 2 correlativo(s); faltan 1');
     });
 
+    test('cargar un layout sobre un catalogo con produccion abre una version nueva', function () {
+        $marca = marcaConPiezas(2, ['marca' => 'TG-BAR-1', 'lote' => 'L1']);
+        $catalogo = $marca->catalogo;
+        obraPagaProcesos($marca->obra_id, proceso());
+        capturarPiezas($marca->piezas, \App\Models\Prod\GrupoTrabajo::factory()->create(), '2026-02-04');
+
+        subirLayout($catalogo,
+            "QR-N1,TG-BAR-1,OC-BAR,Barandales QS,1 de 1,1,29.751,1.397,3542,L1\n",
+            layoutVigente(),
+        )->assertRedirect();
+
+        $nueva = Catalogo::where('obra_id', $catalogo->obra_id)->where('vigente', true)->sole();
+
+        // La vieja quedo congelada con sus 2 piezas; la nueva trae el layout.
+        expect($nueva->id)->not->toBe($catalogo->id)
+            ->and($nueva->version)->toBe(2)
+            ->and($catalogo->fresh()->vigente)->toBeFalse()
+            ->and($catalogo->piezas()->where('activo', true)->count())->toBe(2)
+            ->and($nueva->conceptos()->sole()->cantidad)->toBe(1)
+            ->and($nueva->piezas()->where('activo', true)->pluck('qr')->all())->toBe(['QR-N1'])
+            ->and(session('success'))->toContain('Se creó la versión 2')
+            // Ya van 2 pagadas y el layout deja 1: lo avisa.
+            ->and(session('errors')->first('csv_file'))->toContain('TG-BAR-1 · L1: ya van 2 pieza(s) pagadas y el layout deja la cantidad en 1; 1 de más');
+    });
+
+    test('cargar un layout sobre un catalogo sin produccion lo sobrescribe sin versionar', function () {
+        $catalogo = Catalogo::factory()->create();
+
+        subirLayout($catalogo, "QR-01,TG-BAR-1,OC-BAR,Barandales QS,1 de 1,1,29.751,1.397,3542,L1\n", layoutVigente());
+        subirLayout($catalogo, "QR-02,TG-BAR-1,OC-BAR,Barandales QS,1 de 1,1,29.751,1.397,3542,L1\n", layoutVigente());
+
+        expect(Catalogo::where('obra_id', $catalogo->obra_id)->count())->toBe(1);
+    });
+
     test('el correlativo se guarda como lo imprime planta y vacio queda en null', function () {
         $catalogo = Catalogo::factory()->create();
 

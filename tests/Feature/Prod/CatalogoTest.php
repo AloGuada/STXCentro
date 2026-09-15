@@ -356,6 +356,44 @@ describe('comparador de versiones', function () {
             ->and($igual->fresh())->not->toBeNull();
     });
 
+    test('cruza lo pagado con la cantidad de la version nueva', function () {
+        $marca = marcaConPiezas(3, ['marca' => 'RECORTADA']);
+        $catalogo = $marca->catalogo;
+        $grupo = GrupoTrabajo::factory()->create();
+        obraPagaProcesos($marca->obra_id, proceso());
+        capturarPiezas($marca->piezas, $grupo, '2026-02-04');
+
+        $v2 = app(VersionadorCatalogo::class)->nuevaVersion($catalogo);
+        $v2->conceptos()->where('marca', 'RECORTADA')->update(['cantidad' => 2]);
+        Concepto::factory()->create(['obra_id' => $v2->obra_id, 'catalogo_id' => $v2->id, 'marca' => 'NUEVA', 'cantidad' => 5]);
+
+        $diff = app(VersionadorCatalogo::class)->comparar($catalogo, $v2);
+
+        expect($diff['modificadas'][0]['marca'])->toBe('RECORTADA')
+            ->and($diff['modificadas'][0]['pagadas'])->toBe(3.0)
+            ->and($diff['modificadas'][0]['cantidad'])->toBe(2)
+            ->and($diff['modificadas'][0]['excedente'])->toBe(1.0)
+            ->and($diff['agregadas'][0]['por_pagar'])->toBe(5.0)
+            ->and($diff['pagado']['modelos_con_exceso'])->toBe(1)
+            ->and($diff['pagado']['piezas_de_mas'])->toBe(1.0)
+            ->and($diff['pagado']['piezas_por_pagar'])->toBe(5.0);
+    });
+
+    test('una marca eliminada con pagos queda toda en exceso', function () {
+        $marca = marcaConPiezas(2, ['marca' => 'SE-VA']);
+        $grupo = GrupoTrabajo::factory()->create();
+        obraPagaProcesos($marca->obra_id, proceso());
+        capturarPiezas($marca->piezas, $grupo, '2026-02-04');
+
+        $v2 = app(VersionadorCatalogo::class)->nuevaVersion($marca->catalogo);
+        $v2->conceptos()->where('marca', 'SE-VA')->delete();
+
+        $diff = app(VersionadorCatalogo::class)->comparar($marca->catalogo, $v2);
+
+        expect($diff['eliminadas'][0]['excedente'])->toBe(2.0)
+            ->and($diff['pagado']['piezas_de_mas'])->toBe(2.0);
+    });
+
     test('la pantalla de comparacion renderiza', function () {
         $catalogo = Catalogo::factory()->create();
         Concepto::factory()->create(['obra_id' => $catalogo->obra_id, 'catalogo_id' => $catalogo->id]);

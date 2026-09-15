@@ -11,10 +11,12 @@ use App\Models\Concepto;
 use App\Models\Obra;
 use App\Models\Prod\Catalogo;
 use App\Models\Prod\Categoria;
+use App\Models\Prod\LiquidacionDetalle;
 use App\Models\Prod\Proceso;
 use App\Services\Prod\AvanceDePiezas;
 use App\Services\Prod\ImportadorDeLayout;
 use App\Services\Prod\ModalidadDePago;
+use App\Services\Prod\VersionadorCatalogo;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -176,10 +178,27 @@ class ConceptoController extends Controller
 
     /**
      * Carga el layout de planta sobre el catálogo. Un renglón por pieza: la
-     * marca se escribe una vez y cada QS entra como pieza suya.
+     * marca se escribe una vez y cada QR entra como pieza suya.
+     *
+     * Si el catálogo vigente ya tiene producción capturada, el layout no se le
+     * escribe encima: se abre una versión nueva y se carga ahí. Así la anterior
+     * queda congelada y el comparador puede decir qué cambió y qué ya se había
+     * pagado. Un catálogo sin producción se sobrescribe, que versionar cada
+     * corrección de un layout recién cargado sólo estorba.
      */
-    public function importCsv(ConceptoImportCsvRequest $request, Catalogo $catalogo, ImportadorDeLayout $importador): RedirectResponse
-    {
+    public function importCsv(
+        ConceptoImportCsvRequest $request,
+        Catalogo $catalogo,
+        ImportadorDeLayout $importador,
+        VersionadorCatalogo $versionador,
+    ): RedirectResponse {
+        $versionada = false;
+
+        if ($catalogo->vigente && $this->tieneProduccion($catalogo)) {
+            $catalogo = $versionador->nuevaVersion($catalogo, 'Layout cargado el '.now()->format('d/m/Y H:i'));
+            $versionada = true;
+        }
+
         $resultado = $importador->importar($catalogo, $request->file('csv_file')->getRealPath());
 
         if ($resultado['piezas'] === 0 && $resultado['marcas'] === 0) {
@@ -192,8 +211,42 @@ class ConceptoController extends Controller
 
         $mensaje = "Se importaron {$resultado['marcas']} marca(s) con {$resultado['piezas']} pieza(s).";
 
-        return $resultado['avisos'] === []
-            ? back()->with('success', $mensaje)
-            : back()->with('success', $mensaje)->withErrors(['csv_file' => implode(' ', $resultado['avisos'])]);
+        if ($versionada) {
+            $mensaje = "Se creó la versión {$catalogo->version} y se cargó ahí el layout. {$mensaje}";
+        }
+
+        // Lo que el layout deja por debajo de lo ya pagado. Se pregunta con un
+        // servicio fresco: el que corrió antes ya tiene cacheado el avance.
+        $avisos = [...$resultado['avisos'], ...$this->avisosDeExcedente($catalogo)];
+
+        $respuesta = $versionada
+            ? to_route('admin.prod.catalogos.show', $catalogo)->with('success', $mensaje)
+            : back()->with('success', $mensaje);
+
+        return $avisos === [] ? $respuesta : $respuesta->withErrors(['csv_file' => implode(' ', $avisos)]);
+    }
+
+    /** Si alguna pieza del catálogo ya tiene producción capturada o pagada. */
+    private function tieneProduccion(Catalogo $catalogo): bool
+    {
+        return $catalogo->piezas()->whereHas('registros')->exists()
+            || LiquidacionDetalle::query()->whereIn('pieza_id', $catalogo->piezas()->select('id'))->exists();
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function avisosDeExcedente(Catalogo $catalogo): array
+    {
+        return array_map(
+            fn (array $e): string => sprintf(
+                '%s: ya van %s pieza(s) pagadas y el layout deja la cantidad en %d; %s de más.',
+                Concepto::etiquetaDeModelo($e['marca'], $e['lote']),
+                rtrim(rtrim(number_format($e['pagadas'], 4, '.', ''), '0'), '.'),
+                $e['cantidad'],
+                rtrim(rtrim(number_format($e['excedente'], 4, '.', ''), '0'), '.'),
+            ),
+            app()->make(AvanceDePiezas::class)->excedentesDe($catalogo),
+        );
     }
 }

@@ -118,8 +118,9 @@ class AvanceDePiezas
 
             // El snapshot congela marca y lote: es lo que ata lo pagado al
             // modelo aunque la pieza se haya borrado o cambiado de QR.
-            $modelo = AvanceDeObra::claveDeModelo(Concepto::claveDeModelo($detalle->marca, $detalle->lote), (int) $detalle->proceso_id, $detalle->subproceso_id);
-            $porModelo[$modelo] = ($porModelo[$modelo] ?? 0) + $equivalentes;
+            $modelo = Concepto::claveDeModelo($detalle->marca, $detalle->lote);
+            $paso = AvanceDeObra::sufijo((int) $detalle->proceso_id, $detalle->subproceso_id);
+            $porModelo[$modelo][$paso] = ($porModelo[$modelo][$paso] ?? 0) + $equivalentes;
         }
 
         foreach ($this->registrosNoLiquidados($obraId) as $registro) {
@@ -129,12 +130,43 @@ class AvanceDePiezas
             $claveModelo = $modeloDeConcepto[(int) $registro->pieza?->concepto_id] ?? null;
 
             if ($claveModelo !== null) {
-                $modelo = AvanceDeObra::claveDeModelo($claveModelo, (int) $registro->proceso_id, $registro->subproceso_id);
-                $porModelo[$modelo] = ($porModelo[$modelo] ?? 0) + $registro->piezasEquivalentes();
+                $paso = AvanceDeObra::sufijo((int) $registro->proceso_id, $registro->subproceso_id);
+                $porModelo[$claveModelo][$paso] = ($porModelo[$claveModelo][$paso] ?? 0) + $registro->piezasEquivalentes();
             }
         }
 
         return new AvanceDeObra($raices, $totales, $porModelo, $cantidades, $modeloDeConcepto);
+    }
+
+    /**
+     * Los modelos de este catálogo cuya cantidad quedó por debajo de lo que ya
+     * se pagó. Es lo que una versión nueva o un layout recargado no puede
+     * borrar: las piezas ya se fabricaron y se cobraron.
+     *
+     * @return list<array{marca: string, lote: ?string, cantidad: int, pagadas: float, excedente: float}>
+     */
+    public function excedentesDe(Catalogo $catalogo): array
+    {
+        $pagadas = $this->mapaDeObra((int) $catalogo->obra_id)->pagadasPorModelo();
+        $excedentes = [];
+
+        foreach ($catalogo->conceptos()->get(['id', 'marca', 'lote', 'cantidad']) as $marca) {
+            $pagado = $pagadas[$marca->claveModelo()] ?? 0.0;
+
+            if ($pagado <= (int) $marca->cantidad + self::EPSILON) {
+                continue;
+            }
+
+            $excedentes[] = [
+                'marca' => $marca->marca,
+                'lote' => $marca->lote,
+                'cantidad' => (int) $marca->cantidad,
+                'pagadas' => $pagado,
+                'excedente' => round($pagado - (int) $marca->cantidad, 4),
+            ];
+        }
+
+        return $excedentes;
     }
 
     /**
