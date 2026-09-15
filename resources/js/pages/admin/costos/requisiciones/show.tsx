@@ -2266,7 +2266,7 @@ function ComparativoCotizaciones({
                         }) => (
                             <tr key={d.id}>
                                 <td className="text-right">
-                                    {Number(d.cantidad).toLocaleString('es-MX')}{' '}
+                                    {Number(d.cantidad).toLocaleString('es-MX', { maximumFractionDigits: 4 })}{' '}
                                     {d.unidad}
                                 </td>
                                 <td>

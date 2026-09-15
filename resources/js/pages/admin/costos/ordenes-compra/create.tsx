@@ -299,8 +299,8 @@ export default function OrdenesCompraCreate({ proveedores, obras, departamentos,
                                                 <Input
                                                     id={`det_cantidad_${index}`}
                                                     type="number"
-                                                    step="0.01"
-                                                    min="0.01"
+                                                    step="0.0001"
+                                                    min="0.0001"
                                                     value={det.cantidad}
                                                     onChange={(e) => updateDetalle(index, 'cantidad', e.target.value)}
                                                 />
@@ -310,7 +310,7 @@ export default function OrdenesCompraCreate({ proveedores, obras, departamentos,
                                                 <Input
                                                     id={`det_precio_${index}`}
                                                     type="number"
-                                                    step="0.01"
+                                                    step="0.0001"
                                                     min="0"
                                                     value={det.precio_unitario}
                                                     onChange={(e) => updateDetalle(index, 'precio_unitario', e.target.value)}

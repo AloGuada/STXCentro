@@ -686,7 +686,7 @@ function OcLinea({
             </div>
             <input
                 type="number"
-                step="0.01"
+                step="0.0001"
                 min={0}
                 className="input input-bordered input-xs w-full text-right"
                 value={cantidad}

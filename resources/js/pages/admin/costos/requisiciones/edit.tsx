@@ -421,7 +421,7 @@ export default function RequisicionesEdit({
                                     <td>
                                         <input
                                             type="number"
-                                            step="0.01"
+                                            step="0.0001"
                                             className="input-bordered input input-sm w-full text-right"
                                             value={d.cantidad}
                                             onChange={(e) =>

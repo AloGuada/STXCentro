@@ -912,12 +912,12 @@ class RequisicionController extends Controller
 
         foreach ($selecciones as $seleccion) {
             if ($seleccion->is($ultima)) {
-                $seleccion->update(['cantidad' => round($cantidadNueva - $asignado, 2)]);
+                $seleccion->update(['cantidad' => round($cantidadNueva - $asignado, 4)]);
 
                 break;
             }
 
-            $parte = round($cantidadNueva * ((float) $seleccion->cantidad / $sumaAnterior), 2);
+            $parte = round($cantidadNueva * ((float) $seleccion->cantidad / $sumaAnterior), 4);
             $seleccion->update(['cantidad' => $parte]);
             $asignado += $parte;
         }

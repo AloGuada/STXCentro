@@ -40,7 +40,7 @@ class RequisicionDetalle extends Model
     protected function casts(): array
     {
         return [
-            'cantidad' => 'decimal:2',
+            'cantidad' => 'decimal:4',
             'solo_cotizacion' => 'boolean',
             'sin_impuestos' => 'boolean',
             'tipo_fiscal' => \App\Enums\Costos\TipoFiscalPartida::class,

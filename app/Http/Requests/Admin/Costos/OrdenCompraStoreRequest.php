@@ -30,8 +30,8 @@ class OrdenCompraStoreRequest extends FormRequest
             'detalles.*.obra_rubro_id' => ['required', 'exists:costos_obra_rubros,id'],
             'detalles.*.descripcion' => ['required', 'string', 'max:255'],
             'detalles.*.unidad' => ['required', 'string', 'max:20'],
-            'detalles.*.cantidad' => ['required', 'numeric', 'min:0.01'],
-            'detalles.*.precio_unitario' => ['required', 'numeric', 'min:0'],
+            'detalles.*.cantidad' => ['required', 'numeric', 'decimal:0,4', 'min:0.0001'],
+            'detalles.*.precio_unitario' => ['required', 'numeric', 'decimal:0,4', 'min:0'],
         ];
     }
 
@@ -50,6 +50,8 @@ class OrdenCompraStoreRequest extends FormRequest
             'detalles.*.unidad.required' => 'La unidad es obligatoria.',
             'detalles.*.cantidad.required' => 'La cantidad es obligatoria.',
             'detalles.*.cantidad.min' => 'La cantidad debe ser mayor a cero.',
+            'detalles.*.cantidad.decimal' => 'La cantidad admite hasta 4 decimales.',
+            'detalles.*.precio_unitario.decimal' => 'El precio unitario admite hasta 4 decimales.',
             'detalles.*.precio_unitario.required' => 'El precio unitario es obligatorio.',
         ];
     }

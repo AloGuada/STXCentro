@@ -360,7 +360,7 @@ export function CotizacionMatriz({
                                             onQuitar={() => quitarPartida(d.id, d.descripcion)}
                                         />
                                         <td className={`${COL_FIJA.req} z-10 bg-base-100 text-right`}>
-                                            {Number(d.cantidad).toLocaleString('es-MX')} {d.unidad}
+                                            {Number(d.cantidad).toLocaleString('es-MX', { maximumFractionDigits: 4 })} {d.unidad}
                                         </td>
                                         <td className={`${COL_FIJA.tipo} z-10 bg-base-100`}>
                                             <TipoFiscalSelect detalle={d} editable={editable && !d.solo_cotizacion} />
@@ -853,7 +853,7 @@ function CeldaCotizacion({
                 />
                 <input
                     type="number"
-                    step="0.01"
+                    step="0.0001"
                     min={0}
                     className={`input-bordered input input-xs w-20 text-right font-semibold ${esMejor ? 'border-success text-success' : ''}`}
                     value={precio}
@@ -891,6 +891,7 @@ function CeldaCotizacion({
                     Usar anterior: $
                     {precioPrevio.toLocaleString('es-MX', {
                         minimumFractionDigits: 2,
+                        maximumFractionDigits: 4,
                     })}
                 </button>
             )}
@@ -1001,7 +1002,7 @@ function AgregarPartida({
                     <label className="text-[10px] uppercase tracking-wider text-base-content/60">Cantidad</label>
                     <input
                         type="number"
-                        step="0.01"
+                        step="0.0001"
                         min={0}
                         className="input-bordered input input-sm w-full text-right"
                         value={cantidad}

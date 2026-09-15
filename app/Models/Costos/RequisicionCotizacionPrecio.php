@@ -39,7 +39,7 @@ class RequisicionCotizacionPrecio extends Model
     protected function casts(): array
     {
         return [
-            'precio_unitario' => 'decimal:2',
+            'precio_unitario' => 'decimal:4',
             'tiempo_entrega_dias' => 'integer',
         ];
     }

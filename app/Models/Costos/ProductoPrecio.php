@@ -38,7 +38,7 @@ class ProductoPrecio extends Model
     protected function casts(): array
     {
         return [
-            'precio' => 'decimal:2',
+            'precio' => 'decimal:4',
             'fecha' => 'date',
         ];
     }

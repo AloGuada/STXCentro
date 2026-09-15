@@ -324,7 +324,7 @@ export default function OrdenesCompraShow({ ordenCompra, retenciones, usuarios }
                                                     )}
                                                 </td>
                                                 <td>{d.uso_cfdi ? `${d.uso_cfdi.clave}` : '-'}</td>
-                                                <td className="text-right">{Number(d.cantidad).toLocaleString('es-MX')}</td>
+                                                <td className="text-right">{Number(d.cantidad).toLocaleString('es-MX', { maximumFractionDigits: 4 })}</td>
                                                 <td>{d.unidad}</td>
                                                 <td className="text-right">
                                                     {(() => {
@@ -521,11 +521,11 @@ export default function OrdenesCompraShow({ ordenCompra, retenciones, usuarios }
                                                             {recibida.toLocaleString('es-MX')} {unidad}
                                                         </td>
                                                         <td className="text-right">
-                                                            ${puRecibido.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                                            ${puRecibido.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 4 })}
                                                             {difiere && (
                                                                 <span
                                                                     className="ml-1 badge badge-xs badge-warning"
-                                                                    title={`Precio OC: $${puOc.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                                                                    title={`Precio OC: $${puOc.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 4 })}`}
                                                                 >
                                                                     ≠ OC
                                                                 </span>

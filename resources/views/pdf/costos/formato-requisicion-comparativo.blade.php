@@ -184,7 +184,7 @@
                 $seleccionIds = $d->selecciones->pluck('cotizacion_precio_id')->map(fn ($v) => (int) $v)->all();
             @endphp
             <tr>
-                <td class="text-right">{{ number_format($d->cantidad, 2) }} {{ $d->unidad }}</td>
+                <td class="text-right">{{ \App\Support\Cantidad::formatear($d->cantidad) }} {{ $d->unidad }}</td>
                 <td>
                     {{ $d->descripcion }}
                     @if($d->solo_cotizacion)
@@ -211,7 +211,7 @@
                     @endphp
                     <td class="text-right {{ $i === 0 ? 'opcion' : '' }} {{ $seleccionado ? 'seleccionado' : '' }}">
                         @if($precio !== null)
-                            ${{ number_format($precio, 2) }}
+                            ${{ \App\Support\Cantidad::formatear($precio) }}
                             @if($cot->moneda && strtolower($cot->moneda) !== 'mxn')
                                 <span style="font-size: 8px; color: #666;">{{ strtoupper($cot->moneda) }}</span>
                             @endif

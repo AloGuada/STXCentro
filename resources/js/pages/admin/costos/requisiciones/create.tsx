@@ -695,7 +695,7 @@ export default function RequisicionesCreate({
                                     <td>
                                         <input
                                             type="number"
-                                            step="0.01"
+                                            step="0.0001"
                                             className={`input-bordered input input-sm w-full text-right ${errors[`detalles.${i}.cantidad` as keyof typeof errors] ? 'input-error' : ''}`}
                                             value={d.cantidad}
                                             onChange={(e) =>

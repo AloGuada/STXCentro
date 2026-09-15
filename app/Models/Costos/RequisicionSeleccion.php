@@ -35,7 +35,7 @@ class RequisicionSeleccion extends Model
     protected function casts(): array
     {
         return [
-            'cantidad' => 'decimal:2',
+            'cantidad' => 'decimal:4',
             'numero_oc' => 'integer',
         ];
     }

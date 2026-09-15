@@ -39,7 +39,7 @@ class RequisicionUpdateRequest extends FormRequest
             'detalles.*.id' => ['nullable', 'integer'],
             'detalles.*.descripcion' => ['required', 'string', 'max:255'],
             'detalles.*.unidad' => ['required', 'string', 'max:20'],
-            'detalles.*.cantidad' => ['required', 'numeric', 'min:0.01'],
+            'detalles.*.cantidad' => ['required', 'numeric', 'decimal:0,4', 'min:0.0001'],
             'detalles.*.obra_rubro_id' => $this->sinCentroCostos()
                 ? ['prohibited']
                 : ['required', 'exists:costos_obra_rubros,id'],

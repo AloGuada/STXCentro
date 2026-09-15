@@ -44,7 +44,7 @@ class RequisicionStoreRequest extends FormRequest
             'detalles.*.producto_id' => ['required', 'exists:costos_productos,id'],
             'detalles.*.descripcion' => ['required', 'string', 'max:255'],
             'detalles.*.unidad' => ['required', 'string', 'max:20'],
-            'detalles.*.cantidad' => ['required', 'numeric', 'min:0.01'],
+            'detalles.*.cantidad' => ['required', 'numeric', 'decimal:0,4', 'min:0.0001'],
             'detalles.*.obra_rubro_id' => $this->sinCentroCostos()
                 ? ['prohibited']
                 : ['required', 'exists:costos_obra_rubros,id'],
@@ -78,6 +78,7 @@ class RequisicionStoreRequest extends FormRequest
             'detalles.required' => 'Debe registrar al menos una partida.',
             'detalles.min' => 'Debe registrar al menos una partida.',
             'detalles.*.cantidad.min' => 'La cantidad debe ser mayor a cero.',
+            'detalles.*.cantidad.decimal' => 'La cantidad admite hasta 4 decimales.',
             'detalles.*.producto_id.required' => 'Esa partida no está en el catálogo. Un producto nuevo se da de alta en Almacén → Artículos.',
             'detalles.*.producto_id.exists' => 'Ese producto ya no existe en el catálogo.',
             'detalles.*.obra_rubro_id.required' => 'Cada partida requiere un centro de costos.',

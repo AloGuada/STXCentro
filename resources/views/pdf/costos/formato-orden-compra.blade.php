@@ -137,8 +137,8 @@
                 <td>{{ $d->obraRubro?->obra?->no ? 'OP-'.$d->obraRubro->obra->no : '-' }}</td>
                 <td>{{ optional($d->usoCfdi)->clave ?? '-' }}</td>
                 <td>{{ $d->unidad }}</td>
-                <td class="text-right">{{ number_format($d->cantidad, 2) }}</td>
-                <td class="text-right">${{ number_format($d->precio_unitario, 2) }}</td>
+                <td class="text-right">{{ \App\Support\Cantidad::formatear($d->cantidad) }}</td>
+                <td class="text-right">${{ \App\Support\Cantidad::formatear($d->precio_unitario) }}</td>
                 <td class="text-right">${{ number_format($d->cantidad * $d->precio_unitario, 2) }}</td>
             </tr>
             @endforeach
