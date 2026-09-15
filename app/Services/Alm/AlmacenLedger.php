@@ -354,29 +354,24 @@ class AlmacenLedger
      */
     public function bloquear(int $almacenId, int $productoId): Existencia
     {
-        $existencia = Existencia::query()
-            ->where('almacen_id', $almacenId)
-            ->where('producto_id', $productoId)
-            ->lockForUpdate()
-            ->first();
+        // La fila se busca por artículo, no por producto: la que abrió la carga
+        // inicial de un almacén nació sin `producto_id`, y buscarla por ahí la
+        // ignoraba y chocaba contra el unique al intentar abrir otra. El
+        // resolvedor crea el artículo si es la primera vez que ese producto
+        // pisa una bodega.
+        $articuloId = app(ResolvedorArticulo::class)->paraProducto($productoId);
 
-        if ($existencia !== null) {
-            return $existencia;
+        if ($articuloId === null) {
+            throw new InvalidArgumentException("No existe el producto {$productoId}.");
         }
 
-        try {
-            Existencia::create(['almacen_id' => $almacenId, 'producto_id' => $productoId]);
-        } catch (QueryException $e) {
-            if (! $this->esChoqueDeUnique($e)) {
-                throw $e;
-            }
+        $existencia = $this->bloquearPorArticulo($almacenId, $articuloId);
+
+        if ($existencia->producto_id === null) {
+            $existencia->forceFill(['producto_id' => $productoId])->saveQuietly();
         }
 
-        return Existencia::query()
-            ->where('almacen_id', $almacenId)
-            ->where('producto_id', $productoId)
-            ->lockForUpdate()
-            ->firstOrFail();
+        return $existencia;
     }
 
     /**

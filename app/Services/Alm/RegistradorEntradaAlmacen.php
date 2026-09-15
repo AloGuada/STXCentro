@@ -3,6 +3,7 @@
 namespace App\Services\Alm;
 
 use App\Enums\Alm\MovimientoTipo;
+use App\Models\Alm\Articulo;
 use App\Models\Alm\Movimiento;
 use App\Models\Costos\Entrega;
 use App\Models\Costos\EntregaDetalle;
@@ -54,32 +55,119 @@ class RegistradorEntradaAlmacen
         $pesosPorUnidad = $this->pesosPorUnidad($entrega);
 
         foreach ($entrega->detalles as $detalle) {
-            $productoId = $this->productoDe($detalle);
-
-            // Un renglón sin artículo, un servicio, o lo que Compras tecleó sin
-            // código: se recibe —es lo que destraba la factura— pero no hay
-            // existencia que mover. Un solo guard los cubre a los tres.
-            if ($productoId === null || ! $this->llevaKardex($productoId)) {
-                continue;
+            if ($this->asentar($entrega, $detalle, $pesosPorUnidad, $userId) !== null) {
+                $aplicados++;
             }
-
-            $this->ledger->registrarPorProducto(
-                almacenId: (int) $entrega->almacen_id,
-                productoId: $productoId,
-                tipo: MovimientoTipo::Entrada,
-                cantidad: (float) $detalle->cantidad_recibida,
-                costoUnitario: $this->costoDe($detalle, $pesosPorUnidad),
-                documento: $entrega,
-                referencia: $entrega->folio,
-                observaciones: $detalle->observaciones,
-                userId: $userId,
-                obraId: $this->obraDe($detalle),
-            );
-
-            $aplicados++;
         }
 
         return $aplicados;
+    }
+
+    /**
+     * Carga los renglones que se quedaron sin asiento en una recepción que ya
+     * pasó por `aplicar()`.
+     *
+     * `aplicar()` es idempotente por documento: si la recepción dejó un solo
+     * asiento, ya no vuelve a entrar. Eso dejó recepciones a medias cuando un
+     * renglón se saltó por la bandera de inventario o porque su partida no
+     * tenía producto y se le puso después. Aquí se recorre renglón por renglón
+     * y se asienta sólo lo que falta.
+     *
+     * @return int cuántos renglones se repusieron
+     */
+    public function reponer(Entrega $entrega, ?string $userId = null): int
+    {
+        $pendientes = $this->renglonesSinAsiento($entrega);
+
+        if ($pendientes->isEmpty()) {
+            return 0;
+        }
+
+        $pesosPorUnidad = $this->pesosPorUnidad($entrega);
+        $repuestos = 0;
+
+        foreach ($pendientes as $detalle) {
+            if ($this->asentar($entrega, $detalle, $pesosPorUnidad, $userId) !== null) {
+                $repuestos++;
+            }
+        }
+
+        return $repuestos;
+    }
+
+    /**
+     * Los renglones de la recepción que no tienen su asiento de entrada.
+     *
+     * El kardex no guarda el id del renglón, así que se empareja por producto y
+     * cantidad: cada asiento cubre a lo más un renglón. Dos renglones del mismo
+     * producto con la misma cantidad y un solo asiento dejan uno pendiente, que
+     * es lo correcto.
+     *
+     * @return \Illuminate\Support\Collection<int, EntregaDetalle>
+     */
+    public function renglonesSinAsiento(Entrega $entrega): \Illuminate\Support\Collection
+    {
+        if ($entrega->almacen_id === null || $entrega->estaCancelada()) {
+            return collect();
+        }
+
+        $entrega->loadMissing(['detalles.ordenCompraDetalle.obraRubro', 'ordenCompra', 'factura']);
+
+        $asientos = $this->movimientosDe($entrega)
+            ->where('es_reverso', false)
+            ->get(['producto_id', 'articulo_id', 'cantidad'])
+            ->all();
+
+        $articuloDe = Articulo::query()
+            ->whereIn('producto_id', $entrega->detalles->map(fn (EntregaDetalle $d): ?int => $this->productoDe($d))->filter()->unique())
+            ->pluck('id', 'producto_id');
+
+        return $entrega->detalles->filter(function (EntregaDetalle $detalle) use (&$asientos, $articuloDe): bool {
+            $productoId = $this->productoDe($detalle);
+
+            if ($productoId === null || (float) $detalle->cantidad_recibida <= 0) {
+                return false;
+            }
+
+            foreach ($asientos as $indice => $asiento) {
+                $mismoInsumo = (int) $asiento->producto_id === $productoId
+                    || ($asiento->articulo_id !== null && (int) $asiento->articulo_id === (int) ($articuloDe[$productoId] ?? 0));
+
+                if ($mismoInsumo && abs((float) $asiento->cantidad - (float) $detalle->cantidad_recibida) < 0.0001) {
+                    unset($asientos[$indice]);
+
+                    return false;
+                }
+            }
+
+            return true;
+        })->values();
+    }
+
+    /**
+     * Un renglón al kardex. Null cuando no hay nada que mover: sin producto (un
+     * flete, una partida vieja sin catálogo) o un producto que no lleva kardex.
+     */
+    private function asentar(Entrega $entrega, EntregaDetalle $detalle, float $pesosPorUnidad, ?string $userId): ?Movimiento
+    {
+        $productoId = $this->productoDe($detalle);
+
+        if ($productoId === null || ! $this->llevaKardex($productoId)) {
+            return null;
+        }
+
+        return $this->ledger->registrarPorProducto(
+            almacenId: (int) $entrega->almacen_id,
+            productoId: $productoId,
+            tipo: MovimientoTipo::Entrada,
+            cantidad: (float) $detalle->cantidad_recibida,
+            costoUnitario: $this->costoDe($detalle, $pesosPorUnidad),
+            documento: $entrega,
+            referencia: $entrega->folio,
+            observaciones: $detalle->observaciones,
+            userId: $userId,
+            obraId: $this->obraDe($detalle),
+        );
     }
 
     /**
