@@ -37,6 +37,13 @@ use RuntimeException;
  * modelo reemplaza su juego de QRs: los que no vienen en el archivo se
  * desactivan (no se borran: lo pagado bajo ellos sigue contando para el
  * modelo) y los que vienen quedan activos.
+ *
+ * **El correlativo («n de M») es la base de la cantidad.** Planta numera las
+ * piezas de cada marca, y su export puede cruzar esa numeración con los lotes:
+ * el mismo «7 de 200» sale en cuatro lotes con cuatro QR distintos. Es una
+ * sola pieza. Por eso un correlativo ya visto para la misma marca se salta
+ * (se queda con su primera aparición) y la numeración incompleta se avisa.
+ * Sin columna CORRELATIVO nada de esto aplica y se cuentan los renglones.
  */
 class ImportadorDeLayout
 {
@@ -45,7 +52,7 @@ class ImportadorDeLayout
      */
     public function importar(Catalogo $catalogo, string $ruta): array
     {
-        ['filas' => $filas, 'avisos' => $avisos] = $this->leer($ruta);
+        ['filas' => $filas, 'avisos' => $avisos, 'vacios' => $vacios] = $this->leer($ruta);
 
         if ($filas === []) {
             return ['marcas' => 0, 'piezas' => 0, 'avisos' => $avisos];
@@ -56,7 +63,7 @@ class ImportadorDeLayout
         $piezasEscritas = 0;
         $avisosDeEmpate = [];
 
-        DB::transaction(function () use ($catalogo, $filas, &$categorias, &$marcasEscritas, &$piezasEscritas, &$avisosDeEmpate): void {
+        DB::transaction(function () use ($catalogo, $filas, $vacios, &$categorias, &$marcasEscritas, &$piezasEscritas, &$avisosDeEmpate): void {
             $indice = $this->indiceDeMarcas($catalogo);
             $porEscribir = [];
             $nuevas = [];
@@ -118,6 +125,7 @@ class ImportadorDeLayout
             $this->escribirPiezas($catalogo, $porEscribir);
 
             $this->recontarPiezas($tocadas);
+            $this->vaciarModelos($catalogo, $vacios);
         });
 
         return [
@@ -362,14 +370,14 @@ class ImportadorDeLayout
      * Agrupa los renglones del archivo por modelo. Los datos del modelo se toman
      * del primer renglón que lo trae; los siguientes sólo aportan su pieza.
      *
-     * @return array{filas: array<string, array{marca: string, lote: ?string, descripcion: string, categoria: string, cantidades: list<int>, peso_unitario: float, longitud: int, piezas: list<array{qr: string, qs: ?string, correlativo: ?string}>}>, avisos: list<string>}
+     * @return array{filas: array<string, array{marca: string, lote: ?string, descripcion: string, categoria: string, cantidades: list<int>, peso_unitario: float, longitud: int, piezas: list<array{qr: string, qs: ?string, correlativo: ?string}>}>, avisos: list<string>, vacios: list<array{marca: string, lote: ?string}>}
      */
     private function leer(string $ruta): array
     {
         $handle = fopen($ruta, 'r');
 
         if ($handle === false) {
-            return ['filas' => [], 'avisos' => ['No se pudo leer el archivo.']];
+            return ['filas' => [], 'avisos' => ['No se pudo leer el archivo.'], 'vacios' => []];
         }
 
         $header = array_map(
@@ -382,6 +390,12 @@ class ImportadorDeLayout
         $qrVistos = [];
         $sinIdentificador = 0;
         $linea = 1;
+        /** @var array<string, true> $correlativosVistos  marca|correlativo ya cargado */
+        $correlativosVistos = [];
+        /** @var array<string, int> $repetidos  marca => renglones que repetían un correlativo */
+        $repetidos = [];
+        /** @var array<string, array<int, true>> $numeraciones  marca|M => n vistos */
+        $numeraciones = [];
 
         while (($row = fgetcsv($handle, 0, ',', '"', '')) !== false) {
             $linea++;
@@ -443,12 +457,33 @@ class ImportadorDeLayout
                 continue;
             }
 
+            $correlativo = $this->correlativo($data['CORRELATIVO'] ?? null);
+
+            // El mismo «n de M» de la misma marca es la misma pieza aunque
+            // venga en otro lote con otro QR: el export de planta cruza la
+            // numeración con los lotes. Se queda con la primera aparición.
+            if ($correlativo !== null) {
+                $claveCorrelativo = mb_strtoupper($marca).'|'.preg_replace('/\s+/u', '', mb_strtoupper($correlativo));
+
+                if (isset($correlativosVistos[$claveCorrelativo])) {
+                    $repetidos[$marca] = ($repetidos[$marca] ?? 0) + 1;
+
+                    continue;
+                }
+
+                $correlativosVistos[$claveCorrelativo] = true;
+
+                if (preg_match('/^(\d+)\s*de\s*(\d+)$/iu', $correlativo, $partes) === 1) {
+                    $numeraciones[$marca.'|'.(int) $partes[2]][(int) $partes[1]] = true;
+                }
+            }
+
             $qrVistos[$qr] = true;
             $modelos[$clave]['cantidades'][] = $cantidad;
             $modelos[$clave]['piezas'][] = [
                 'qr' => $qr,
                 'qs' => $qs === '' ? null : $qs,
-                'correlativo' => $this->correlativo($data['CORRELATIVO'] ?? null),
+                'correlativo' => $correlativo,
             ];
         }
 
@@ -458,7 +493,78 @@ class ImportadorDeLayout
             $avisos[] = "{$sinIdentificador} renglon(es) sin QR ni QS se ignoraron: el layout debe identificar cada pieza.";
         }
 
-        return ['filas' => $modelos, 'avisos' => $avisos];
+        // Un lote cuyos renglones eran todos repetidos se queda sin piezas: no
+        // es un modelo, es la sombra de otro. No se crea, y si ya existía en
+        // el catálogo de una carga anterior, se vacía.
+        $vacios = array_values(array_map(
+            fn (array $modelo): array => ['marca' => $modelo['marca'], 'lote' => $modelo['lote']],
+            array_filter($modelos, fn (array $modelo): bool => $modelo['piezas'] === []),
+        ));
+        $modelos = array_filter($modelos, fn (array $modelo): bool => $modelo['piezas'] !== []);
+
+        foreach ($repetidos as $marca => $cuantos) {
+            $avisos[] = "{$marca}: {$cuantos} renglon(es) repiten un correlativo que ya venía (la misma pieza en otro lote); se tomó la primera aparición.";
+        }
+
+        return ['filas' => $modelos, 'avisos' => [...$avisos, ...$this->avisosDeNumeracion($numeraciones)], 'vacios' => $vacios];
+    }
+
+    /**
+     * Los modelos que el archivo menciona pero sin una sola pieza propia (todos
+     * sus renglones repetían correlativos de otro lote). Si una carga anterior
+     * los dejó con piezas, ya no son suyas: se apagan y la cantidad queda en 0.
+     *
+     * @param  list<array{marca: string, lote: ?string}>  $vacios
+     */
+    private function vaciarModelos(Catalogo $catalogo, array $vacios): void
+    {
+        foreach ($vacios as $vacio) {
+            $marca = Concepto::query()
+                ->where('catalogo_id', $catalogo->id)
+                ->where('marca', $vacio['marca'])
+                ->where('lote', $vacio['lote'])
+                ->first();
+
+            if ($marca === null) {
+                continue;
+            }
+
+            $marca->piezas()->where('activo', true)->update(['activo' => false]);
+            $marca->update(['cantidad' => 0]);
+        }
+    }
+
+    /**
+     * Una numeración «de M» debería traer los correlativos 1..M. Si faltan,
+     * el archivo vino corto y la cantidad de la marca también; si sobran,
+     * alguien numeró de más. Ninguno bloquea, pero hay que verlo.
+     *
+     * @param  array<string, array<int, true>>  $numeraciones  marca|M => n vistos
+     * @return list<string>
+     */
+    private function avisosDeNumeracion(array $numeraciones): array
+    {
+        $avisos = [];
+
+        foreach ($numeraciones as $claveGrupo => $vistos) {
+            [$marca, $total] = explode('|', $claveGrupo);
+            $total = (int) $total;
+            $faltan = count(array_diff(range(1, max($total, 1)), array_keys($vistos)));
+            $sobran = count(array_filter(array_keys($vistos), fn (int $n): bool => $n < 1 || $n > $total));
+
+            if ($faltan === 0 && $sobran === 0) {
+                continue;
+            }
+
+            $detalle = implode(' y ', array_filter([
+                $faltan > 0 ? "faltan {$faltan}" : null,
+                $sobran > 0 ? "sobran {$sobran} fuera de rango" : null,
+            ]));
+
+            $avisos[] = "{$marca}: la numeración «de {$total}» trae ".count($vistos)." correlativo(s); {$detalle}.";
+        }
+
+        return $avisos;
     }
 
     /**
