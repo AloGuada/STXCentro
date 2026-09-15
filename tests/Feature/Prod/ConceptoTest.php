@@ -266,35 +266,52 @@ describe('import del layout por QR', function () {
             ->and(Concepto::where('marca', 'TG-BAR-2')->value('lote'))->toBeNull();
     });
 
-    test('la cantidad se cuenta de las piezas, no de la columna del layout', function () {
+    test('la cantidad es la que declara el layout; las piezas que falten se avisan', function () {
         $catalogo = Catalogo::factory()->create();
 
-        // Dice 5 piezas pero solo vienen 2: manda lo que llego.
+        // Dice 5 piezas pero solo vienen 2: se paga contra 5, y se avisa.
         subirLayout($catalogo,
             "QR-01,TG-BAR-1,OC-BAR,Barandales,1001,5,29.751,1.397,3542,\n".
             "QR-02,TG-BAR-1,OC-BAR,Barandales,1002,5,29.751,1.397,3542,\n"
         )->assertSessionHasErrors('csv_file');
 
-        // Aun asi se carga lo que llego: el aviso no bloquea.
         $marca = Concepto::where('catalogo_id', $catalogo->id)->sole();
 
-        expect($marca->cantidad)->toBe(2)
-            ->and($marca->piezas()->count())->toBe(2);
+        expect($marca->cantidad)->toBe(5)
+            ->and($marca->piezas()->count())->toBe(2)
+            ->and(session('errors')->first('csv_file'))->toContain('la cantidad queda en 5');
     });
 
-    test('un layout parcial suma sus piezas a la cantidad que ya tenia la marca', function () {
+    test('sin columna de cantidad, la cantidad se cuenta de las piezas', function () {
+        $catalogo = Catalogo::factory()->create();
+
+        subirLayout($catalogo,
+            "QR-01,TG-BAR-1,OC-BAR,Barandales,1001,,29.751,1.397,3542,\n".
+            "QR-02,TG-BAR-1,OC-BAR,Barandales,1002,,29.751,1.397,3542,\n"
+        )->assertSessionMissing('errors');
+
+        expect(Concepto::where('catalogo_id', $catalogo->id)->sole()->cantidad)->toBe(2);
+    });
+
+    test('recargar un modelo reemplaza sus QR: los que no vienen se apagan sin borrarse', function () {
         $catalogo = Catalogo::factory()->create();
 
         subirLayout($catalogo, "QR-01,TG-BAR-1,OC-BAR,Barandales,1001,1,29.751,1.397,3542,\n");
 
-        expect(Concepto::where('catalogo_id', $catalogo->id)->sole()->cantidad)->toBe(1);
-
+        // Llega la orden nueva: mismo modelo, otro QR.
         subirLayout($catalogo, "QR-02,TG-BAR-1,OC-BAR,Barandales,1002,1,29.751,1.397,3542,\n");
 
         $marca = Concepto::where('catalogo_id', $catalogo->id)->sole();
 
-        expect($marca->cantidad)->toBe(2)
-            ->and($marca->piezas()->count())->toBe(2);
+        expect($marca->cantidad)->toBe(1)
+            ->and($marca->piezas()->where('activo', true)->pluck('qr')->all())->toBe(['QR-02'])
+            ->and($marca->piezas()->where('activo', false)->pluck('qr')->all())->toBe(['QR-01']);
+
+        // Y si vuelve el QR viejo, se vuelve a prender sin duplicarse.
+        subirLayout($catalogo, "QR-01,TG-BAR-1,OC-BAR,Barandales,1001,1,29.751,1.397,3542,\n");
+
+        expect($marca->piezas()->count())->toBe(2)
+            ->and($marca->piezas()->where('activo', true)->pluck('qr')->all())->toBe(['QR-01']);
     });
 
     test('avisa del QR repetido y se queda con su primera aparicion', function () {
@@ -390,10 +407,10 @@ describe('import del layout por QR', function () {
             'QR,MARCA,DESCRIPCION,CATEGORIA,QS,CANTIDAD,PESOKG,AREA,LONGITUDMM',
         );
 
-        // Carga nueva del mismo material, ahora con LOTE.
+        // Carga nueva del mismo material, ahora con LOTE y dos piezas.
         subirLayout($catalogo,
-            "QR-01,TG-BAR-1,OC-BAR,Barandales,1001,1,29.751,1.397,3542,1\n".
-            "QR-02,TG-BAR-1,OC-BAR,Barandales,1002,1,29.751,1.397,3542,1\n"
+            "QR-01,TG-BAR-1,OC-BAR,Barandales,1001,2,29.751,1.397,3542,1\n".
+            "QR-02,TG-BAR-1,OC-BAR,Barandales,1002,2,29.751,1.397,3542,1\n"
         );
 
         $marca = Concepto::where('catalogo_id', $catalogo->id)->sole();

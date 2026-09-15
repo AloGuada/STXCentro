@@ -53,6 +53,8 @@ class PlanDeImportacionCsv
         $ignorados = [];
         /** @var array<string, float> $topes */
         $topes = [];
+        /** @var array<string, float|null> $topesDeModelo */
+        $topesDeModelo = [];
         /** @var array<string, int> $asignadosPorModelo */
         $asignadosPorModelo = [];
 
@@ -94,7 +96,7 @@ class PlanDeImportacionCsv
                 continue;
             }
 
-            $renglones[] = $this->resolverPieza($fila, $proceso, $grupo, $piezas, $topes, $asignadosPorModelo);
+            $renglones[] = $this->resolverPieza($fila, $proceso, $grupo, $piezas, $topes, $topesDeModelo, $asignadosPorModelo);
         }
 
         return new PlanDeImportacion(
@@ -109,14 +111,14 @@ class PlanDeImportacionCsv
      *
      * @param  array{referencia: string, linea: int, ubicacion: ?string, grupo: ?string, qr: ?string, qs: string, marca: ?string, evento: ?string, proceso: ?string, porcentaje: float}  $fila
      * @param  array{qr: array<string, Collection<int, Pieza>>, qs: array<string, Collection<int, Pieza>>, marca: array<string, Collection<int, Pieza>>}  $piezas
-     * @param  array<string, float>  $topes
+     * @param  array<string, float>  $topes  lo que le queda a cada (pieza, proceso), descontando este archivo
+     * @param  array<string, float|null>  $topesDeModelo  lo que le queda a cada (obra, modelo, proceso), descontando este archivo
      * @param  array<string, int>  $asignadosPorModelo
      * @return array<string, mixed>
      */
-    private function resolverPieza(array $fila, Proceso $proceso, GrupoTrabajo $grupo, array $piezas, array &$topes, array &$asignadosPorModelo): array
+    private function resolverPieza(array $fila, Proceso $proceso, GrupoTrabajo $grupo, array $piezas, array &$topes, array &$topesDeModelo, array &$asignadosPorModelo): array
     {
         $modo = $this->modo($fila);
-        $porQr = $modo === 'qr';
 
         $identificador = match ($modo) {
             'qr' => "QR {$fila['qr']}",
@@ -129,6 +131,20 @@ class PlanDeImportacionCsv
             'qs' => $piezas['qs'][$fila['qs']] ?? collect(),
             default => $piezas['marca'][$this->lector->normalizar((string) $fila['marca'])] ?? collect(),
         };
+
+        // El QR es de la orden de trabajo y cambia con ella: un export viejo
+        // trae QRs que el catálogo ya reemplazó. Si el renglón dice la marca,
+        // el trabajo cuenta contra el modelo y se asigna a la pieza que siga.
+        if ($candidatas->isEmpty() && $modo === 'qr' && ($fila['marca'] ?? '') !== '' && $fila['marca'] !== null) {
+            $candidatas = $piezas['marca'][$this->lector->normalizar((string) $fila['marca'])] ?? collect();
+
+            if ($candidatas->isNotEmpty()) {
+                $modo = 'marca';
+                $identificador = "la marca {$fila['marca']} (el QR {$fila['qr']} ya no está en el catálogo)";
+            }
+        }
+
+        $porQr = $modo === 'qr';
 
         if ($candidatas->isEmpty()) {
             return $this->renglon($fila, 'error', 'pieza_no_encontrada', "No hay ninguna pieza con {$identificador} en un catálogo vigente.", $proceso, $grupo);
@@ -169,15 +185,31 @@ class PlanDeImportacionCsv
         // que sigan sin pagarse.
         foreach ($candidatas as $pieza) {
             $clave = $pieza->id.'|'.$proceso->id;
-            $disponible = $topes[$clave] ??= $this->avance->disponible($pieza, $proceso->id);
+            $disponible = $topes[$clave] ??= $this->avance->disponibleDePieza($pieza, $proceso->id);
 
             if ($consumo > $disponible + self::EPSILON) {
                 continue;
             }
 
-            $modeloProceso = $this->claveDeModelo($fila).'|'.$proceso->id;
+            // El modelo se descuenta dentro del archivo igual que la pieza: dos
+            // QRs distintos del mismo modelo no pueden rebasar juntos lo que
+            // le falta al modelo.
+            $claveModelo = $this->claveDeTopeDeModelo($pieza, $proceso);
+
+            if (! array_key_exists($claveModelo, $topesDeModelo)) {
+                $topesDeModelo[$claveModelo] = $this->avance->disponibleDeModelo($pieza, $proceso->id);
+            }
+
+            if ($topesDeModelo[$claveModelo] !== null && $consumo > $topesDeModelo[$claveModelo] + self::EPSILON) {
+                continue;
+            }
+
+            $modeloProceso = $this->claveDeModelo($fila, $modo).'|'.$proceso->id;
 
             $topes[$clave] -= $consumo;
+            if ($topesDeModelo[$claveModelo] !== null) {
+                $topesDeModelo[$claveModelo] -= $consumo;
+            }
             $asignadosPorModelo[$modeloProceso] = ($asignadosPorModelo[$modeloProceso] ?? 0) + 1;
 
             return $this->renglon(
@@ -190,10 +222,17 @@ class PlanDeImportacionCsv
                 $candidatas->count(),
                 $pieza,
                 ! $porQr,
+                $modo,
             );
         }
 
-        return $this->sinCupo($fila, $proceso, $grupo, $candidatas, $topes, $asignadosPorModelo, $modo, $identificador);
+        return $this->sinCupo($fila, $proceso, $grupo, $candidatas, $topes, $topesDeModelo, $asignadosPorModelo, $modo, $identificador);
+    }
+
+    /** La cubeta del tope del modelo: obra, marca + lote y proceso. */
+    private function claveDeTopeDeModelo(Pieza $pieza, Proceso $proceso): string
+    {
+        return (int) $pieza->catalogo?->obra_id.'|'.($pieza->marca?->claveModelo() ?? 'concepto:'.$pieza->concepto_id).'|'.$proceso->id;
     }
 
     /**
@@ -219,10 +258,11 @@ class PlanDeImportacionCsv
      * repetido de un movimiento nuevo.
      *
      * @param  array{qr: ?string, qs: string, marca: ?string}  $fila
+     * @param  'qr'|'qs'|'marca'  $modo
      */
-    private function claveDeModelo(array $fila): string
+    private function claveDeModelo(array $fila, string $modo): string
     {
-        return $this->modo($fila) === 'marca'
+        return $modo === 'marca'
             ? 'marca:'.$this->lector->normalizar((string) $fila['marca'])
             : 'qs:'.$fila['qs'];
     }
@@ -235,13 +275,14 @@ class PlanDeImportacionCsv
      * @param  array{referencia: string, linea: int, ubicacion: ?string, grupo: ?string, qr: ?string, qs: string, marca: ?string, evento: ?string, proceso: ?string, porcentaje: float}  $fila
      * @param  Collection<int, Pieza>  $candidatas
      * @param  array<string, float>  $topes
+     * @param  array<string, float|null>  $topesDeModelo
      * @param  array<string, int>  $asignadosPorModelo
      * @param  'qr'|'qs'|'marca'  $modo
      * @return array<string, mixed>
      */
-    private function sinCupo(array $fila, Proceso $proceso, GrupoTrabajo $grupo, Collection $candidatas, array $topes, array $asignadosPorModelo, string $modo, string $identificador): array
+    private function sinCupo(array $fila, Proceso $proceso, GrupoTrabajo $grupo, Collection $candidatas, array $topes, array $topesDeModelo, array $asignadosPorModelo, string $modo, string $identificador): array
     {
-        $yaAsignadas = $asignadosPorModelo[$this->claveDeModelo($fila).'|'.$proceso->id] ?? 0;
+        $yaAsignadas = $asignadosPorModelo[$this->claveDeModelo($fila, $modo).'|'.$proceso->id] ?? 0;
 
         // Sólo en el export de planta, que es el que genera la máquina y donde
         // dejamos de deduplicar. En el CSV capturado a mano los renglones los
@@ -261,11 +302,15 @@ class PlanDeImportacionCsv
         // Se explica con la candidata que más margen tiene: "sólo le falta 40%"
         // es accionable, "ya está al 100%" cuando otra tenía cupo, no.
         $conMasMargen = $candidatas->sortByDesc(
-            fn (Pieza $pieza): float => $topes[$pieza->id.'|'.$proceso->id] ?? $this->avance->disponible($pieza, $proceso->id)
+            fn (Pieza $pieza): float => $topes[$pieza->id.'|'.$proceso->id] ?? $this->avance->disponibleDePieza($pieza, $proceso->id)
         )->first();
 
-        $disponible = $topes[$conMasMargen->id.'|'.$proceso->id] ?? $this->avance->disponible($conMasMargen, $proceso->id);
-        $motivo = $this->avance->mensajeDeTope($conMasMargen, $proceso, $disponible);
+        $disponible = $topes[$conMasMargen->id.'|'.$proceso->id] ?? $this->avance->disponibleDePieza($conMasMargen, $proceso->id);
+        $claveModelo = $this->claveDeTopeDeModelo($conMasMargen, $proceso);
+        $deModelo = array_key_exists($claveModelo, $topesDeModelo)
+            ? $topesDeModelo[$claveModelo]
+            : $this->avance->disponibleDeModelo($conMasMargen, $proceso->id);
+        $motivo = $this->avance->mensajeDeTope($conMasMargen, $proceso, $disponible, null, $deModelo);
 
         if ($candidatas->count() > 1) {
             $motivo = "Ninguna de las {$candidatas->count()} piezas con {$identificador} tiene cupo: ".$motivo;
@@ -428,6 +473,7 @@ class PlanDeImportacionCsv
         ?int $candidatas = null,
         ?Pieza $pieza = null,
         bool $porQs = false,
+        ?string $asignadoPor = null,
     ): array {
         return [
             'referencia' => $fila['referencia'],
@@ -449,7 +495,8 @@ class PlanDeImportacionCsv
             'grupo_trabajo_id' => $grupo?->id,
             'porcentaje' => $fila['porcentaje'],
             'por_qs' => $porQs,
-            'asignado_por' => $this->modo($fila),
+            // Puede diferir del modo del archivo: un QR viejo se asigna por marca.
+            'asignado_por' => $asignadoPor ?? $this->modo($fila),
             'candidatas' => $candidatas,
         ];
     }

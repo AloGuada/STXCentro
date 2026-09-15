@@ -133,8 +133,10 @@ class VersionadorCatalogo
 
             // Las piezas se copian con su QR y su propio linaje: el acumulado se
             // cuenta por pieza, asi que sin esto la version nueva arrancaria en
-            // cero y se podria volver a pagar lo ya fabricado.
-            foreach ($marca->piezas as $pieza) {
+            // cero y se podria volver a pagar lo ya fabricado. Las apagadas (su
+            // QR ya cambio de orden) no viajan: lo pagado bajo ellas lo
+            // conserva el snapshot de la liquidacion, por modelo.
+            foreach ($marca->piezas->where('activo', true) as $pieza) {
                 Pieza::create([
                     'catalogo_id' => $destino->id,
                     'concepto_id' => $copia->id,

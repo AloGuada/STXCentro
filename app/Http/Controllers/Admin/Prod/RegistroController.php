@@ -91,6 +91,9 @@ class RegistroController extends Controller
                 'grupo_trabajo_id' => $request->integer('grupo_trabajo_id'),
                 'porcentaje' => $porcentaje,
             ]);
+            // El mapa es una foto de antes del bucle: sin esto, dos QR del
+            // mismo modelo en el mismo payload no se verian entre si.
+            $avance->reservar($pieza, $proceso->id, $porcentaje, $subprocesoId);
             $guardadas++;
         }
 

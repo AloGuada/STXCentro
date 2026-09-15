@@ -125,6 +125,70 @@ function exportSinQs(array $movimientos): string
     return $csv;
 }
 
+/**
+ * El export de planta con QR: el QR es de la orden de trabajo y puede ser uno
+ * que el catálogo ya reemplazó.
+ *
+ * @param  list<array{0: string, 1: string, 2: string, 3: string}>  $movimientos  [proceso, ubicacion, qr, marca]
+ */
+function exportConQr(array $movimientos): string
+{
+    $csv = "Proceso,Contracto,Movido el,Ubicacion,QR,Marca,Peso,Cantidad,Trabajador\n";
+
+    foreach ($movimientos as [$proceso, $ubicacion, $qr, $marca]) {
+        $csv .= "{$proceso},S26-05-05 REJAS,46195,{$ubicacion},{$qr},{$marca},1746,1,SAUL DZUL\n";
+    }
+
+    return $csv;
+}
+
+test('un QR que ya no esta en el catalogo cuenta contra su marca', function () {
+    // La orden vieja tenia QR-OLD; el catalogo se recargo y ese QR se apago.
+    Pieza::factory()->create([
+        'concepto_id' => $this->marca->id,
+        'catalogo_id' => $this->marca->catalogo_id,
+        'qr' => 'QR-OLD',
+        'activo' => false,
+    ]);
+
+    $respuesta = analizar(exportConQr([['75 Soldadura', 'M3.6 Fabricacion', 'QR-OLD', 'TG-CM5-1']]))->assertOk();
+
+    expect($respuesta->json('resumen.aplicables'))->toBe(1)
+        ->and($respuesta->json('renglones.0.qr'))->toBe('QR-500')
+        ->and($respuesta->json('renglones.0.asignado_por'))->toBe('marca')
+        ->and($respuesta->json('renglones.0.por_qs'))->toBeTrue();
+});
+
+test('un QR desconocido sin marca sigue siendo error', function () {
+    $respuesta = analizar(exportConQr([['75 Soldadura', 'M3.6 Fabricacion', 'QR-NADIE', '']]))->assertOk();
+
+    expect($respuesta->json('renglones.0.estado'))->toBe('error')
+        ->and($respuesta->json('renglones.0.codigo'))->toBe('pieza_no_encontrada');
+});
+
+test('dos QR del mismo modelo no rebasan juntos la cantidad del modelo', function () {
+    // El modelo pide 1 pieza pero la orden trae dos QR activos.
+    $this->marca->update(['cantidad' => 1]);
+    Pieza::factory()->create([
+        'concepto_id' => $this->marca->id,
+        'catalogo_id' => $this->marca->catalogo_id,
+        'qr' => 'QR-501',
+        'qs' => null,
+    ]);
+
+    $respuesta = analizar(exportConQr([
+        ['75 Soldadura', 'M3.6 Fabricacion', 'QR-500', 'TG-CM5-1'],
+        ['75 Soldadura', 'M3.6 Fabricacion', 'QR-501', 'TG-CM5-1'],
+    ]))->assertOk();
+
+    $rechazado = collect($respuesta->json('renglones'))->firstWhere('estado', 'error');
+
+    expect($respuesta->json('resumen.aplicables'))->toBe(1)
+        ->and($rechazado['qr'])->toBe('QR-501')
+        ->and($rechazado['codigo'])->toBe('sin_tope')
+        ->and($rechazado['motivo'])->toContain('ya tiene pagadas sus 1 piezas');
+});
+
 test('el export sin columna QS ya no revienta', function () {
     analizar(exportSinQs([['75 Soldadura', 'M3.6 Fabricacion', 'TG-CM5-1']]))
         ->assertOk()

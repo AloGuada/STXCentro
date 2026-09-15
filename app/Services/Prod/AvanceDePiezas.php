@@ -2,6 +2,7 @@
 
 namespace App\Services\Prod;
 
+use App\Models\Concepto;
 use App\Models\Prod\Catalogo;
 use App\Models\Prod\Destajo;
 use App\Models\Prod\GrupoPrecioSubproceso;
@@ -31,6 +32,14 @@ use Illuminate\Support\Collection;
  * el avance en cero y permitiría volver a pagar lo ya fabricado. Cada copia
  * recuerda de qué pieza viene (`pieza_origen_id`) y todas comparten la misma
  * raíz.
+ *
+ * **Contra lo que se paga es el modelo.** El QR identifica la pieza dentro de
+ * su orden de trabajo y cambia cuando la pieza cambia de orden, así que un
+ * catálogo recargado trae QRs nuevos para las mismas piezas. Por eso el tope
+ * duro es por modelo (marca + lote) y su `cantidad` en el catálogo vigente:
+ * lo pagado se suma de todas sus piezas, activas o no, y lo que falta es la
+ * cantidad menos eso. El tope por pieza (una pieza vale 1) se conserva como
+ * cordura: nadie paga el 150 % de un QR.
  *
  * **El servicio cachea lo que lee y vive lo que dure el request.** Calcular el
  * avance de una obra cuesta un recorrido de sus piezas, sus liquidaciones y sus
@@ -62,6 +71,16 @@ class AvanceDePiezas
     private array $obraPorCatalogo = [];
 
     /**
+     * Lo que este mismo request ya dio por bueno y todavía no está en la base
+     * (o está, pero el mapa se calculó antes). Va por pieza y por modelo con
+     * las mismas claves que el mapa, para que la segunda pieza de un payload
+     * vea lo que consumió la primera.
+     *
+     * @var array<string, float>
+     */
+    private array $reservas = [];
+
+    /**
      * Avance ya comprometido en la obra, agrupado por (linaje de pieza, proceso,
      * subproceso).
      *
@@ -83,24 +102,67 @@ class AvanceDePiezas
     private function calcularMapaDeObra(int $obraId): AvanceDeObra
     {
         $raices = $this->raicesDeLinaje($obraId);
+        [$modeloDeConcepto, $cantidades] = $this->modelosDeObra($obraId);
 
         $totales = [];
+        $porModelo = [];
 
         $detalles = LiquidacionDetalle::query()
             ->where('obra_id', $obraId)
-            ->get(['pieza_id', 'qr', 'proceso_id', 'subproceso_id', 'porcentaje']);
+            ->get(['pieza_id', 'qr', 'marca', 'lote', 'proceso_id', 'subproceso_id', 'porcentaje']);
 
         foreach ($detalles as $detalle) {
+            $equivalentes = (float) $detalle->porcentaje / 100;
             $clave = $this->clave($raices, $detalle->pieza_id, $detalle->qr, $detalle->proceso_id, $detalle->subproceso_id);
-            $totales[$clave] = ($totales[$clave] ?? 0) + (float) $detalle->porcentaje / 100;
+            $totales[$clave] = ($totales[$clave] ?? 0) + $equivalentes;
+
+            // El snapshot congela marca y lote: es lo que ata lo pagado al
+            // modelo aunque la pieza se haya borrado o cambiado de QR.
+            $modelo = AvanceDeObra::claveDeModelo(Concepto::claveDeModelo($detalle->marca, $detalle->lote), (int) $detalle->proceso_id, $detalle->subproceso_id);
+            $porModelo[$modelo] = ($porModelo[$modelo] ?? 0) + $equivalentes;
         }
 
         foreach ($this->registrosNoLiquidados($obraId) as $registro) {
             $clave = $this->clave($raices, $registro->pieza_id, $registro->pieza?->qr, $registro->proceso_id, $registro->subproceso_id);
             $totales[$clave] = ($totales[$clave] ?? 0) + $registro->piezasEquivalentes();
+
+            $claveModelo = $modeloDeConcepto[(int) $registro->pieza?->concepto_id] ?? null;
+
+            if ($claveModelo !== null) {
+                $modelo = AvanceDeObra::claveDeModelo($claveModelo, (int) $registro->proceso_id, $registro->subproceso_id);
+                $porModelo[$modelo] = ($porModelo[$modelo] ?? 0) + $registro->piezasEquivalentes();
+            }
         }
 
-        return new AvanceDeObra($raices, $totales);
+        return new AvanceDeObra($raices, $totales, $porModelo, $cantidades, $modeloDeConcepto);
+    }
+
+    /**
+     * Los modelos de la obra: a qué modelo pertenece cada concepto de cualquier
+     * versión, y cuántas piezas pide cada modelo en el catálogo vigente.
+     *
+     * @return array{0: array<int, string>, 1: array<string, int>}
+     */
+    private function modelosDeObra(int $obraId): array
+    {
+        $modeloDeConcepto = [];
+        $cantidades = [];
+
+        $conceptos = Concepto::query()
+            ->where('obra_id', $obraId)
+            ->with('catalogo:id,vigente')
+            ->get(['id', 'catalogo_id', 'marca', 'lote', 'cantidad']);
+
+        foreach ($conceptos as $concepto) {
+            $clave = $concepto->claveModelo();
+            $modeloDeConcepto[(int) $concepto->id] = $clave;
+
+            if ($concepto->catalogo?->vigente) {
+                $cantidades[$clave] = ($cantidades[$clave] ?? 0) + (int) $concepto->cantidad;
+            }
+        }
+
+        return [$modeloDeConcepto, $cantidades];
     }
 
     /**
@@ -214,7 +276,7 @@ class AvanceDePiezas
     private function registrosNoLiquidados(int $obraId, ?CarbonInterface $hasta = null): Collection
     {
         return Registro::query()
-            ->with('pieza:id,qr')
+            ->with('pieza:id,qr,concepto_id')
             ->whereHas('pieza.catalogo', fn ($q) => $q->where('obra_id', $obraId))
             ->when($hasta !== null, fn ($q) => $q->where('fecha', '<=', $hasta))
             ->whereNotExists(fn ($q) => $q->selectRaw('1')
@@ -226,18 +288,93 @@ class AvanceDePiezas
     }
 
     /**
-     * Fracción de pieza que todavía se puede pagar de este QS en este proceso, o
+     * Fracción de pieza que todavía se puede pagar de este QR en este proceso, o
      * en este subproceso si el grupo paga por pasos. Nunca negativo.
+     *
+     * Es el menor de los dos topes: lo que le queda a la pieza (una pieza vale
+     * 1) y lo que le queda a su modelo (la cantidad del catálogo menos lo ya
+     * pagado de todas sus piezas). Un QR recién cargado tiene su 1 completo,
+     * pero si el modelo ya se pagó entero no cabe nada.
      */
     public function disponible(Pieza $pieza, int $procesoId, ?int $subprocesoId = null): float
     {
+        $dePieza = $this->disponibleDePieza($pieza, $procesoId, $subprocesoId);
+        $deModelo = $this->disponibleDeModelo($pieza, $procesoId, $subprocesoId);
+
+        return $deModelo === null ? $dePieza : min($dePieza, $deModelo);
+    }
+
+    /** Lo que le queda a esta pieza sola, sin mirar a sus hermanas. */
+    public function disponibleDePieza(Pieza $pieza, int $procesoId, ?int $subprocesoId = null): float
+    {
         return round(max(0, self::TOPE_POR_PIEZA - $this->capturado($pieza, $procesoId, $subprocesoId)), 4);
+    }
+
+    /**
+     * Piezas equivalentes que todavía se pueden pagar del modelo de esta pieza
+     * en ese proceso: la cantidad del catálogo vigente menos lo pagado o
+     * comprometido de todas sus piezas, de todas las órdenes y versiones.
+     *
+     * `null` es «sin tope de modelo»: la marca no declara cantidad (las de
+     * antes del layout, o capturadas a mano en cero) o la pieza no cuelga de
+     * ningún modelo de la obra. Ahí manda sólo el tope por pieza, como antes.
+     */
+    public function disponibleDeModelo(Pieza $pieza, int $procesoId, ?int $subprocesoId = null): ?float
+    {
+        $mapa = $this->mapaDeObra($this->obraDe($pieza));
+        $modelo = $mapa->modeloDe($pieza);
+
+        if ($modelo === null || $mapa->cantidadDeModelo($modelo) <= 0) {
+            return null;
+        }
+
+        return round(max(0, $mapa->cantidadDeModelo($modelo) - $this->capturadoDeModelo($pieza, $procesoId, $subprocesoId)), 4);
+    }
+
+    /** Piezas equivalentes ya pagadas o comprometidas del modelo de esta pieza. */
+    public function capturadoDeModelo(Pieza $pieza, int $procesoId, ?int $subprocesoId = null): float
+    {
+        $mapa = $this->mapaDeObra($this->obraDe($pieza));
+        $modelo = $mapa->modeloDe($pieza);
+
+        if ($modelo === null) {
+            return 0.0;
+        }
+
+        $reservado = $this->reservas[$this->obraDe($pieza).'|'.AvanceDeObra::claveDeModelo($modelo, $procesoId, $subprocesoId)] ?? 0.0;
+
+        return round($mapa->capturadoDeModelo($modelo, $procesoId, $subprocesoId) + $reservado, 4);
     }
 
     /** Fracción ya pagada o comprometida de esta pieza en este proceso. */
     public function capturado(Pieza $pieza, int $procesoId, ?int $subprocesoId = null): float
     {
-        return $this->mapaDeObra($this->obraDe($pieza))->capturadoDe($pieza, $procesoId, $subprocesoId);
+        $reservado = $this->reservas[$this->obraDe($pieza).'|pieza:'.$pieza->id.'|proceso:'.$procesoId.'|sub:'.($subprocesoId ?? 0)] ?? 0.0;
+
+        return round($this->mapaDeObra($this->obraDe($pieza))->capturadoDe($pieza, $procesoId, $subprocesoId) + $reservado, 4);
+    }
+
+    /**
+     * Da por consumido este porcentaje de la pieza en lo que dure el request.
+     *
+     * Quien guarda varias piezas en un mismo bucle lo llama tras cada alta: el
+     * mapa es una foto de antes del bucle, y sin esto la segunda pieza del
+     * mismo modelo no vería lo que la primera acaba de tomar.
+     */
+    public function reservar(Pieza $pieza, int $procesoId, float $porcentaje, ?int $subprocesoId = null): void
+    {
+        $obraId = $this->obraDe($pieza);
+        $equivalentes = round($porcentaje / 100, 4);
+
+        $clavePieza = $obraId.'|pieza:'.$pieza->id.'|proceso:'.$procesoId.'|sub:'.($subprocesoId ?? 0);
+        $this->reservas[$clavePieza] = ($this->reservas[$clavePieza] ?? 0.0) + $equivalentes;
+
+        $modelo = $this->mapaDeObra($obraId)->modeloDe($pieza);
+
+        if ($modelo !== null) {
+            $claveModelo = $obraId.'|'.AvanceDeObra::claveDeModelo($modelo, $procesoId, $subprocesoId);
+            $this->reservas[$claveModelo] = ($this->reservas[$claveModelo] ?? 0.0) + $equivalentes;
+        }
     }
 
     /** ¿Cabe pagar esta pieza a este porcentaje sin rebasar su tope? */
@@ -253,7 +390,7 @@ class AvanceDePiezas
      * Vive aquí y no en quien captura para que la captura manual y la revisión
      * del CSV digan exactamente lo mismo.
      */
-    public function mensajeDeTope(Pieza $pieza, Proceso $proceso, float $disponible, ?GrupoPrecioSubproceso $subproceso = null): string
+    public function mensajeDeTope(Pieza $pieza, Proceso $proceso, float $disponible, ?GrupoPrecioSubproceso $subproceso = null, ?float $disponibleDeModelo = null): string
     {
         $salida = ' Si es una pieza rehecha, regístrala como pago extra.';
         $etiqueta = $pieza->etiqueta();
@@ -262,6 +399,33 @@ class AvanceDePiezas
         $donde = $subproceso !== null
             ? "{$proceso->nombre} / {$subproceso->nombre}"
             : $proceso->nombre;
+
+        // Si lo que se agotó es el modelo, la pieza sola no explica nada: el
+        // QR puede ser nuevo y estar a cero, y aun así no caber.
+        // Quien revisa un archivo ya descontó lo asignado en él y pasa el
+        // sobrante del modelo; sin eso se lee de la base.
+        $subprocesoId = $subproceso?->id === null ? null : (int) $subproceso->id;
+        $delModelo = $disponibleDeModelo ?? $this->disponibleDeModelo($pieza, (int) $proceso->id, $subprocesoId);
+
+        if ($delModelo !== null && $delModelo < $this->disponibleDePieza($pieza, (int) $proceso->id, $subprocesoId) - self::EPSILON) {
+            $mapa = $this->mapaDeObra($this->obraDe($pieza));
+            $modelo = $mapa->modeloDe($pieza);
+            $cantidad = $modelo === null ? 0 : $mapa->cantidadDeModelo($modelo);
+            $nombre = $pieza->marca?->etiquetaModelo() ?? $etiqueta;
+
+            if ($delModelo <= 0) {
+                return "El modelo {$nombre} ya tiene pagadas sus {$cantidad} piezas en {$donde}.".$salida;
+            }
+
+            return sprintf(
+                'El modelo %s sólo tiene %s de %d piezas por pagar en %s.%s',
+                $nombre,
+                self::numero($delModelo),
+                $cantidad,
+                $donde,
+                $salida,
+            );
+        }
 
         if ($disponible <= 0) {
             return "La pieza {$etiqueta} ya está pagada al 100% en {$donde}.".$salida;
@@ -312,6 +476,12 @@ class AvanceDePiezas
             $pieza->setAttribute('avance', $avance);
             $pieza->setAttribute('avance_subprocesos', $porSubproceso);
         });
+    }
+
+    /** Un número de piezas equivalentes sin ceros de sobra: 2, 2.5, 0.25. */
+    private static function numero(float $valor): string
+    {
+        return rtrim(rtrim(number_format($valor, 4, '.', ''), '0'), '.') ?: '0';
     }
 
     /**

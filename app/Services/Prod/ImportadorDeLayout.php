@@ -19,19 +19,23 @@ use RuntimeException;
  * pieza suya.
  *
  * Columnas del layout vigente:
- * `QR, MARCA, DESCRIPCION, CATEGORIA, QS, CANTIDAD, PESO KG, AREA, LONGITUD MM, LOTE`.
+ * `QR, MARCA, DESCRIPCION, CATEGORIA QS, CORRELATIVO, CANTIDAD, PESO KG, AREA, LONGITUD MM, LOTE`.
  * El orden no importa —se emparejan por nombre— y los espacios del encabezado se
  * ignoran, así que `PESO KG` y `PESOKG` son la misma columna. Los layouts viejos
- * siguen cargando: sin QR se usa el QS como identificador, y una columna ETAPA
- * se lee como LOTE, que es el nombre nuevo del mismo dato.
+ * siguen cargando: sin QR se usa el QS como identificador, CATEGORIA entra como
+ * CATEGORIA QS y una columna ETAPA se lee como LOTE, que es el nombre nuevo del
+ * mismo dato.
  *
- * La cantidad de la marca **se cuenta**: son las piezas que le quedan colgando
- * en el catálogo, no la columna CANTIDAD. Esa columna sólo sirve para avisar
- * cuando el layout declara más piezas de las que mandó.
+ * La cantidad de la marca es **la que declara la columna CANTIDAD**: es contra
+ * lo que se paga el modelo. Si el layout no la trae, se cuentan las piezas
+ * activas. Cuando declara una cosa y trae otra, se avisa.
  *
  * La marca se empareja por `(catálogo, marca, lote)` y la pieza por
- * `(catálogo, QR)`. El QR no se usa para emparejar la marca a propósito: si
- * planta reetiqueta, la pieza se mueve pero el modelo no se duplica.
+ * `(catálogo, QR)`. El QR identifica la pieza **dentro de su orden de
+ * trabajo** y cambia cuando la pieza cambia de orden, así que recargar un
+ * modelo reemplaza su juego de QRs: los que no vienen en el archivo se
+ * desactivan (no se borran: lo pagado bajo ellos sigue contando para el
+ * modelo) y los que vienen quedan activos.
  */
 class ImportadorDeLayout
 {
@@ -102,12 +106,22 @@ class ImportadorDeLayout
             }
 
             $this->insertarMarcasNuevas($catalogo, $nuevas);
+
+            $marcaIds = array_map(fn (Concepto $marca): int => (int) $marca->id, $tocadas);
+
+            // El archivo trae el juego de QRs vigente de cada modelo que
+            // menciona: primero se apagan todos los de esos modelos y el
+            // upsert vuelve a prender los que vienen. Los apagados no se
+            // borran; lo pagado bajo ellos sigue sumando al modelo.
+            $this->desactivarPiezas($marcaIds);
             $this->escribirPiezas($catalogo, $porEscribir);
 
-            // Se cuenta despues de escribir las piezas y sobre las que tiene
-            // la marca en el catalogo, no sobre las del archivo: asi un
-            // layout parcial suma sus piezas en vez de borrar la cuenta previa.
-            $this->recontarPiezas(array_map(fn (Concepto $marca): int => (int) $marca->id, $tocadas));
+            $declaradas = [];
+            foreach ($filas as $modelo) {
+                $declaradas[Concepto::claveDeModelo($modelo['marca'], $modelo['lote'])] = $modelo['cantidad_declarada'];
+            }
+
+            $this->recontarPiezas($tocadas, $declaradas);
         });
 
         return [
@@ -220,10 +234,12 @@ class ImportadorDeLayout
                     'qr' => $pieza['qr'],
                     'qs' => $pieza['qs'],
                     'correlativo' => $pieza['correlativo'],
+                    'activo' => true,
                 ], $bloque),
                 ['catalogo_id', 'qr'],
                 [
                     'concepto_id',
+                    'activo',
                     // Lo que el archivo no trae no borra lo que ya había: el
                     // layout vigente ya no manda QS y las piezas viejas lo
                     // conservan, que el CSV de avance todavía empareja por él.
@@ -237,19 +253,27 @@ class ImportadorDeLayout
     }
 
     /**
-     * Deja en cada marca tocada la cuenta de piezas que le quedaron colgando.
+     * Deja en cada marca tocada su cantidad: la que declaró el layout, o si no
+     * la declaró, las piezas activas que le quedaron colgando.
      *
      * Se hace al final y en bloque por lo mismo que las piezas: un `count()` y
      * un `update()` por marca son dos viajes por renglón del layout. Las marcas
-     * se agrupan por cuenta, que casi todas comparten el mismo número.
+     * se agrupan por cantidad, que casi todas comparten el mismo número.
      *
-     * @param  array<int, int>  $marcaIds
+     * @param  list<Concepto>  $marcas
+     * @param  array<string, ?int>  $declaradas  clave de modelo => cantidad del layout
      */
-    private function recontarPiezas(array $marcaIds): void
+    private function recontarPiezas(array $marcas, array $declaradas): void
     {
-        foreach (array_chunk(array_values($marcaIds), 500) as $bloque) {
+        $declaradaDe = [];
+        foreach ($marcas as $marca) {
+            $declaradaDe[(int) $marca->id] = $declaradas[$marca->claveModelo()] ?? null;
+        }
+
+        foreach (array_chunk(array_keys($declaradaDe), 500) as $bloque) {
             $conteos = Pieza::query()
                 ->whereIn('concepto_id', $bloque)
+                ->where('activo', true)
                 ->groupBy('concepto_id')
                 ->selectRaw('concepto_id, count(*) as total')
                 ->pluck('total', 'concepto_id');
@@ -257,7 +281,7 @@ class ImportadorDeLayout
             $porCantidad = [];
 
             foreach ($bloque as $id) {
-                $porCantidad[(int) ($conteos[$id] ?? 0)][] = $id;
+                $porCantidad[(int) ($declaradaDe[$id] ?? $conteos[$id] ?? 0)][] = $id;
             }
 
             foreach ($porCantidad as $cantidad => $ids) {
@@ -346,7 +370,7 @@ class ImportadorDeLayout
      * Agrupa los renglones del archivo por modelo. Los datos del modelo se toman
      * del primer renglón que lo trae; los siguientes sólo aportan su pieza.
      *
-     * @return array{filas: array<string, array{marca: string, lote: ?string, descripcion: string, categoria: string, cantidad_declarada: int, peso_unitario: float, longitud: int, piezas: list<array{qr: string, qs: ?string, correlativo: ?int}>}>, avisos: list<string>}
+     * @return array{filas: array<string, array{marca: string, lote: ?string, descripcion: string, categoria: string, cantidad_declarada: ?int, peso_unitario: float, longitud: int, piezas: list<array{qr: string, qs: ?string, correlativo: ?int}>}>, avisos: list<string>}
      */
     private function leer(string $ruta): array
     {
@@ -400,7 +424,9 @@ class ImportadorDeLayout
                 // El layout vigente la llama CATEGORIA QS; es una etiqueta de
                 // texto, no el número de QS. El nombre viejo sigue entrando.
                 'categoria' => trim((string) ($data['CATEGORIAQS'] ?? $data['CATEGORIA'] ?? '')),
-                'cantidad_declarada' => max($cantidad, 1),
+                // Sin columna o en cero, el layout no declara: la cantidad
+                // se cuenta de las piezas.
+                'cantidad_declarada' => $cantidad > 0 ? $cantidad : null,
                 'peso_unitario' => $peso,
                 'longitud' => (int) round((float) str_replace(',', '', (string) ($data['LONGITUDMM'] ?? '0'))),
                 'piezas' => [],
@@ -445,12 +471,12 @@ class ImportadorDeLayout
     }
 
     /**
-     * El layout dice cuántas piezas tiene el modelo en cada renglón. Manda el
-     * conteo de piezas —es lo que existe y contra lo que se paga—, pero si la
-     * columna CANTIDAD dice otra cosa se avisa: normalmente significa que el
-     * archivo vino incompleto y el tope quedaría corto sin que nadie lo note.
+     * El layout dice cuántas piezas tiene el modelo en cada renglón, y ésa es
+     * la cantidad contra la que se paga. Si trae otro número de renglones se
+     * avisa: casi siempre el archivo vino incompleto o con una orden parcial,
+     * y conviene que alguien lo vea aunque no bloquee.
      *
-     * @param  array<string, array{marca: string, lote: ?string, cantidad_declarada: int, piezas: list<array{qr: string, qs: ?string}>}>  $modelos
+     * @param  array<string, array{marca: string, lote: ?string, cantidad_declarada: ?int, piezas: list<array{qr: string, qs: ?string, correlativo: ?int}>}>  $modelos
      * @return list<string>
      */
     private function avisosDeCantidad(array $modelos): array
@@ -460,15 +486,28 @@ class ImportadorDeLayout
         foreach ($modelos as $modelo) {
             $llegaron = count($modelo['piezas']);
 
-            if ($llegaron === $modelo['cantidad_declarada']) {
+            if ($modelo['cantidad_declarada'] === null || $llegaron === $modelo['cantidad_declarada']) {
                 continue;
             }
 
             $etiqueta = Concepto::etiquetaDeModelo($modelo['marca'], $modelo['lote']);
-            $avisos[] = "{$etiqueta}: el layout dice {$modelo['cantidad_declarada']} pieza(s) y llegaron {$llegaron}; la cantidad se cuenta de las piezas.";
+            $avisos[] = "{$etiqueta}: el layout dice {$modelo['cantidad_declarada']} pieza(s) y trae {$llegaron}; la cantidad queda en {$modelo['cantidad_declarada']}.";
         }
 
         return $avisos;
+    }
+
+    /**
+     * Apaga las piezas de esos modelos antes de escribir el archivo, para que
+     * sólo queden prendidas las que vienen en él.
+     *
+     * @param  list<int>  $marcaIds
+     */
+    private function desactivarPiezas(array $marcaIds): void
+    {
+        foreach (array_chunk($marcaIds, 500) as $bloque) {
+            Pieza::query()->whereIn('concepto_id', $bloque)->where('activo', true)->update(['activo' => false]);
+        }
     }
 
     /**

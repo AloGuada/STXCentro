@@ -64,7 +64,7 @@ class ConceptoController extends Controller
         $concepto->load([
             'catalogo.obra:id,no,descripcion',
             'grupoPrecioConceptos.grupoPrecio',
-            'piezas' => fn ($q) => $q->orderBy('correlativo')->orderBy('qr'),
+            'piezas' => fn ($q) => $q->where('activo', true)->orderBy('correlativo')->orderBy('qr'),
         ]);
 
         return Inertia::render('admin/prod/conceptos/edit', [
