@@ -122,6 +122,12 @@ class DestajoController extends Controller
             return back()->withErrors(['error' => 'No se puede eliminar un destajo cerrado.']);
         }
 
+        // La produccion capturada no apunta al destajo, solo tiene fecha: si se
+        // dejara, el siguiente destajo de esas fechas la retomaria y la pagaria
+        // como si fuera suya. Borrar la semana borra lo que se capturo en ella.
+        Registro::query()
+            ->whereBetween('fecha', [$destajo->fecha_inicio, $destajo->fecha_fin])
+            ->delete();
         $destajo->liquidaciones()->delete();
         $destajo->pagosExtra()->delete();
         $destajo->delete();

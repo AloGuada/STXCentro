@@ -63,7 +63,7 @@ export default function DestajosShow({
     };
 
     const eliminar = () => {
-        if (confirm('¿Eliminar este destajo?')) {
+        if (confirm('¿Eliminar este destajo? Se borra también la producción capturada en sus fechas, sus pagos extra y sus asistencias.')) {
             router.delete(`/admin/prod/destajos/${destajo.id}`);
         }
     };
