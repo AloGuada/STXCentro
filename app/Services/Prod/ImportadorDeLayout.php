@@ -26,6 +26,11 @@ use RuntimeException;
  * CATEGORIA QS y una columna ETAPA se lee como LOTE, que es el nombre nuevo del
  * mismo dato.
  *
+ * El QR es opcional. Un renglón sin QR ni QS es una pieza igual —cuenta para
+ * la cantidad del modelo— y entra con un QR provisional (ver
+ * `Pieza::qrProvisional`), que se reemplaza cuando planta recarga el layout
+ * ya con el QR.
+ *
  * La cantidad de la marca **se cuenta de los renglones**: es contra lo que se
  * paga el modelo. La columna CANTIDAD viene con 1 por renglón en el layout de
  * planta, así que no dice nada que el conteo no diga; si en cambio repite un
@@ -441,10 +446,11 @@ class ImportadorDeLayout
             // layout de los viejos sigue cargando sin tocar nada.
             $qr = trim((string) ($data['QR'] ?? '')) ?: $qs;
 
+            // Sin QR ni QS la pieza cuenta igual: entra con un identificador
+            // provisional por marca, lote y consecutivo dentro del archivo.
             if ($qr === '') {
                 $sinIdentificador++;
-
-                continue;
+                $qr = Pieza::qrProvisional($marca, $lote, count($modelos[$clave]['piezas']) + 1);
             }
 
             // Un QR repetido en el archivo apuntaria a dos modelos distintos y el
@@ -489,7 +495,7 @@ class ImportadorDeLayout
         fclose($handle);
 
         if ($sinIdentificador > 0) {
-            $avisos[] = "{$sinIdentificador} renglon(es) sin QR ni QS se ignoraron: el layout debe identificar cada pieza.";
+            $avisos[] = "{$sinIdentificador} renglon(es) sin QR ni QS se cargaron con un identificador provisional; cuando planta les asigne QR, vuelve a subir el layout y se reemplazan.";
         }
 
         $modelos = array_filter($modelos, fn (array $modelo): bool => $modelo['piezas'] !== []);

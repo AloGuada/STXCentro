@@ -366,7 +366,7 @@ export default function CatalogoShow({
                                                                     key={pieza.id}
                                                                     className="badge badge-sm badge-ghost font-mono"
                                                                     title={[
-                                                                        `QR ${pieza.qr}`,
+                                                                        pieza.qr.startsWith('SIN QR') ? 'Sin QR: identificador provisional' : `QR ${pieza.qr}`,
                                                                         ...procesos.map(
                                                                             (p) =>
                                                                                 `${p.nombre}: ${Math.round((pieza.avance?.[p.id]?.capturado ?? 0) * 100)}%`,
@@ -376,7 +376,7 @@ export default function CatalogoShow({
                                                                     {pieza.correlativo !== null && (
                                                                         <span className="text-base-content/50 mr-1">{pieza.correlativo} ·</span>
                                                                     )}
-                                                                    {pieza.qs ?? pieza.qr}
+                                                                    {pieza.qs ?? (pieza.qr.startsWith('SIN QR') ? 'sin QR' : pieza.qr)}
                                                                 </span>
                                                             ))}
                                                         </div>

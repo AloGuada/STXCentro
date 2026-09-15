@@ -337,15 +337,42 @@ describe('import del layout por QR', function () {
             ->and(Pieza::where('catalogo_id', $catalogo->id)->sole()->marca->descripcion)->toBe('Primera');
     });
 
-    test('el renglon sin QR ni QS se ignora y se reporta', function () {
+    test('el renglon sin QR ni QS carga con un identificador provisional y se avisa', function () {
         $catalogo = Catalogo::factory()->create();
 
         subirLayout($catalogo,
             "QR-01,TG-BAR-1,Con QR,Barandales,1001,1,29.751,1.397,3542,\n".
-            ",TG-BAR-2,Sin nada,Barandales,,1,29.751,1.397,3542,\n"
+            ",TG-BAR-2,Sin nada,Barandales,,1,29.751,1.397,3542,L1\n".
+            ",TG-BAR-2,Sin nada,Barandales,,1,29.751,1.397,3542,L1\n"
         )->assertSessionHasErrors('csv_file');
 
-        expect(Pieza::where('catalogo_id', $catalogo->id)->count())->toBe(1);
+        $marca = Concepto::where('catalogo_id', $catalogo->id)->where('marca', 'TG-BAR-2')->sole();
+
+        expect(Pieza::where('catalogo_id', $catalogo->id)->count())->toBe(3)
+            ->and($marca->cantidad)->toBe(2)
+            ->and($marca->piezas()->orderBy('qr')->pluck('qr')->all())->toBe(['SIN QR #1 TG-BAR-2 L1', 'SIN QR #2 TG-BAR-2 L1'])
+            ->and($marca->piezas()->first()->sinQr())->toBeTrue()
+            ->and($marca->piezas()->first()->etiqueta())->toBe('TG-BAR-2 · L1 · sin QR');
+    });
+
+    test('recargar el mismo layout sin QR no duplica, y recargarlo con QR reemplaza el provisional', function () {
+        $catalogo = Catalogo::factory()->create();
+        $sinQr = ",TG-BAR-2,Sin nada,Barandales,,1,29.751,1.397,3542,L1\n";
+
+        subirLayout($catalogo, $sinQr);
+        subirLayout($catalogo, $sinQr);
+
+        $marca = Concepto::where('catalogo_id', $catalogo->id)->sole();
+
+        expect($marca->piezas()->count())->toBe(1)
+            ->and($marca->fresh()->cantidad)->toBe(1);
+
+        subirLayout($catalogo, "QR-77,TG-BAR-2,Sin nada,Barandales,,1,29.751,1.397,3542,L1\n")
+            ->assertSessionHas('success');
+
+        expect($marca->piezas()->where('activo', true)->pluck('qr')->all())->toBe(['QR-77'])
+            ->and($marca->piezas()->where('activo', false)->pluck('qr')->all())->toBe(['SIN QR #1 TG-BAR-2 L1'])
+            ->and($marca->fresh()->cantidad)->toBe(1);
     });
 
     test('la pieza carga aunque el renglon no traiga QS', function () {

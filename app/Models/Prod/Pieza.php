@@ -27,6 +27,30 @@ class Pieza extends Model
     protected $table = 'prod_piezas';
 
     /**
+     * Con lo que arranca el QR de una pieza que el layout trajo sin QR ni QS.
+     * Planta no siempre tiene etiquetada la pieza cuando manda el layout, y
+     * el modelo tiene que contarla igual: la cantidad es el conteo de
+     * renglones. El identificador es provisional y determinista (marca, lote
+     * y consecutivo dentro del archivo) para que recargar el mismo layout no
+     * duplique; cuando planta le asigne QR, recargar lo reemplaza.
+     */
+    public const PREFIJO_SIN_QR = 'SIN QR #';
+
+    /** El QR provisional de la pieza `n` de un modelo que vino sin QR. */
+    public static function qrProvisional(string $marca, ?string $lote, int $n): string
+    {
+        $qr = self::PREFIJO_SIN_QR.$n.' '.$marca.($lote === null ? '' : ' '.$lote);
+
+        return mb_strimwidth($qr, 0, 100);
+    }
+
+    /** Si el layout no le puso QR y trae el provisional. */
+    public function sinQr(): bool
+    {
+        return str_starts_with((string) $this->qr, self::PREFIJO_SIN_QR);
+    }
+
+    /**
      * @var list<string>
      */
     protected $fillable = [
@@ -97,7 +121,11 @@ class Pieza extends Model
             ? Concepto::etiquetaDeModelo($this->marca->marca, $this->marca->lote)
             : '';
 
-        $pieza = $this->qs !== null && $this->qs !== '' ? "QS {$this->qs}" : "QR {$this->qr}";
+        $pieza = match (true) {
+            $this->qs !== null && $this->qs !== '' => "QS {$this->qs}",
+            $this->sinQr() => 'sin QR'.($this->correlativo !== null ? " ({$this->correlativo})" : ''),
+            default => "QR {$this->qr}",
+        };
 
         return trim($modelo === '' ? $pieza : "{$modelo} · {$pieza}");
     }
