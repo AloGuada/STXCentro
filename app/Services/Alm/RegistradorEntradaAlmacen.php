@@ -145,14 +145,14 @@ class RegistradorEntradaAlmacen
     }
 
     /**
-     * Un renglón al kardex. Null cuando no hay nada que mover: sin producto (un
-     * flete, una partida vieja sin catálogo) o un producto que no lleva kardex.
+     * Un renglón al kardex. Null cuando no hay nada que mover: la partida no
+     * tiene producto (un flete, una partida vieja sin catálogo).
      */
     private function asentar(Entrega $entrega, EntregaDetalle $detalle, float $pesosPorUnidad, ?string $userId): ?Movimiento
     {
         $productoId = $this->productoDe($detalle);
 
-        if ($productoId === null || ! $this->llevaKardex($productoId)) {
+        if ($productoId === null) {
             return null;
         }
 
@@ -305,13 +305,5 @@ class RegistradorEntradaAlmacen
         return Movimiento::query()
             ->where('documento_type', $entrega->getMorphClass())
             ->where('documento_id', $entrega->getKey());
-    }
-
-    private function llevaKardex(int $productoId): bool
-    {
-        return Producto::query()
-            ->whereKey($productoId)
-            ->where('controla_inventario', true)
-            ->exists();
     }
 }

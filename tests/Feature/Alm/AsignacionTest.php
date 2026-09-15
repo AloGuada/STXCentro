@@ -33,7 +33,7 @@ function escenarioAsignacion(): array
     return [
         app(AlmacenLedger::class),
         Almacen::factory()->create(),
-        Producto::factory()->create(['controla_inventario' => true]),
+        Producto::factory()->create(),
     ];
 }
 
@@ -47,7 +47,7 @@ describe('la recepción reparte el material', function () {
         $obra = Obra::factory()->create();
         $rubro = ObraRubro::factory()->create(['obra_id' => $obra->id]);
         $almacen = Almacen::factory()->create();
-        $producto = Producto::factory()->create(['controla_inventario' => true]);
+        $producto = Producto::factory()->create();
 
         $orden = OrdenCompra::factory()->create();
         $partida = OrdenCompraDetalle::factory()->create([
@@ -95,7 +95,7 @@ describe('la recepción reparte el material', function () {
         $obra = Obra::factory()->create();
         $rubro = ObraRubro::factory()->create(['obra_id' => $obra->id]);
         $almacen = Almacen::factory()->create();
-        $producto = Producto::factory()->create(['controla_inventario' => true]);
+        $producto = Producto::factory()->create();
 
         $orden = OrdenCompra::factory()->create();
         $partida = OrdenCompraDetalle::factory()->create([

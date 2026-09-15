@@ -18,7 +18,7 @@ describe('la puerta entre las dos fases', function () {
         ]);
 
         $this->artisan('alm:verificar-articulos')
-            ->expectsOutputToContain('Las siete cuadran')
+            ->expectsOutputToContain('Las trece cuadran')
             ->assertSuccessful();
     });
 
@@ -93,17 +93,18 @@ describe('la puerta entre las dos fases', function () {
         ]);
 
         $this->artisan('alm:verificar-articulos')
-            ->expectsOutputToContain('Las siete cuadran')
+            ->expectsOutputToContain('Las trece cuadran')
             ->assertSuccessful();
     });
 
-    test('un artículo sin ligar no es un problema, sólo se informa', function () {
+    test('un artículo sin producto no es un problema', function () {
         // Material real que todavía no tiene identidad de compra: es el estado
-        // normal de lo que abre un almacén.
+        // normal de lo que abre un almacén. Lo que sí se caza es lo contrario,
+        // un producto sin artículo, porque todo lleva kardex.
         Articulo::factory()->sinLigar()->create();
 
         $this->artisan('alm:verificar-articulos')
-            ->expectsOutputToContain('esperando emparejarse')
+            ->expectsOutputToContain('Las trece cuadran')
             ->assertSuccessful();
     });
 });

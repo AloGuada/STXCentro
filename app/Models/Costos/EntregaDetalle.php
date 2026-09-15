@@ -3,6 +3,7 @@
 namespace App\Models\Costos;
 
 use App\Enums\Costos\DevolucionEstatus;
+use App\Models\Concerns\LlenaLlavesDeItem;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -13,7 +14,15 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  */
 class EntregaDetalle extends Model
 {
-    use HasFactory;
+    use HasFactory, LlenaLlavesDeItem;
+
+    /**
+     * @return list<string>
+     */
+    protected static function llavesLegado(): array
+    {
+        return ['producto_id'];
+    }
 
     protected $table = 'costos_entrega_detalle';
 
@@ -23,6 +32,7 @@ class EntregaDetalle extends Model
     protected $fillable = [
         'entrega_id',
         'orden_compra_detalle_id',
+        'item_id',
         'producto_id',
         'descripcion',
         'unidad',

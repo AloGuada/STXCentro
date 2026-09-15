@@ -3,7 +3,7 @@
 namespace App\Models\Alm;
 
 use App\Enums\Alm\ActivoEstatus;
-use App\Models\Alm\Concerns\LlenaArticuloId;
+use App\Models\Concerns\LlenaLlavesDeItem;
 use App\Models\Costos\Producto;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -22,7 +22,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  */
 class Activo extends Model
 {
-    use HasFactory, LlenaArticuloId;
+    use HasFactory, LlenaLlavesDeItem;
 
     protected $table = 'alm_activos';
 
@@ -30,6 +30,7 @@ class Activo extends Model
      * @var list<string>
      */
     protected $fillable = [
+        'item_id',
         'producto_id',
         'articulo_id',
         'no_serie',

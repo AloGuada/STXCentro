@@ -321,11 +321,9 @@ describe('el articulo se valida contra el catalogo de Almacen', function () {
         $articulo = Articulo::factory()->create(['producto_id' => null]);
 
         // Los dos catalogos numeran por su cuenta, asi que el id de un articulo
-        // cae sobre un producto ajeno. Cuando ese vecino no controlaba
-        // inventario, la validacion rechazaba un articulo que si existe.
+        // cae sobre un producto ajeno. La validacion no debe confundirlos.
         Producto::factory()->create([
             'id' => $articulo->id,
-            'controla_inventario' => false,
         ]);
 
         $this->actingAs(usuarioDeAjustes())

@@ -2,6 +2,7 @@
 
 namespace App\Models\Alm;
 
+use App\Models\Concerns\LlenaLlavesDeItem;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -12,6 +13,16 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  */
 class ConteoDetalle extends Model
 {
+    use LlenaLlavesDeItem;
+
+    /**
+     * @return list<string>
+     */
+    protected static function llavesLegado(): array
+    {
+        return ['articulo_id'];
+    }
+
     protected $table = 'alm_conteo_detalle';
 
     /**
@@ -19,6 +30,7 @@ class ConteoDetalle extends Model
      */
     protected $fillable = [
         'conteo_id',
+        'item_id',
         'articulo_id',
         'existencia_id',
         'orden',

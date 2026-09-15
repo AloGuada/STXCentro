@@ -186,12 +186,9 @@ class AlmacenLedger
     }
 
     /**
-     * Puerta normal: bloquea (o crea) la fila almacén+producto y registra.
-     *
-     * Devuelve `null` —sin excepción y sin fila— cuando el artículo no lleva
-     * kardex. Es lo que permite pasarle una recepción completa sin que cada
-     * llamador tenga que filtrar fletes, maniobras y lo que Compras tecleó al
-     * vuelo sin código.
+     * Puerta por producto: bloquea (o crea) la fila almacén+artículo del
+     * producto y registra. Todo producto lleva kardex; si nunca pisó una
+     * bodega, aquí nace su artículo.
      */
     public function registrarPorProducto(
         int $almacenId,
@@ -209,11 +206,7 @@ class AlmacenLedger
         bool $esReverso = false,
         ?int $obraId = null,
         bool $permitirAjena = false,
-    ): ?Movimiento {
-        if (! $this->llevaKardex($productoId)) {
-            return null;
-        }
-
+    ): Movimiento {
         return DB::transaction(fn (): Movimiento => $this->registrar(
             $this->bloquear($almacenId, $productoId),
             $tipo,
@@ -509,19 +502,6 @@ class AlmacenLedger
         }
 
         return [$costoAplicado, $valorDespues, $promedioDespues];
-    }
-
-    /**
-     * El artículo mueve existencia. Fletes, maniobras y servicios se compran
-     * pero no se almacenan, y lo que Compras tecleó sin código queda fuera hasta
-     * que Almacén lo clasifique.
-     */
-    private function llevaKardex(int $productoId): bool
-    {
-        return Producto::query()
-            ->whereKey($productoId)
-            ->where('controla_inventario', true)
-            ->exists();
     }
 
     private function validarSigno(MovimientoTipo $tipo, float $cantidad, bool $esReverso): void

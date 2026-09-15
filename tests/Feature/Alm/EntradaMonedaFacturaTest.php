@@ -32,7 +32,7 @@ beforeEach(function () {
     $this->almacenista->givePermissionTo('alm.entradas.crear');
 
     $this->almacen = Almacen::factory()->create(['responsable_id' => $this->almacenista->id]);
-    $this->producto = Producto::factory()->create(['controla_inventario' => true]);
+    $this->producto = Producto::factory()->create();
 
     $this->ordenEn = function (string $moneda, float $tipoCambio = 1): OrdenCompra {
         $orden = OrdenCompra::factory()->pendienteEntrega()->create([

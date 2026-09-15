@@ -56,7 +56,6 @@ class Producto extends Model
         'area_id',
         'unidad',
         'tipo',
-        'controla_inventario',
         'se_controla_por_pieza',
         'requiere_verificacion',
         'stock_minimo',
@@ -74,31 +73,11 @@ class Producto extends Model
         return [
             'activo' => 'boolean',
             'tipo' => ProductoTipo::class,
-            'controla_inventario' => 'boolean',
             'se_controla_por_pieza' => 'boolean',
             'requiere_verificacion' => 'boolean',
             'stock_minimo' => 'decimal:3',
             'clasificacion_abc' => ClasificacionAbc::class,
         ];
-    }
-
-    /**
-     * Los que no llevan kardex se saltan el ledger sin error: se compran y se
-     * reciben, pero no hay nada que almacenar (fletes, maniobras, servicios).
-     */
-    public function scopeDeInventario(Builder $query): Builder
-    {
-        return $query->where('controla_inventario', true);
-    }
-
-    /**
-     * Lo que Compras tecleó al vuelo y nadie ha clasificado: sin código y fuera
-     * del inventario. Es la bandeja de entrada de la pantalla de Artículos —
-     * mientras estén aquí, comprarlos no mueve existencia.
-     */
-    public function scopeSinClasificar(Builder $query): Builder
-    {
-        return $query->whereNull('codigo')->where('controla_inventario', false);
     }
 
     /**

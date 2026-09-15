@@ -2,6 +2,7 @@
 
 namespace App\Models\Costos;
 
+use App\Models\Concerns\LlenaLlavesDeItem;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -12,7 +13,15 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  */
 class RequisicionDetalle extends Model
 {
-    use HasFactory;
+    use HasFactory, LlenaLlavesDeItem;
+
+    /**
+     * @return list<string>
+     */
+    protected static function llavesLegado(): array
+    {
+        return ['producto_id'];
+    }
 
     protected $table = 'costos_requisicion_detalle';
 
@@ -21,6 +30,7 @@ class RequisicionDetalle extends Model
      */
     protected $fillable = [
         'requisicion_id',
+        'item_id',
         'producto_id',
         'obra_rubro_id',
         'uso_cfdi_id',

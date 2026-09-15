@@ -7,7 +7,6 @@ use App\Enums\Alm\TransferenciaEstatus;
 use App\Models\Alm\Almacen;
 use App\Models\Alm\Pedido;
 use App\Models\Alm\Transferencia;
-use App\Models\Costos\Producto;
 use Illuminate\Support\Facades\DB;
 use RuntimeException;
 
@@ -198,13 +197,5 @@ class RegistradorTransferencia
         if ($pedido !== null) {
             $this->surtido->recalcular($pedido);
         }
-    }
-
-    private function llevaKardex(int $articuloId): bool
-    {
-        return Producto::query()
-            ->whereKey($articuloId)
-            ->where('controla_inventario', true)
-            ->exists();
     }
 }

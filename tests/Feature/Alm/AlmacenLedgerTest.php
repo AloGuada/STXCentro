@@ -152,28 +152,19 @@ describe('costeo', function () {
 });
 
 describe('reglas del ledger', function () {
-    it('no toca el kardex de lo que no controla inventario', function () {
+    it('abre el articulo y la existencia de un producto que nunca piso bodega', function () {
         [$ledger, $almacen] = escenarioLedger();
-        $flete = Producto::factory()->sinInventario()->create();
+        $nuevo = Producto::factory()->create(['codigo' => null]);
 
+        // Todo lleva kardex: no hay bandera que consultar ni null que devolver.
         $movimiento = $ledger->registrarPorProducto(
-            $almacen->id, $flete->id, MovimientoTipo::Entrada, 1, 8500
+            $almacen->id, $nuevo->id, MovimientoTipo::Entrada, 5, 100
         );
 
-        // Devuelve null en vez de reventar: quien recibe una orden completa no
-        // tiene por qué filtrar los servicios renglón por renglón.
-        expect($movimiento)->toBeNull()
-            ->and(Existencia::count())->toBe(0)
-            ->and(Movimiento::count())->toBe(0);
-    });
-
-    it('tampoco toca el de lo que Compras tecleo sin codigo', function () {
-        [$ledger, $almacen] = escenarioLedger();
-        $sinClasificar = Producto::factory()->sinClasificar()->create();
-
-        expect($ledger->registrarPorProducto(
-            $almacen->id, $sinClasificar->id, MovimientoTipo::Entrada, 5, 100
-        ))->toBeNull();
+        expect($movimiento)->toBeInstanceOf(Movimiento::class)
+            ->and($movimiento->item_id)->toBe($nuevo->item_id)
+            ->and(Existencia::count())->toBe(1)
+            ->and(Existencia::first()->item_id)->toBe($nuevo->item_id);
     });
 
     it('rechaza una salida capturada en positivo', function () {

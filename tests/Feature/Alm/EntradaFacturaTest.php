@@ -31,7 +31,7 @@ beforeEach(function () {
     $this->almacenista->givePermissionTo('alm.entradas.crear');
 
     $this->almacen = Almacen::factory()->create(['responsable_id' => $this->almacenista->id]);
-    $this->producto = Producto::factory()->create(['controla_inventario' => true]);
+    $this->producto = Producto::factory()->create();
 
     // 100 × 45 = 4,500 + 16% = 5,220. El total con impuestos es el que da el
     // saldo facturable de la orden.

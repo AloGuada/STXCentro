@@ -6,7 +6,6 @@ use App\Enums\Alm\MovimientoTipo;
 use App\Models\Alm\Movimiento;
 use App\Models\Alm\Pedido;
 use App\Models\Alm\Salida;
-use App\Models\Costos\Producto;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 
@@ -141,13 +140,5 @@ class RegistradorSalida
         if ($pedido !== null) {
             $this->surtido->recalcular($pedido);
         }
-    }
-
-    private function llevaKardex(int $articuloId): bool
-    {
-        return Producto::query()
-            ->whereKey($articuloId)
-            ->where('controla_inventario', true)
-            ->exists();
     }
 }

@@ -2,7 +2,7 @@
 
 namespace App\Models\Alm;
 
-use App\Models\Alm\Concerns\LlenaArticuloId;
+use App\Models\Concerns\LlenaLlavesDeItem;
 use App\Models\Costos\Producto;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -26,7 +26,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  */
 class Existencia extends Model
 {
-    use HasFactory, LlenaArticuloId;
+    use HasFactory, LlenaLlavesDeItem;
 
     protected $table = 'alm_existencias';
 
@@ -38,6 +38,7 @@ class Existencia extends Model
      */
     protected $fillable = [
         'almacen_id',
+        'item_id',
         'producto_id',
         'articulo_id',
         'ubicacion_id',

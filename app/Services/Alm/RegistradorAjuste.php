@@ -43,21 +43,16 @@ class RegistradorAjuste
                     ? (float) $renglon['costo_unitario']
                     : null;
 
-                // Por artículo no se pregunta nada: tener renglón en el catálogo
-                // de Almacén es llevar kardex. Por producto sí, y se pregunta
-                // antes de bloquear porque `bloquear()` crea la fila si no
-                // existe, y algo sin kardex no debe estrenar existencia sólo
-                // porque alguien lo metió en la hoja.
-                $llevaKardex = $articuloId !== null || $this->llevaKardex($productoId);
-
+                // Todo lleva kardex: el renglón viene por artículo o por
+                // producto, y cualquiera de los dos abre (o crea) la existencia.
                 $existencia = match (true) {
                     $articuloId !== null => $this->ledger->bloquearPorArticulo($ajuste->almacen_id, $articuloId),
-                    $llevaKardex => $this->ledger->bloquear($ajuste->almacen_id, $productoId),
+                    $productoId !== null => $this->ledger->bloquear($ajuste->almacen_id, $productoId),
                     default => null,
                 };
 
                 $sistema = $existencia === null ? 0.0 : (float) $existencia->cantidad;
-                $diferencia = $llevaKardex ? $contada - $sistema : 0.0;
+                $diferencia = $existencia === null ? 0.0 : $contada - $sistema;
 
                 $ajuste->detalles()->create([
                     'articulo_id' => $articuloId,
@@ -96,17 +91,5 @@ class RegistradorAjuste
 
             return $ajuste;
         });
-    }
-
-    private function llevaKardex(?int $productoId): bool
-    {
-        if ($productoId === null) {
-            return false;
-        }
-
-        return Producto::query()
-            ->whereKey($productoId)
-            ->where('controla_inventario', true)
-            ->exists();
     }
 }

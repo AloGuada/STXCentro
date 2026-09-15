@@ -26,7 +26,7 @@ beforeEach(function () {
     $this->almacenista->givePermissionTo(['alm.asignaciones.reasignar', 'alm.almacenes.ver-todos']);
 
     $this->almacen = Almacen::factory()->create();
-    $this->producto = Producto::factory()->create(['controla_inventario' => true]);
+    $this->producto = Producto::factory()->create();
     $this->obra = Obra::factory()->create();
 });
 

@@ -29,7 +29,7 @@ beforeEach(function () {
 
     $this->almacen = Almacen::factory()->create(['responsable_id' => $this->almacenista->id]);
 
-    $this->producto = Producto::factory()->create(['controla_inventario' => true]);
+    $this->producto = Producto::factory()->create();
 
     // Total explícito: la recepción compara la factura contra lo que entra, y el
     // saldo facturable de la orden tiene que dar para ello (100 × 45 + 16%).

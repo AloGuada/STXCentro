@@ -24,21 +24,6 @@ class ProductoFactory extends Factory
         ];
     }
 
-    /** Un servicio o un gasto: se compra pero no se guarda, así que no lleva kardex. */
-    public function sinInventario(): static
-    {
-        return $this->state(fn (): array => ['controla_inventario' => false]);
-    }
-
-    /** Lo tecleado al vuelo por Compras: sin código, nadie lo ha clasificado. */
-    public function sinClasificar(): static
-    {
-        return $this->state(fn (): array => [
-            'codigo' => null,
-            'controla_inventario' => false,
-        ]);
-    }
-
     /** Lleva número de serie y resguardo por persona: cada pieza se identifica. */
     public function porPieza(): static
     {

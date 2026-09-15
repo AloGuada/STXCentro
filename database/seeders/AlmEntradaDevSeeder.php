@@ -240,7 +240,6 @@ class AlmEntradaDevSeeder extends Seeder
                 [
                     'descripcion' => $descripcion,
                     'unidad' => $unidad,
-                    'controla_inventario' => $inventario,
                     'activo' => true,
                 ],
             );

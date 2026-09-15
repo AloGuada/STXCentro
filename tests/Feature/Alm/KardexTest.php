@@ -264,7 +264,7 @@ describe('existencias', function () {
      */
     it('cada renglon trae de quien es y cuanto queda libre', function () {
         $almacen = Almacen::factory()->create();
-        $producto = Producto::factory()->create(['controla_inventario' => true]);
+        $producto = Producto::factory()->create();
         $unaObra = Obra::factory()->create(['no' => 'OB-100']);
         $otraObra = Obra::factory()->create(['no' => 'OB-200']);
         $ledger = app(AlmacenLedger::class);

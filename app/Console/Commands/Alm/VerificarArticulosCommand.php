@@ -6,12 +6,12 @@ use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 
 /**
- * La puerta entre las dos fases de la mudanza del catálogo.
+ * La puerta entre las fases de la mudanza del catálogo a `items`.
  *
- * Mientras `producto_id` y `articulo_id` convivan en las siete tablas, esto se
- * corre a diario: si algún flujo se quedó sin escribir la columna nueva, sus
- * renglones aparecen aquí y se ve cuál flujo los produjo, en vez de descubrirlo
- * el día que se quite la columna vieja.
+ * Mientras `item_id` conviva con `producto_id` y `articulo_id` en las trece
+ * tablas hijas, esto se corre a diario: si algún flujo se quedó sin escribir la
+ * llave nueva, sus renglones aparecen aquí y se ve cuál flujo los produjo, en
+ * vez de descubrirlo el día que se quiten las viejas.
  *
  * No arregla nada ni escribe nada. Sólo cuenta, y devuelve fallo si algo no
  * cuadra, para que un cron o un deploy puedan colgarse de su código de salida.
@@ -20,19 +20,27 @@ class VerificarArticulosCommand extends Command
 {
     protected $signature = 'alm:verificar-articulos';
 
-    protected $description = 'Comprueba que ningún renglón de Almacén se haya quedado sin artículo mientras conviven las dos columnas';
+    protected $description = 'Comprueba que ningún renglón hijo del catálogo se haya quedado sin item mientras conviven las llaves';
 
     /**
-     * @var list<string>
+     * tabla => llaves viejas que tiene.
+     *
+     * @var array<string, list<string>>
      */
     private const TABLAS = [
-        'alm_existencias',
-        'alm_movimientos',
-        'alm_ajuste_detalle',
-        'alm_pedido_detalle',
-        'alm_salida_detalle',
-        'alm_transferencia_detalle',
-        'alm_activos',
+        'costos_producto_precios' => ['producto_id'],
+        'costos_requisicion_detalle' => ['producto_id'],
+        'costos_ordenes_compra_detalle' => ['producto_id'],
+        'costos_entrega_detalle' => ['producto_id'],
+        'alm_existencias' => ['producto_id', 'articulo_id'],
+        'alm_movimientos' => ['producto_id', 'articulo_id'],
+        'alm_ajuste_detalle' => ['producto_id', 'articulo_id'],
+        'alm_pedido_detalle' => ['producto_id', 'articulo_id'],
+        'alm_salida_detalle' => ['producto_id', 'articulo_id'],
+        'alm_transferencia_detalle' => ['producto_id', 'articulo_id'],
+        'alm_activos' => ['producto_id', 'articulo_id'],
+        'alm_conteo_detalle' => ['articulo_id'],
+        'alm_prestamo_detalle' => ['articulo_id'],
     ];
 
     public function handle(): int
@@ -40,51 +48,54 @@ class VerificarArticulosCommand extends Command
         $filas = [];
         $problemas = 0;
 
-        foreach (self::TABLAS as $tabla) {
-            $sinLigar = DB::table($tabla)->whereNotNull('producto_id')->whereNull('articulo_id')->count();
+        foreach (self::TABLAS as $tabla => $llaves) {
+            $total = DB::table($tabla)->count();
+            $sinItem = DB::table($tabla)->whereNull('item_id')->count();
 
-            // El uno a uno se mide **solo entre los renglones que tienen
-            // producto**. Los demas son material sin identidad de compra, y
-            // compararlos contra un producto que no existe daria siempre
-            // desigual: en un almacen recien abierto, todos.
-            $conProducto = DB::table($tabla)->whereNotNull('producto_id');
-            $productos = (clone $conProducto)->distinct()->count('producto_id');
-            $articulos = (clone $conProducto)->whereNotNull('articulo_id')->distinct()->count('articulo_id');
+            // Un renglón con alguna llave vieja y sin item es un flujo que no
+            // pasó por el trait. Un renglón sin ninguna llave (una partida de
+            // flete) es legítimo.
+            $conLlaveVieja = DB::table($tabla)->where(function ($q) use ($llaves): void {
+                foreach ($llaves as $llave) {
+                    $q->orWhereNotNull($llave);
+                }
+            });
+            $huerfanos = (clone $conLlaveVieja)->whereNull('item_id')->count();
 
-            $cuadra = $sinLigar === 0 && $productos === $articulos;
+            // Y al revés: el item tiene que coincidir con el de la cara.
+            $desacuerdos = 0;
+            foreach ($llaves as $llave) {
+                $cara = $llave === 'articulo_id' ? 'alm_articulos' : 'costos_productos';
+                $desacuerdos += DB::table("{$tabla} as h")
+                    ->join("{$cara} as c", 'c.id', '=', "h.{$llave}")
+                    ->whereColumn('c.item_id', '<>', 'h.item_id')
+                    ->count();
+            }
+
+            $cuadra = $huerfanos === 0 && $desacuerdos === 0;
             $problemas += $cuadra ? 0 : 1;
 
-            $filas[] = [
-                $tabla,
-                DB::table($tabla)->count(),
-                DB::table($tabla)->whereNull('producto_id')->count(),
-                $sinLigar,
-                $productos,
-                $articulos,
-                $cuadra ? 'ok' : 'REVISAR',
-            ];
+            $filas[] = [$tabla, $total, $sinItem, $huerfanos, $desacuerdos, $cuadra ? 'ok' : 'REVISAR'];
         }
 
-        $this->table(
-            ['Tabla', 'Renglones', 'Sueltos', 'Sin ligar', 'Productos', 'Artículos', ''],
-            $filas,
-        );
+        $this->table(['Tabla', 'Renglones', 'Sin item', 'Con llave vieja y sin item', 'Item distinto al de la cara', ''], $filas);
+
+        $sinArticulo = DB::table('costos_productos as p')
+            ->whereNotExists(fn ($q) => $q->selectRaw('1')->from('alm_articulos as a')->whereColumn('a.item_id', 'p.item_id'))
+            ->count();
+
+        if ($sinArticulo > 0) {
+            $problemas++;
+            $this->error("{$sinArticulo} producto(s) sin artículo: todo item debe tener sus dos caras.");
+        }
 
         if ($problemas > 0) {
-            $this->error("{$problemas} tabla(s) no cuadran. No se puede quitar producto_id todavía.");
+            $this->error("{$problemas} cosa(s) no cuadran. No se pueden quitar las llaves viejas todavía.");
 
             return self::FAILURE;
         }
 
-        $sueltos = DB::table('alm_articulos')->whereNull('producto_id')->count();
-
-        $this->info('Las siete cuadran: ningún renglón se quedó sin artículo.');
-
-        if ($sueltos > 0) {
-            // No es un problema: es material real sin identidad de compra
-            // todavía. Se informa porque es la bandeja de la pantalla de ligado.
-            $this->line("  {$sueltos} artículo(s) sin ligar a un producto de Compras, esperando emparejarse.");
-        }
+        $this->info('Las trece cuadran: ningún renglón se quedó sin item y todo producto tiene artículo.');
 
         return self::SUCCESS;
     }

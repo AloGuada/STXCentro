@@ -254,11 +254,16 @@ class PedidoController extends Controller
      */
     private function productos(): Collection
     {
+        // `requiere_verificacion` es dato de bodega: se lee del artículo, no
+        // de la copia que el producto arrastra.
         return Producto::query()
-            ->deInventario()
-            ->where('activo', true)
-            ->orderBy('descripcion')
-            ->get(['id', 'codigo', 'descripcion', 'unidad', 'requiere_verificacion']);
+            ->leftJoin('alm_articulos as a', 'a.item_id', '=', 'costos_productos.item_id')
+            ->where('costos_productos.activo', true)
+            ->orderBy('costos_productos.descripcion')
+            ->get([
+                'costos_productos.id', 'costos_productos.codigo', 'costos_productos.descripcion', 'costos_productos.unidad',
+                DB::raw('COALESCE(a.requiere_verificacion, costos_productos.requiere_verificacion) as requiere_verificacion'),
+            ]);
     }
 
     /**

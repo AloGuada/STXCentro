@@ -2,6 +2,7 @@
 
 namespace App\Models\Alm;
 
+use App\Models\Concerns\LlenaLlavesDeItem;
 use App\Models\Usuario;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -13,6 +14,16 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  */
 class PrestamoDetalle extends Model
 {
+    use LlenaLlavesDeItem;
+
+    /**
+     * @return list<string>
+     */
+    protected static function llavesLegado(): array
+    {
+        return ['articulo_id'];
+    }
+
     protected $table = 'alm_prestamo_detalle';
 
     /**
@@ -20,6 +31,7 @@ class PrestamoDetalle extends Model
      */
     protected $fillable = [
         'prestamo_id',
+        'item_id',
         'articulo_id',
         'activo_id',
         'pedido_detalle_id',

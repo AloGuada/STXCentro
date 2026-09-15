@@ -120,7 +120,7 @@ class EntradaController extends Controller
         $orden = OrdenCompra::query()
             ->with([
                 'proveedor:id,razon_social,nombre_comercial',
-                'detalles.producto:id,codigo,controla_inventario',
+                'detalles.producto:id,codigo',
                 'facturas:id,orden_compra_id,folio,folio_fiscal,total,estatus',
             ])
             ->findOrFail($ordenCompraId);
@@ -151,9 +151,9 @@ class EntradaController extends Controller
                 'recibido' => (float) ($recibido[$partida->id] ?? 0),
                 'pendiente' => round((float) $partida->cantidad - (float) ($recibido[$partida->id] ?? 0), 4),
                 'precio_unitario' => (float) $partida->precio_unitario,
-                // Lo que no lleva kardex se recibe igual —destraba la factura—
-                // pero no mueve existencia, y la pantalla lo avisa.
-                'mueve_kardex' => $partida->producto?->controla_inventario ?? false,
+                // Una partida sin producto (un flete) se recibe igual —destraba
+                // la factura— pero no mueve existencia, y la pantalla lo avisa.
+                'mueve_kardex' => $partida->producto_id !== null,
             ])->values()->all(),
             'facturas' => $orden->facturas
                 ->where('estatus', FacturaEstatus::PendienteRecepcion)
@@ -364,10 +364,9 @@ class EntradaController extends Controller
                 'cantidad' => (float) $d->cantidad_recibida,
                 'precio_unitario' => (float) $d->precio_unitario_efectivo,
                 'importe' => (float) $d->cantidad_recibida * (float) $d->precio_unitario_efectivo,
-                // Lo que se recibió pero no movió existencia: sin artículo, o un
-                // servicio, o algo que Compras tecleó sin código. La pantalla lo
-                // avisa o el material entra sin quedar en el kardex.
-                'mueve_kardex' => $d->producto?->controla_inventario ?? false,
+                // Lo que se recibió pero no movió existencia: una partida sin
+                // producto (un flete). La pantalla lo avisa.
+                'mueve_kardex' => ($d->producto_id ?? $d->ordenCompraDetalle?->producto_id) !== null,
                 'observaciones' => $d->observaciones,
             ])->all(),
         ]);
