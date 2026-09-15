@@ -34,6 +34,7 @@ class Pieza extends Model
         'concepto_id',
         'qr',
         'qs',
+        'correlativo',
         'pieza_origen_id',
         'activo',
     ];

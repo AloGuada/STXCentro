@@ -727,6 +727,8 @@ export type ProdPieza = {
     concepto_id: number;
     qr: string;
     qs: string | null;
+    /** La numeración de planta según el QR; las piezas viejas no lo traen. */
+    correlativo: number | null;
     pieza_origen_id: number | null;
     activo: boolean;
     marca?: Concepto;

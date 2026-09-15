@@ -175,12 +175,13 @@ describe('admin conceptos', function () {
 
 describe('import del layout por QR', function () {
     /**
-     * Layout vigente: un renglon por pieza, repitiendo marca y lote tantas veces
-     * como piezas tenga el modelo. El encabezado va con espacios a proposito
-     * ("PESO KG"), que es como lo manda planta.
+     * Un renglon por pieza, repitiendo marca y lote tantas veces como piezas
+     * tenga el modelo. El encabezado va con espacios a proposito ("PESO KG"),
+     * que es como lo manda planta.
      *
-     * Columnas: QR, MARCA, DESCRIPCION, CATEGORIA, QS, CANTIDAD, PESO KG, AREA,
-     * LONGITUD MM, LOTE.
+     * El encabezado por defecto es el layout anterior (con CATEGORIA y QS), que
+     * sigue cargando: es la retrocompatibilidad que se prueba aqui. El vigente
+     * esta en layoutVigente(), mas abajo.
      */
     function subirLayout(Catalogo $catalogo, string $filas, string $encabezado = 'QR,MARCA,DESCRIPCION,CATEGORIA,QS,CANTIDAD,PESO KG,AREA,LONGITUD MM,LOTE')
     {
@@ -438,17 +439,69 @@ describe('import del layout por QR', function () {
     test('avisa cuando el encabezado trae dos columnas pegadas en una', function () {
         $catalogo = Catalogo::factory()->create();
 
-        // Exportación mal armada: CATEGORIA y QS quedaron en la misma celda, así
-        // que el archivo trae una columna menos y esos datos se pierden.
+        // Exportación mal armada: PESO KG y AREA quedaron en la misma celda, así
+        // que el archivo trae una columna menos y esos datos se leen corridos.
         subirLayout($catalogo,
-            "QR-01,TG-BAR-1,OC-BAR,Barandales,1,29.751,1.397,3542,1\n",
-            'QR,MARCA,DESCRIPCION,CATEGORIA QS,CANTIDAD,PESO KG,AREA,LONGITUD MM,LOTE',
+            "QR-01,TG-BAR-1,OC-BAR,Barandales,1,1,29.751,3542,1\n",
+            'QR,MARCA,DESCRIPCION,CATEGORIA QS,CORRELATIVO,CANTIDAD,PESO KG AREA,LONGITUD MM,LOTE',
         )->assertSessionHasErrors('csv_file');
+
+        expect(session('errors')->first('csv_file'))->toContain('PESOKGAREA');
+    });
+
+    /**
+     * Layout vigente desde 2026-09-15: CATEGORIA pasa a llamarse CATEGORIA QS
+     * (sigue siendo texto), el QS se va y entra CORRELATIVO, la numeración de
+     * planta según el QR. Lo demás no cambia.
+     */
+    function layoutVigente(): string
+    {
+        return 'QR,MARCA,DESCRIPCION,CATEGORIA QS,CORRELATIVO,CANTIDAD,PESO KG,AREA,LONGITUD MM,LOTE';
+    }
+
+    test('el layout vigente lee CATEGORIA QS como categoria y guarda el correlativo', function () {
+        $catalogo = Catalogo::factory()->create();
+
+        subirLayout($catalogo,
+            "QR-01,TG-BAR-1,OC-BAR,Barandales QS,1,2,29.751,1.397,3542.177,L1\n".
+            "QR-02,TG-BAR-1,OC-BAR,Barandales QS,2,2,29.751,1.397,3542.177,L1\n",
+            layoutVigente(),
+        )->assertSessionHas('success')->assertSessionMissing('errors');
 
         $marca = Concepto::where('catalogo_id', $catalogo->id)->sole();
 
-        expect(session('errors')->first('csv_file'))->toContain('CATEGORIAQS')
-            ->and($marca->piezas()->sole()->qs)->toBeNull();
+        expect($marca->categoria?->nombre)->toBe('Barandales QS')
+            ->and($marca->lote)->toBe('L1')
+            ->and($marca->cantidad)->toBe(2)
+            ->and($marca->piezas()->orderBy('correlativo')->pluck('correlativo', 'qr')->all())->toBe(['QR-01' => 1, 'QR-02' => 2])
+            ->and($marca->piezas()->whereNotNull('qs')->count())->toBe(0);
+    });
+
+    test('recargar con el layout vigente actualiza la pieza vieja por su QR sin perder el QS', function () {
+        $catalogo = Catalogo::factory()->create();
+
+        subirLayout($catalogo, "QR-01,TG-BAR-1,OC-BAR,Barandales,1001,1,29.751,1.397,3542.177,L1\n");
+        subirLayout($catalogo, "QR-01,TG-BAR-1,OC-BAR,Barandales QS,7,1,29.751,1.397,3542.177,L1\n", layoutVigente())
+            ->assertSessionHas('success');
+
+        $marca = Concepto::where('catalogo_id', $catalogo->id)->sole();
+        $pieza = $marca->piezas()->sole();
+
+        expect($marca->categoria?->nombre)->toBe('Barandales QS')
+            ->and($pieza->correlativo)->toBe(7)
+            ->and($pieza->qs)->toBe('1001');
+    });
+
+    test('un correlativo vacio o no numerico queda en null', function () {
+        $catalogo = Catalogo::factory()->create();
+
+        subirLayout($catalogo,
+            "QR-01,TG-BAR-1,OC-BAR,Barandales QS,,2,29.751,1.397,3542.177,L1\n".
+            "QR-02,TG-BAR-1,OC-BAR,Barandales QS,n/a,2,29.751,1.397,3542.177,L1\n",
+            layoutVigente(),
+        )->assertSessionHas('success');
+
+        expect(Pieza::where('catalogo_id', $catalogo->id)->whereNull('correlativo')->count())->toBe(2);
     });
 
     /**

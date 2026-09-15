@@ -64,7 +64,7 @@ class ConceptoController extends Controller
         $concepto->load([
             'catalogo.obra:id,no,descripcion',
             'grupoPrecioConceptos.grupoPrecio',
-            'piezas' => fn ($q) => $q->orderBy('qs'),
+            'piezas' => fn ($q) => $q->orderBy('correlativo')->orderBy('qr'),
         ]);
 
         return Inertia::render('admin/prod/conceptos/edit', [
@@ -137,8 +137,9 @@ class ConceptoController extends Controller
     {
         $piezas = $concepto->piezas()
             ->where('activo', true)
+            ->orderBy('correlativo')
             ->orderBy('qr')
-            ->get(['id', 'catalogo_id', 'concepto_id', 'qr', 'qs']);
+            ->get(['id', 'catalogo_id', 'concepto_id', 'qr', 'qs', 'correlativo']);
 
         $procesoIds = Proceso::activos()->pluck('id')->all();
 
@@ -161,6 +162,7 @@ class ConceptoController extends Controller
                 'id' => $pieza->id,
                 'qr' => $pieza->qr,
                 'qs' => $pieza->qs,
+                'correlativo' => $pieza->correlativo,
                 'avance' => $pieza->avance,
                 'avance_subprocesos' => $pieza->avance_subprocesos,
             ])->values(),

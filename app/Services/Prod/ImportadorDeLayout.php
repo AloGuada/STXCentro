@@ -95,6 +95,7 @@ class ImportadorDeLayout
                         'marca' => $marca,
                         'qr' => $pieza['qr'],
                         'qs' => $pieza['qs'],
+                        'correlativo' => $pieza['correlativo'],
                     ];
                     $piezasEscritas++;
                 }
@@ -207,7 +208,7 @@ class ImportadorDeLayout
      * garantiza que un QR no venga dos veces en el mismo archivo, que Postgres
      * tampoco deja tocar la misma fila dos veces en la misma sentencia.
      *
-     * @param  list<array{marca: Concepto, qr: string, qs: ?string}>  $piezas
+     * @param  list<array{marca: Concepto, qr: string, qs: ?string, correlativo: ?int}>  $piezas
      */
     private function escribirPiezas(Catalogo $catalogo, array $piezas): void
     {
@@ -218,9 +219,19 @@ class ImportadorDeLayout
                     'concepto_id' => (int) $pieza['marca']->id,
                     'qr' => $pieza['qr'],
                     'qs' => $pieza['qs'],
+                    'correlativo' => $pieza['correlativo'],
                 ], $bloque),
                 ['catalogo_id', 'qr'],
-                ['concepto_id', 'qs'],
+                [
+                    'concepto_id',
+                    // Lo que el archivo no trae no borra lo que ya había: el
+                    // layout vigente ya no manda QS y las piezas viejas lo
+                    // conservan, que el CSV de avance todavía empareja por él.
+                    // `excluded` es la fila que venía a insertarse, en
+                    // PostgreSQL y en SQLite por igual.
+                    'qs' => DB::raw('COALESCE(excluded.qs, prod_piezas.qs)'),
+                    'correlativo' => DB::raw('COALESCE(excluded.correlativo, prod_piezas.correlativo)'),
+                ],
             );
         }
     }
@@ -335,7 +346,7 @@ class ImportadorDeLayout
      * Agrupa los renglones del archivo por modelo. Los datos del modelo se toman
      * del primer renglón que lo trae; los siguientes sólo aportan su pieza.
      *
-     * @return array{filas: array<string, array{marca: string, lote: ?string, descripcion: string, categoria: string, cantidad_declarada: int, peso_unitario: float, longitud: int, piezas: list<array{qr: string, qs: ?string}>}>, avisos: list<string>}
+     * @return array{filas: array<string, array{marca: string, lote: ?string, descripcion: string, categoria: string, cantidad_declarada: int, peso_unitario: float, longitud: int, piezas: list<array{qr: string, qs: ?string, correlativo: ?int}>}>, avisos: list<string>}
      */
     private function leer(string $ruta): array
     {
@@ -386,13 +397,16 @@ class ImportadorDeLayout
                 'marca' => $marca,
                 'lote' => $lote,
                 'descripcion' => trim((string) ($data['DESCRIPCION'] ?? $data['DESCRIPCIÓN'] ?? '')),
-                'categoria' => trim((string) ($data['CATEGORIA'] ?? '')),
+                // El layout vigente la llama CATEGORIA QS; es una etiqueta de
+                // texto, no el número de QS. El nombre viejo sigue entrando.
+                'categoria' => trim((string) ($data['CATEGORIAQS'] ?? $data['CATEGORIA'] ?? '')),
                 'cantidad_declarada' => max($cantidad, 1),
                 'peso_unitario' => $peso,
                 'longitud' => (int) round((float) str_replace(',', '', (string) ($data['LONGITUDMM'] ?? '0'))),
                 'piezas' => [],
             ];
 
+            // El layout vigente ya no trae QS; se sigue leyendo por los viejos.
             $qs = trim((string) ($data['QS'] ?? ''));
             // Sin QR se cae al QS, que es como se identificaba antes; así un
             // layout de los viejos sigue cargando sin tocar nada.
@@ -414,7 +428,11 @@ class ImportadorDeLayout
             }
 
             $qrVistos[$qr] = true;
-            $modelos[$clave]['piezas'][] = ['qr' => $qr, 'qs' => $qs === '' ? null : $qs];
+            $modelos[$clave]['piezas'][] = [
+                'qr' => $qr,
+                'qs' => $qs === '' ? null : $qs,
+                'correlativo' => $this->correlativo($data['CORRELATIVO'] ?? null),
+            ];
         }
 
         fclose($handle);
@@ -459,9 +477,20 @@ class ImportadorDeLayout
      * @var list<string>
      */
     private const COLUMNAS = [
-        'QR', 'MARCA', 'DESCRIPCION', 'DESCRIPCIÓN', 'CATEGORIA', 'QS',
-        'CANTIDAD', 'PESOKG', 'AREA', 'LONGITUDMM', 'LOTE', 'ETAPA',
+        'QR', 'MARCA', 'DESCRIPCION', 'DESCRIPCIÓN', 'CATEGORIAQS', 'CORRELATIVO',
+        'CATEGORIA', 'QS', 'CANTIDAD', 'PESOKG', 'AREA', 'LONGITUDMM', 'LOTE', 'ETAPA',
     ];
+
+    /**
+     * La numeración que planta le da a la pieza según su QR. Vacío o no
+     * numérico es «sin correlativo», no cero.
+     */
+    private function correlativo(mixed $valor): ?int
+    {
+        $texto = trim((string) $valor);
+
+        return $texto !== '' && is_numeric($texto) ? (int) round((float) $texto) : null;
+    }
 
     /**
      * Avisa cuando el encabezado trae dos columnas pegadas en una sola celda
@@ -497,7 +526,9 @@ class ImportadorDeLayout
 
     /**
      * Parte un encabezado en las columnas conocidas que lo forman, o devuelve
-     * una sola pieza si no se puede: `CATEGORIAQS` → `[CATEGORIA, QS]`.
+     * una sola pieza si no se puede: `PESOKGAREA` → `[PESOKG, AREA]`.
+     * `CATEGORIAQS` es una columna de verdad y está en la lista antes que
+     * `CATEGORIA`, así que no se lee como dos pegadas.
      *
      * @return list<string>
      */
