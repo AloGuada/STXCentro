@@ -12,6 +12,7 @@ use App\Models\Alm\Existencia;
 use App\Models\Alm\Ubicacion;
 use App\Models\Obra;
 use App\Services\Alm\SaldoEnTransito;
+use App\Support\HoraLocal;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -137,7 +138,7 @@ class ExistenciaController extends Controller
             'valor' => (float) $e->valor,
             'ubicacion_id' => $e->ubicacion_id,
             'ubicacion' => $e->ubicacion?->ruta(),
-            'ultimo_movimiento_at' => $e->ultimo_movimiento_at?->toDateTimeString(),
+            'ultimo_movimiento_at' => HoraLocal::texto($e->ultimo_movimiento_at),
             // Sólo en los renglones por pieza: el mismo saldo, pero sabiendo
             // en qué anda cada una. Cinco pulidoras con tres prestadas no
             // son cinco pulidoras que entregar.

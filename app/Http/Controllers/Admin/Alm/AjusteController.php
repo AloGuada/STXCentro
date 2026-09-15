@@ -11,6 +11,7 @@ use App\Models\Alm\Almacen;
 use App\Models\Alm\Articulo;
 use App\Models\Alm\Existencia;
 use App\Services\Alm\RegistradorAjuste;
+use App\Support\HoraLocal;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -115,7 +116,7 @@ class AjusteController extends Controller
                 'motivo_etiqueta' => $ajuste->motivo->etiqueta(),
                 'observaciones' => $ajuste->observaciones,
                 'autorizo' => $ajuste->autorizador?->name,
-                'creado_en' => $ajuste->created_at?->toDateTimeString(),
+                'creado_en' => HoraLocal::texto($ajuste->created_at),
             ],
             'detalles' => $ajuste->detalles->map(fn (AjusteDetalle $d): array => [
                 'id' => $d->id,

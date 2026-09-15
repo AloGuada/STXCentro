@@ -8,6 +8,7 @@ use App\Models\Alm\Almacen;
 use App\Models\Alm\Articulo;
 use App\Models\Alm\Movimiento;
 use App\Models\Obra;
+use App\Support\HoraLocal;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Inertia\Inertia;
@@ -46,7 +47,7 @@ class KardexController extends Controller
             ->withQueryString()
             ->through(fn (Movimiento $m): array => [
                 'id' => $m->id,
-                'fecha' => $m->created_at?->toDateTimeString(),
+                'fecha' => HoraLocal::texto($m->created_at),
                 'almacen' => $m->almacen?->clave,
                 'codigo' => $m->articulo?->codigo,
                 'descripcion' => $m->articulo?->descripcion,

@@ -14,6 +14,7 @@ use App\Models\Departamento;
 use App\Models\Obra;
 use App\Models\Prod\GrupoTrabajo;
 use App\Services\Alm\RegistradorSalida;
+use App\Support\HoraLocal;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -136,7 +137,7 @@ class SalidaController extends Controller
                 'folio' => $salida->folio,
                 'fecha' => $salida->fecha?->toDateString(),
                 // Cuando se capturo. Es lo que responde "esto se fecho hacia atras?".
-                'registrada_at' => $salida->created_at?->toDateTimeString(),
+                'registrada_at' => HoraLocal::texto($salida->created_at),
                 'almacen' => $salida->almacen?->clave,
                 'almacen_nombre' => $salida->almacen?->nombre,
                 'obra_destino' => $salida->obraDestino === null
@@ -153,7 +154,7 @@ class SalidaController extends Controller
                 'observaciones' => $salida->observaciones,
                 'cancelada' => $salida->estaCancelada(),
                 'motivo_cancelacion' => $salida->motivo_cancelacion,
-                'cancelada_at' => $salida->cancelada_at?->toDateTimeString(),
+                'cancelada_at' => HoraLocal::texto($salida->cancelada_at),
             ],
             'detalles' => $salida->detalles->map(fn (SalidaDetalle $d): array => [
                 'id' => $d->id,

@@ -13,6 +13,7 @@ use App\Models\Obra;
 use App\Models\Prod\GrupoTrabajo;
 use App\Models\Usuario;
 use App\Services\Alm\RegistradorPrestamos;
+use App\Support\HoraLocal;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -170,7 +171,7 @@ class PrestamoController extends Controller
                 'estatus_etiqueta' => $prestamo->estatus->etiqueta(),
                 'autorizo' => $prestamo->autorizador?->name,
                 'entrego' => $prestamo->creador?->name,
-                'cerrado_en' => $prestamo->cerrado_en?->toDateTimeString(),
+                'cerrado_en' => HoraLocal::texto($prestamo->cerrado_en),
                 'observaciones' => $prestamo->observaciones,
                 'pendiente' => $prestamo->pendiente(),
             ],

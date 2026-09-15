@@ -7,6 +7,7 @@ use App\Models\Alm\Concerns\LlenaArticuloId;
 use App\Models\Costos\Producto;
 use App\Models\Obra;
 use App\Models\Usuario;
+use App\Support\HoraLocal;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -182,8 +183,11 @@ class Movimiento extends Model
             ->when($filtros['obra_id'] ?? null, fn (Builder $q, $id) => $id === 'libre'
                 ? $q->whereNull('obra_id')
                 : $q->where('obra_id', $id))
-            ->when($filtros['desde'] ?? null, fn (Builder $q, $d) => $q->whereDate('created_at', '>=', $d))
-            ->when($filtros['hasta'] ?? null, fn (Builder $q, $h) => $q->whereDate('created_at', '<=', $h))
+            // Los días del filtro son de la zona de presentación; la columna
+            // está en UTC. `whereDate` compararía contra el día UTC y dejaría
+            // fuera lo capturado después de las 18:00.
+            ->when($filtros['desde'] ?? null, fn (Builder $q, $d) => $q->where('created_at', '>=', HoraLocal::inicioDelDia($d)))
+            ->when($filtros['hasta'] ?? null, fn (Builder $q, $h) => $q->where('created_at', '<=', HoraLocal::finDelDia($h)))
             ->when(
                 $filtros['referencia'] ?? null,
                 // Sin distinguir mayusculas: los folios se teclean como salga

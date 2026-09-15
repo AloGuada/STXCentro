@@ -16,6 +16,7 @@ use App\Models\Proveedor;
 use App\Services\Alm\RegistradorEntradaAlmacen;
 use App\Services\Costos\FacturaDeLaRecepcion;
 use App\Services\Costos\RegistradorRecepcion;
+use App\Support\HoraLocal;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -332,7 +333,7 @@ class EntradaController extends Controller
                 'folio' => $entrada->folio,
                 'fecha' => $entrada->fecha_entrega?->toDateString(),
                 // Cuando se capturo. Es lo que responde "esto se fecho hacia atras?".
-                'registrada_at' => $entrada->created_at?->toDateTimeString(),
+                'registrada_at' => HoraLocal::texto($entrada->created_at),
                 'almacen' => $entrada->almacen?->clave,
                 'almacen_nombre' => $entrada->almacen?->nombre,
                 'orden_compra_id' => $entrada->orden_compra_id,
