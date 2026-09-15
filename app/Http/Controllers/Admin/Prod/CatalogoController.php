@@ -8,7 +8,6 @@ use App\Http\Requests\Admin\Prod\CatalogoUpdateRequest;
 use App\Http\Requests\Admin\Prod\NuevaVersionCatalogoRequest;
 use App\Models\Obra;
 use App\Models\Prod\Catalogo;
-use App\Models\Prod\Pieza;
 use App\Models\Prod\Proceso;
 use App\Models\Proyecto;
 use App\Services\Prod\AvanceDePiezas;
@@ -95,7 +94,7 @@ class CatalogoController extends Controller
         // desplegarla, contra `prod/marcas/{concepto}/piezas`.
         $marcas = $catalogo->conceptos()
             ->with('categoria')
-            ->withCount('piezas as piezas_count')
+            ->withCount(['piezas as piezas_count' => fn ($q) => $q->where('activo', true)])
             ->when($request->search, fn ($q, $s) => $q->where(fn ($q) => $q->where('marca', 'like', "%{$s}%")
                 ->orWhere('lote', 'like', "%{$s}%")
                 ->orWhere('descripcion', 'like', "%{$s}%")
@@ -109,10 +108,10 @@ class CatalogoController extends Controller
         return Inertia::render('admin/prod/catalogos/show', [
             'catalogo' => $catalogo,
             'marcas' => $marcas,
-            // El avance vive en la pieza: una marca "va al 70%" porque 7 de sus
-            // 10 QR ya se pagaron en ese proceso. Se resume aqui para las marcas
-            // de la pagina, que son las unicas que se pintan.
-            'avancePorMarca' => $this->avancePorMarca($marcas->getCollection(), $procesos, $avance),
+            // Lo pagado se cuenta por modelo: suma todas sus piezas, de todas
+            // las ordenes y versiones, activas o no. El QR cambia con la orden
+            // de trabajo y lo pagado bajo un QR viejo sigue siendo del modelo.
+            'avancePorMarca' => $this->avancePorMarca((int) $catalogo->obra_id, $marcas->getCollection(), $procesos, $avance),
             'totales' => $this->totalesDelCatalogo($catalogo),
             'procesos' => $procesos->values(),
             'procesosDisponibles' => Proceso::activos()->orderBy('orden')->get(),
@@ -126,33 +125,27 @@ class CatalogoController extends Controller
     }
 
     /**
-     * Cuantas piezas de cada marca ya se pagaron en cada proceso.
+     * Cuantas piezas equivalentes de cada modelo ya se pagaron en cada proceso.
      *
-     * Solo se cargan las piezas de las marcas visibles: son 25 marcas, no el
-     * catalogo entero.
+     * Sale del mapa de la obra, que ya suma liquidaciones y registros por
+     * modelo: no hay que cargar piezas.
      *
      * @param  \Illuminate\Support\Collection<int, \App\Models\Concepto>  $marcas
      * @param  \Illuminate\Support\Collection<int, Proceso>  $procesos
      * @return array<int, array<int, float>>
      */
-    private function avancePorMarca($marcas, $procesos, AvanceDePiezas $avance): array
+    private function avancePorMarca(int $obraId, $marcas, $procesos, AvanceDePiezas $avance): array
     {
         if ($marcas->isEmpty()) {
             return [];
         }
 
-        $procesoIds = $procesos->pluck('id')->all();
-
-        $piezas = Pieza::query()
-            ->whereIn('concepto_id', $marcas->pluck('id'))
-            ->get(['id', 'catalogo_id', 'concepto_id', 'qr']);
-
+        $mapa = $avance->mapaDeObra($obraId);
         $resumen = [];
 
-        foreach ($avance->decorar($piezas, $procesoIds) as $pieza) {
-            foreach ($procesoIds as $procesoId) {
-                $resumen[$pieza->concepto_id][$procesoId] =
-                    ($resumen[$pieza->concepto_id][$procesoId] ?? 0) + $pieza->avance[$procesoId]['capturado'];
+        foreach ($marcas as $marca) {
+            foreach ($procesos as $proceso) {
+                $resumen[$marca->id][$proceso->id] = $mapa->capturadoDeModelo($marca->claveModelo(), (int) $proceso->id);
             }
         }
 
@@ -168,7 +161,7 @@ class CatalogoController extends Controller
     private function totalesDelCatalogo(Catalogo $catalogo): array
     {
         $marcas = $catalogo->conceptos()
-            ->withCount('piezas as piezas_count')
+            ->withCount(['piezas as piezas_count' => fn ($q) => $q->where('activo', true)])
             ->get(['id', 'cantidad', 'peso_unitario']);
 
         return [

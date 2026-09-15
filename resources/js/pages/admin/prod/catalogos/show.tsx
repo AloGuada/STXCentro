@@ -25,7 +25,7 @@ const fmt = (n: number) => Number(n).toLocaleString('es-MX', { minimumFractionDi
 type VersionRow = ProdCatalogo & { conceptos_count: number };
 /** La marca de la tabla: sin sus piezas, que se piden al desplegarla. */
 type MarcaDelCatalogo = Concepto & { piezas_count: number };
-type PiezaConAvance = Pick<ProdPieza, 'id' | 'qr' | 'qs'> & {
+type PiezaConAvance = Pick<ProdPieza, 'id' | 'qr' | 'qs' | 'correlativo'> & {
     avance: Record<number, { capturado: number; disponible: number }>;
 };
 
@@ -295,7 +295,10 @@ export default function CatalogoShow({
                                                 </td>
                                                 {procesos.map((p) => {
                                                     const pagadas = pagadasEn(m, p.id);
-                                                    const completo = m.piezas_count > 0 && pagadas >= m.piezas_count;
+                                                    // Se paga contra la cantidad del modelo, no contra los
+                                                    // QR activos: el QR cambia con la orden de trabajo.
+                                                    const cantidad = Number(m.cantidad) || m.piezas_count;
+                                                    const completo = cantidad > 0 && pagadas >= cantidad;
 
                                                     return (
                                                         <td key={p.id} className="text-right font-mono">
@@ -310,7 +313,7 @@ export default function CatalogoShow({
                                                                     })}
                                                                     <span className="text-base-content/40">
                                                                         {' '}
-                                                                        / {m.piezas_count}
+                                                                        / {cantidad}
                                                                     </span>
                                                                 </>
                                                             )}
@@ -370,6 +373,9 @@ export default function CatalogoShow({
                                                                         ),
                                                                     ].join(' · ')}
                                                                 >
+                                                                    {pieza.correlativo !== null && (
+                                                                        <span className="text-base-content/50 mr-1">{pieza.correlativo} ·</span>
+                                                                    )}
                                                                     {pieza.qs ?? pieza.qr}
                                                                 </span>
                                                             ))}
@@ -435,14 +441,14 @@ export default function CatalogoShow({
                             </a>
                         </div>
                         <p className="text-base-content/60 text-sm">
-                            Columnas: QR, Marca, Descripcion, Categoria, QS, Cantidad, Peso Kg, Area, Longitud Mm,
-                            Lote. El archivo es una <strong>lista de piezas</strong>: un renglón por pieza, repitiendo
+                            Columnas: QR, Marca, Descripcion, Categoria QS, Correlativo, Cantidad, Peso Kg, Area,
+                            Longitud Mm, Lote. El archivo es una <strong>lista de piezas</strong>: un renglón por pieza, repitiendo
                             marca y lote tantas veces como piezas tenga el modelo. La marca se identifica por{' '}
-                            <strong>marca + lote</strong> y la pieza por su <strong>QR</strong>; si ya existen, se
-                            sobrescriben sus datos. La cantidad de la marca sale de{' '}
-                            <strong>cuántas piezas traiga el archivo</strong>: la columna Cantidad sólo se usa para
-                            avisar si no cuadran. La categoria se crea automaticamente si no existe. Los layouts
-                            viejos siguen cargando: sin QR se usa el QS, y una columna Etapa se lee como Lote.
+                            <strong>marca + lote</strong> y se paga contra <strong>cuántas piezas traiga el archivo</strong>.
+                            El QR es de la orden de trabajo: al recargar un modelo, los QR que no vengan en el archivo se
+                            desactivan y lo pagado bajo ellos sigue contando para el modelo. La categoria se crea
+                            automaticamente si no existe. Los layouts viejos siguen cargando: sin QR se usa el QS,
+                            Categoria entra como Categoria QS y una columna Etapa se lee como Lote.
                         </p>
 
                         <form onSubmit={handleCsvImport} className="flex items-end gap-4">

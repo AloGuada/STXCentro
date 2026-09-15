@@ -3,6 +3,7 @@
 use App\Models\Prod\Destajo;
 use App\Models\Prod\GrupoTrabajo;
 use App\Models\Prod\LiquidacionDetalle;
+use App\Models\Prod\Pieza;
 use App\Models\Prod\Registro;
 use App\Models\User;
 use App\Services\Prod\AvanceDePiezas;
@@ -162,6 +163,84 @@ describe('tope de captura manual', function () {
 
         expect($avance->disponible($this->marca->piezas[1], $this->soldadura->id))->toBe(1.0)
             ->and($avance->disponible($this->marca->piezas[2], $this->soldadura->id))->toBe(1.0);
+    });
+});
+
+/**
+ * El QR identifica la pieza dentro de su orden de trabajo y cambia con ella:
+ * contra lo que se paga es el modelo (marca + lote) y su cantidad.
+ */
+describe('tope por modelo', function () {
+    /** La orden nueva: el modelo vuelve con QRs distintos y los viejos se apagan. */
+    function reetiquetar(\App\Models\Concepto $marca, int $piezas): \Illuminate\Support\Collection
+    {
+        $marca->piezas()->update(['activo' => false]);
+
+        return Pieza::factory()->count($piezas)->create([
+            'concepto_id' => $marca->id,
+            'catalogo_id' => $marca->catalogo_id,
+        ]);
+    }
+
+    test('un QR nuevo no cabe si el modelo ya pago su cantidad', function () {
+        capturarPiezas($this->marca->piezas, $this->grupo, '2026-02-04');
+        $nuevas = reetiquetar($this->marca, 3);
+
+        $avance = app(AvanceDePiezas::class);
+
+        // La pieza sola tiene su 1 completo, pero el modelo (3 de 3) ya no.
+        expect($avance->disponibleDePieza($nuevas[0], $this->soldadura->id))->toBe(1.0)
+            ->and($avance->disponibleDeModelo($nuevas[0], $this->soldadura->id))->toBe(0.0)
+            ->and($avance->disponible($nuevas[0], $this->soldadura->id))->toBe(0.0)
+            // Pintura sigue libre: el tope es por proceso.
+            ->and($avance->disponibleDeModelo($nuevas[0], $this->pintura->id))->toBe(3.0);
+
+        $this->actingAs($this->user)
+            ->post(route('admin.prod.destajos.registros.store', $this->destajo), capturar(['piezas' => [$nuevas[0]->id]]))
+            ->assertSessionHasErrors('piezas');
+
+        expect(session('errors')->first('piezas'))->toContain('ya tiene pagadas sus 3 piezas')
+            ->and(Registro::count())->toBe(3);
+    });
+
+    test('lo que falta del modelo se reparte entre sus QR nuevos', function () {
+        capturarPiezas([$this->pieza], $this->grupo, '2026-02-04');
+        $nuevas = reetiquetar($this->marca, 3);
+
+        $this->actingAs($this->user)
+            ->post(route('admin.prod.destajos.registros.store', $this->destajo), capturar(['piezas' => $nuevas->pluck('id')->all()]))
+            ->assertSessionHasErrors('piezas');
+
+        // Cabian 2 de las 3: la tercera se rechaza por el modelo, no por la pieza.
+        expect(Registro::count())->toBe(3)
+            ->and(session('errors')->first('piezas'))->toContain('ya tiene pagadas sus 3 piezas');
+    });
+
+    test('la cantidad del catalogo manda aunque haya mas QR activos', function () {
+        $marca = marcaConPiezas(4, ['marca' => 'V-02', 'cantidad' => 3, 'obra_id' => $this->marca->obra_id, 'catalogo_id' => $this->catalogo->id]);
+        capturarPiezas($marca->piezas->take(3), $this->grupo, '2026-02-04');
+
+        expect(app(AvanceDePiezas::class)->disponible($marca->piezas[3], $this->soldadura->id))->toBe(0.0);
+    });
+
+    test('lo pagado bajo un QR viejo sigue sumando en la ficha del catalogo', function () {
+        capturarPiezas($this->marca->piezas->take(2), $this->grupo, '2026-02-04');
+        reetiquetar($this->marca, 3);
+
+        $this->actingAs($this->user)
+            ->get(route('admin.prod.catalogos.show', $this->catalogo))
+            ->assertInertia(fn ($page) => $page
+                ->where('avancePorMarca.'.$this->marca->id.'.'.$this->soldadura->id, 2)
+                ->where('marcas.data.0.piezas_count', 3));
+    });
+
+    test('una marca sin cantidad declarada solo lleva el tope por pieza', function () {
+        $marca = marcaConPiezas(2, ['marca' => 'V-03', 'cantidad' => 0, 'obra_id' => $this->marca->obra_id, 'catalogo_id' => $this->catalogo->id]);
+
+        $avance = app(AvanceDePiezas::class);
+
+        expect($avance->disponibleDeModelo($marca->piezas[0], $this->soldadura->id))->toBeNull()
+            ->and($avance->disponible($marca->piezas[0], $this->soldadura->id))->toBe(1.0);
     });
 });
 

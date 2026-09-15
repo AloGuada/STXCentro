@@ -7,16 +7,29 @@ use App\Models\Prod\Pieza;
 /**
  * Avance ya comprometido de las piezas de una obra, resuelto de una sola vez
  * para no consultar la base pieza por pieza.
+ *
+ * Lleva dos cuentas que se leen juntas:
+ *  - por **pieza** (linaje o QR), que es la que numera parcialidades y sabe
+ *    cuál QR se soldó;
+ *  - por **modelo** (marca + lote), que es contra la que se paga. El QR de una
+ *    pieza cambia con su orden de trabajo, así que la única identidad estable
+ *    para saber cuánto va y cuánto falta es el modelo y su cantidad.
  */
 readonly class AvanceDeObra
 {
     /**
      * @param  array<int, int>  $raices  piezaId => id de la pieza raiz de su linaje
      * @param  array<string, float>  $totales  clave de (linaje, proceso, subproceso) => piezas equivalentes
+     * @param  array<string, array<string, float>>  $porModelo  clave de modelo => (proceso, subproceso) => piezas equivalentes
+     * @param  array<string, int>  $cantidades  clave de modelo => piezas que pide el catálogo vigente
+     * @param  array<int, string>  $modeloDeConcepto  conceptoId => clave de modelo, para todas las versiones
      */
     public function __construct(
         private array $raices,
         private array $totales,
+        private array $porModelo = [],
+        private array $cantidades = [],
+        private array $modeloDeConcepto = [],
     ) {}
 
     /**
@@ -34,5 +47,52 @@ readonly class AvanceDeObra
         $porQr = $this->totales['qr:'.$pieza->qr.$sufijo] ?? 0;
 
         return round((float) $porLinaje + (float) $porQr, 4);
+    }
+
+    /**
+     * Piezas equivalentes ya pagadas o comprometidas del modelo en ese proceso,
+     * sumando todas sus piezas de todas las órdenes y versiones, incluidas las
+     * que ya se desactivaron porque su QR cambió.
+     */
+    public function capturadoDeModelo(string $claveModelo, int $procesoId, ?int $subprocesoId = null): float
+    {
+        return round((float) ($this->porModelo[$claveModelo][self::sufijo($procesoId, $subprocesoId)] ?? 0), 4);
+    }
+
+    /**
+     * Cuántas piezas lleva pagadas cada modelo, tomando el paso en que más
+     * avanzó: si de un modelo van 150 soldadas y 90 pintadas, son 150 piezas
+     * que ya existen y que ninguna versión nueva puede desaparecer.
+     *
+     * @return array<string, float> clave de modelo => piezas equivalentes
+     */
+    public function pagadasPorModelo(): array
+    {
+        return array_map(
+            fn (array $porPaso): float => round((float) max($porPaso ?: [0]), 4),
+            $this->porModelo,
+        );
+    }
+
+    /** Cuántas piezas pide el catálogo vigente para el modelo; 0 si ya no está. */
+    public function cantidadDeModelo(string $claveModelo): int
+    {
+        return $this->cantidades[$claveModelo] ?? 0;
+    }
+
+    /** El modelo al que pertenece la pieza, resuelto sin ir a la base. */
+    public function modeloDe(Pieza $pieza): ?string
+    {
+        return $this->modeloDeConcepto[(int) $pieza->concepto_id] ?? null;
+    }
+
+    public static function claveDeModelo(string $claveModelo, int $procesoId, ?int $subprocesoId = null): string
+    {
+        return 'modelo:'.$claveModelo.'|'.self::sufijo($procesoId, $subprocesoId);
+    }
+
+    public static function sufijo(int $procesoId, ?int $subprocesoId = null): string
+    {
+        return 'proceso:'.$procesoId.'|sub:'.($subprocesoId ?? 0);
     }
 }

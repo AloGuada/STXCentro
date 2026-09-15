@@ -4,9 +4,21 @@ import type { BreadcrumbItem } from '@/types';
 import { clavePieza, etiquetaDePieza } from '@/lib/prod/piezas';
 import type { ProdCatalogo } from '@/types/models';
 import { Head, router } from '@inertiajs/react';
-import { ArrowRightIcon, MinusCircleIcon, PencilIcon, PlusCircleIcon } from 'lucide-react';
+import { ArrowRightIcon, MinusCircleIcon, PencilIcon, PlusCircleIcon, TriangleAlertIcon } from 'lucide-react';
 
-type PiezaSimple = { marca: string; lote: string | null; descripcion: string };
+type PiezaSimple = {
+    marca: string;
+    lote: string | null;
+    descripcion: string;
+    /** Cantidad del modelo en la versión «contra» (0 si ya no está). */
+    cantidad: number;
+    /** Piezas pagadas del modelo en la obra, todas las versiones. */
+    pagadas: number;
+    /** Pagado que la versión «contra» ya no reconoce. */
+    excedente: number;
+    /** Lo que la versión «contra» deja por pagar. */
+    por_pagar: number;
+};
 type Cambio = { campo: string; antes: string | number | boolean | null; despues: string | number | boolean | null };
 type PiezaModificada = PiezaSimple & { cambios: Cambio[] };
 
@@ -15,6 +27,7 @@ type Diff = {
     eliminadas: PiezaSimple[];
     modificadas: PiezaModificada[];
     sin_cambios: number;
+    pagado: { modelos_con_exceso: number; piezas_de_mas: number; piezas_por_pagar: number };
 };
 
 type Props = {
@@ -30,7 +43,11 @@ const valor = (v: Cambio['antes']): string => {
     return String(v);
 };
 
+const numero = (n: number) => n.toLocaleString('es-MX', { maximumFractionDigits: 2 });
+
 export default function CatalogoComparar({ catalogo, contra, diff, versiones }: Props) {
+    const conExceso = [...diff.modificadas, ...diff.eliminadas, ...diff.agregadas].filter((p) => p.excedente > 0);
+
     const breadcrumbs: BreadcrumbItem[] = [
         { title: 'Dashboard', href: '/dashboard' },
         { title: 'Produccion', href: '/admin/prod/destajos' },
@@ -100,6 +117,57 @@ export default function CatalogoComparar({ catalogo, contra, diff, versiones }: 
                     </div>
                 </div>
 
+                <div className="mb-6 grid grid-cols-2 gap-4">
+                    <div className={`rounded-box border p-4 ${diff.pagado.modelos_con_exceso > 0 ? 'border-error bg-error/5' : 'border-base-300'}`}>
+                        <div className={`text-2xl font-semibold ${diff.pagado.modelos_con_exceso > 0 ? 'text-error' : ''}`}>
+                            {numero(diff.pagado.piezas_de_mas)}
+                        </div>
+                        <div className="text-base-content/60 text-sm">
+                            Piezas ya pagadas que v{contra.version} no reconoce
+                            {diff.pagado.modelos_con_exceso > 0 && ` · ${diff.pagado.modelos_con_exceso} modelo(s)`}
+                        </div>
+                    </div>
+                    <div className="rounded-box border-base-300 border p-4">
+                        <div className="text-2xl font-semibold">{numero(diff.pagado.piezas_por_pagar)}</div>
+                        <div className="text-base-content/60 text-sm">Piezas por pagar en lo agregado y modificado</div>
+                    </div>
+                </div>
+
+                {conExceso.length > 0 && (
+                    <section className="mb-6">
+                        <h2 className="mb-3 flex items-center gap-2 text-lg font-semibold">
+                            <TriangleAlertIcon className="text-error size-4" />
+                            Pagado por encima de v{contra.version}
+                        </h2>
+                        <p className="text-base-content/60 mb-3 text-sm">
+                            Estas piezas ya se fabricaron y se cobraron; la versión nueva no puede desaparecerlas.
+                            El tope queda en cero para ellas y no se paga nada más.
+                        </p>
+                        <div className="rounded-box border-base-300 overflow-hidden border">
+                            <table className="table table-sm">
+                                <thead className="bg-base-200">
+                                    <tr>
+                                        <th>Marca</th>
+                                        <th className="text-right">Cantidad v{contra.version}</th>
+                                        <th className="text-right">Pagadas</th>
+                                        <th className="text-right">De más</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {conExceso.map((p) => (
+                                        <tr key={clavePieza(p.marca, p.lote)} className="hover">
+                                            <td className="font-medium">{etiquetaDePieza(p.marca, p.lote)}</td>
+                                            <td className="text-right font-mono">{p.cantidad}</td>
+                                            <td className="text-right font-mono">{numero(p.pagadas)}</td>
+                                            <td className="text-error text-right font-mono font-semibold">{numero(p.excedente)}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </section>
+                )}
+
                 {diff.agregadas.length === 0 && diff.eliminadas.length === 0 && diff.modificadas.length === 0 && (
                     <div className="rounded-box border-base-300 border border-dashed p-8 text-center">
                         <p className="text-base-content/60">
@@ -123,6 +191,7 @@ export default function CatalogoComparar({ catalogo, contra, diff, versiones }: 
                                             <th>Campo</th>
                                             <th className="text-right">v{catalogo.version}</th>
                                             <th className="text-right">v{contra.version}</th>
+                                            <th className="text-right">Pagadas</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -141,6 +210,9 @@ export default function CatalogoComparar({ catalogo, contra, diff, versiones }: 
                                                     </td>
                                                     <td className="text-right font-mono font-semibold">
                                                         {valor(c.despues)}
+                                                    </td>
+                                                    <td className="text-base-content/60 text-right font-mono">
+                                                        {i === 0 ? numero(p.pagadas) : ''}
                                                     </td>
                                                 </tr>
                                             )),

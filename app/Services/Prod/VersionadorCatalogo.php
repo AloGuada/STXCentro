@@ -18,6 +18,8 @@ use Illuminate\Support\Facades\DB;
  */
 class VersionadorCatalogo
 {
+    public function __construct(private readonly AvanceDePiezas $avance) {}
+
     /**
      * Copia el catálogo vigente de la obra a una versión nueva (que pasa a ser
      * la vigente) junto con sus asignaciones de grupo de precio.
@@ -53,15 +55,23 @@ class VersionadorCatalogo
      * Emparejar sólo por marca juntaría piezas distintas cuando el catálogo
      * repite la marca en varios lotes de la obra.
      *
+     * Cada renglón dice además cuántas piezas lleva pagadas el modelo en la
+     * obra (todas las versiones) contra la cantidad de la versión `contra`:
+     * `excedente` es lo pagado que la versión nueva ya no reconoce, y
+     * `por_pagar` lo que abre. Es la pregunta de fondo al versionar: qué se
+     * puede seguir pagando y qué ya se pagó de más.
+     *
      * @return array{
-     *     agregadas: list<array{marca: string, lote: ?string, descripcion: string}>,
-     *     eliminadas: list<array{marca: string, lote: ?string, descripcion: string}>,
-     *     modificadas: list<array{marca: string, lote: ?string, descripcion: string, cambios: list<array{campo: string, antes: mixed, despues: mixed}>}>,
-     *     sin_cambios: int
+     *     agregadas: list<array{marca: string, lote: ?string, descripcion: string, cantidad: int, pagadas: float, excedente: float, por_pagar: float}>,
+     *     eliminadas: list<array{marca: string, lote: ?string, descripcion: string, cantidad: int, pagadas: float, excedente: float, por_pagar: float}>,
+     *     modificadas: list<array{marca: string, lote: ?string, descripcion: string, cantidad: int, pagadas: float, excedente: float, por_pagar: float, cambios: list<array{campo: string, antes: mixed, despues: mixed}>}>,
+     *     sin_cambios: int,
+     *     pagado: array{modelos_con_exceso: int, piezas_de_mas: float, piezas_por_pagar: float}
      * }
      */
     public function comparar(Catalogo $base, Catalogo $contra): array
     {
+        $this->pagadas = $this->avance->mapaDeObra((int) $contra->obra_id)->pagadasPorModelo();
         $piezasBase = $base->conceptos()->get()->keyBy(fn (Concepto $pieza) => $pieza->claveModelo());
         $piezasContra = $contra->conceptos()->get()->keyBy(fn (Concepto $pieza) => $pieza->claveModelo());
 
@@ -90,17 +100,31 @@ class VersionadorCatalogo
 
         foreach ($piezasBase as $clave => $pieza) {
             if (! $piezasContra->has($clave)) {
-                $eliminadas[] = $this->resumenDePieza($pieza);
+                $eliminadas[] = $this->resumenDePieza($pieza, eliminada: true);
             }
         }
+
+        $conExceso = array_filter([...$agregadas, ...$eliminadas, ...$modificadas], fn (array $r): bool => $r['excedente'] > 0);
 
         return [
             'agregadas' => $agregadas,
             'eliminadas' => $eliminadas,
             'modificadas' => $modificadas,
             'sin_cambios' => $sinCambios,
+            'pagado' => [
+                'modelos_con_exceso' => count($conExceso),
+                'piezas_de_mas' => round(array_sum(array_column($conExceso, 'excedente')), 4),
+                'piezas_por_pagar' => round(array_sum(array_column([...$agregadas, ...$modificadas], 'por_pagar')), 4),
+            ],
         ];
     }
+
+    /**
+     * Lo pagado por modelo en la obra, cargado al arrancar `comparar()`.
+     *
+     * @var array<string, float>
+     */
+    private array $pagadas = [];
 
     /**
      * Duplica las piezas y arrastra sus grupos de precio, para no tener que
@@ -133,8 +157,10 @@ class VersionadorCatalogo
 
             // Las piezas se copian con su QR y su propio linaje: el acumulado se
             // cuenta por pieza, asi que sin esto la version nueva arrancaria en
-            // cero y se podria volver a pagar lo ya fabricado.
-            foreach ($marca->piezas as $pieza) {
+            // cero y se podria volver a pagar lo ya fabricado. Las apagadas (su
+            // QR ya cambio de orden) no viajan: lo pagado bajo ellas lo
+            // conserva el snapshot de la liquidacion, por modelo.
+            foreach ($marca->piezas->where('activo', true) as $pieza) {
                 Pieza::create([
                     'catalogo_id' => $destino->id,
                     'concepto_id' => $copia->id,
@@ -155,14 +181,24 @@ class VersionadorCatalogo
     }
 
     /**
-     * @return array{marca: string, lote: ?string, descripcion: string}
+     * El modelo con lo que lleva pagado contra su cantidad en esta versión.
+     * Para una eliminada la cantidad es 0: todo lo pagado queda en exceso.
+     *
+     * @return array{marca: string, lote: ?string, descripcion: string, cantidad: int, pagadas: float, excedente: float, por_pagar: float}
      */
-    private function resumenDePieza(Concepto $pieza): array
+    private function resumenDePieza(Concepto $pieza, bool $eliminada = false): array
     {
+        $cantidad = $eliminada ? 0 : (int) $pieza->cantidad;
+        $pagadas = $this->pagadas[$pieza->claveModelo()] ?? 0.0;
+
         return [
             'marca' => $pieza->marca,
             'lote' => $pieza->lote,
             'descripcion' => $pieza->descripcion,
+            'cantidad' => $cantidad,
+            'pagadas' => $pagadas,
+            'excedente' => round(max(0, $pagadas - $cantidad), 4),
+            'por_pagar' => round(max(0, $cantidad - $pagadas), 4),
         ];
     }
 
