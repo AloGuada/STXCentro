@@ -520,7 +520,7 @@ describe('import del layout por QR', function () {
             ->and($pieza->qs)->toBe('1001');
     });
 
-    test('n de M: el mismo correlativo en otro lote es otra pieza, y M es la cantidad del lote', function () {
+    test('la cantidad es cuantos renglones trae la marca en el lote; el correlativo solo se guarda', function () {
         $catalogo = Catalogo::factory()->create();
 
         subirLayout($catalogo,
@@ -537,7 +537,7 @@ describe('import del layout por QR', function () {
             ->and(Pieza::where('catalogo_id', $catalogo->id)->count())->toBe(5);
     });
 
-    test('un correlativo repetido dentro del mismo lote se salta y avisa', function () {
+    test('un correlativo repetido dentro del mismo lote se carga igual y avisa', function () {
         $catalogo = Catalogo::factory()->create();
 
         subirLayout($catalogo,
@@ -549,8 +549,8 @@ describe('import del layout por QR', function () {
 
         $marca = Concepto::where('catalogo_id', $catalogo->id)->sole();
 
-        expect($marca->cantidad)->toBe(2)
-            ->and($marca->piezas()->pluck('qr')->sort()->values()->all())->toBe(['QR-01', 'QR-02'])
+        expect($marca->cantidad)->toBe(3)
+            ->and($marca->piezas()->pluck('qr')->sort()->values()->all())->toBe(['QR-01', 'QR-02', 'QR-03'])
             ->and(session('errors')->first('csv_file'))->toContain('TG-BAR-1 · L1: 1 renglon(es) repiten un correlativo del mismo lote');
     });
 
@@ -570,7 +570,7 @@ describe('import del layout por QR', function () {
             ->and(session('errors')->first('csv_file'))->toContain('TG-BAR-1 · L1: mezcla numeraciones «de 2» (2) y «de 4» (1)');
     });
 
-    test('avisa cuando la numeracion del correlativo viene incompleta y la cantidad queda en M', function () {
+    test('avisa cuando la numeracion del correlativo viene incompleta, sin cambiar la cantidad', function () {
         $catalogo = Catalogo::factory()->create();
 
         subirLayout($catalogo,
@@ -579,8 +579,8 @@ describe('import del layout por QR', function () {
             layoutVigente(),
         )->assertSessionHasErrors('csv_file');
 
-        expect(Concepto::where('catalogo_id', $catalogo->id)->sole()->cantidad)->toBe(3)
-            ->and(session('errors')->first('csv_file'))->toContain('la numeración «de 3» trae 2 correlativo(s); faltan 1; la cantidad queda en 3');
+        expect(Concepto::where('catalogo_id', $catalogo->id)->sole()->cantidad)->toBe(2)
+            ->and(session('errors')->first('csv_file'))->toContain('la numeración «de 3» trae 2 correlativo(s); faltan 1');
     });
 
     test('el correlativo se guarda como lo imprime planta y vacio queda en null', function () {

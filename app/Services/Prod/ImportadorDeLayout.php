@@ -38,14 +38,12 @@ use RuntimeException;
  * desactivan (no se borran: lo pagado bajo ellos sigue contando para el
  * modelo) y los que vienen quedan activos.
  *
- * **El correlativo («n de M») es la base de la cantidad.** Planta numera las
- * piezas de cada marca **dentro de cada lote**: n es el consecutivo y M la
- * cantidad de la marca en ese lote. Por eso, por marca + lote, todos los
- * renglones deben compartir M y correr de 1 a M; M es la cantidad del modelo
- * aunque el archivo traiga menos renglones. Un correlativo repetido dentro del
- * mismo lote se salta (primera aparición), una numeración incompleta se avisa,
- * y un lote que mezcla varias «de M» se avisa y se cuenta por renglones. Sin
- * columna CORRELATIVO nada de esto aplica y se cuentan los renglones.
+ * **La cantidad del modelo es cuántos renglones trae la marca en ese lote.**
+ * El correlativo («n de M») dice el consecutivo y la cantidad que planta
+ * pretendía para la marca en el lote, pero su export lo cruza entre lotes y
+ * no es fiable: se guarda como dato y sólo sirve para avisar (correlativos
+ * repetidos en el lote, numeraciones mezcladas, huecos). Nunca descarta un
+ * renglón ni cambia la cantidad; para eso está el conteo.
  */
 class ImportadorDeLayout
 {
@@ -126,12 +124,7 @@ class ImportadorDeLayout
             $this->desactivarPiezas($marcaIds);
             $this->escribirPiezas($catalogo, $porEscribir);
 
-            $porCorrelativo = [];
-            foreach ($filas as $modelo) {
-                $porCorrelativo[Concepto::claveDeModelo($modelo['marca'], $modelo['lote'])] = $modelo['cantidad_correlativo'];
-            }
-
-            $this->recontarPiezas($tocadas, $porCorrelativo);
+            $this->recontarPiezas($tocadas);
         });
 
         return [
@@ -263,25 +256,20 @@ class ImportadorDeLayout
     }
 
     /**
-     * Deja en cada marca tocada su cantidad: la M del correlativo cuando el
-     * lote trae una sola numeración, y si no, las piezas activas que le
-     * quedaron colgando.
+     * Deja en cada marca tocada su cantidad: las piezas activas que le quedaron
+     * colgando, que son los renglones que trajo el archivo.
      *
      * Se hace al final y en bloque por lo mismo que las piezas: un `count()` y
      * un `update()` por marca son dos viajes por renglón del layout. Las marcas
      * se agrupan por cantidad, que casi todas comparten el mismo número.
      *
      * @param  list<Concepto>  $marcas
-     * @param  array<string, ?int>  $porCorrelativo  clave de modelo => M, o null si no hay una sola numeración
      */
-    private function recontarPiezas(array $marcas, array $porCorrelativo): void
+    private function recontarPiezas(array $marcas): void
     {
-        $declaradaDe = [];
-        foreach ($marcas as $marca) {
-            $declaradaDe[(int) $marca->id] = $porCorrelativo[$marca->claveModelo()] ?? null;
-        }
+        $marcaIds = array_map(fn (Concepto $marca): int => (int) $marca->id, $marcas);
 
-        foreach (array_chunk(array_keys($declaradaDe), 500) as $bloque) {
+        foreach (array_chunk($marcaIds, 500) as $bloque) {
             $conteos = Pieza::query()
                 ->whereIn('concepto_id', $bloque)
                 ->where('activo', true)
@@ -292,7 +280,7 @@ class ImportadorDeLayout
             $porCantidad = [];
 
             foreach ($bloque as $id) {
-                $porCantidad[(int) ($declaradaDe[$id] ?? $conteos[$id] ?? 0)][] = $id;
+                $porCantidad[(int) ($conteos[$id] ?? 0)][] = $id;
             }
 
             foreach ($porCantidad as $cantidad => $ids) {
@@ -381,7 +369,7 @@ class ImportadorDeLayout
      * Agrupa los renglones del archivo por modelo. Los datos del modelo se toman
      * del primer renglón que lo trae; los siguientes sólo aportan su pieza.
      *
-     * @return array{filas: array<string, array{marca: string, lote: ?string, descripcion: string, categoria: string, cantidades: list<int>, peso_unitario: float, longitud: int, piezas: list<array{qr: string, qs: ?string, correlativo: ?string}>, cantidad_correlativo?: ?int}>, avisos: list<string>}
+     * @return array{filas: array<string, array{marca: string, lote: ?string, descripcion: string, categoria: string, cantidades: list<int>, peso_unitario: float, longitud: int, piezas: list<array{qr: string, qs: ?string, correlativo: ?string}>}>, avisos: list<string>}
      */
     private function leer(string $ruta): array
     {
@@ -476,10 +464,10 @@ class ImportadorDeLayout
             if ($correlativo !== null) {
                 $claveCorrelativo = $clave.'|'.preg_replace('/\s+/u', '', mb_strtoupper($correlativo));
 
+                // No se descarta: el correlativo no es fiable y el renglón
+                // trae su propio QR. Sólo se cuenta para avisar.
                 if (isset($correlativosVistos[$claveCorrelativo])) {
                     $repetidos[$clave] = ($repetidos[$clave] ?? 0) + 1;
-
-                    continue;
                 }
 
                 $correlativosVistos[$claveCorrelativo] = true;
@@ -508,16 +496,8 @@ class ImportadorDeLayout
 
         foreach ($repetidos as $clave => $cuantos) {
             $etiqueta = Concepto::etiquetaDeModelo($modelos[$clave]['marca'] ?? $clave, $modelos[$clave]['lote'] ?? null);
-            $avisos[] = "{$etiqueta}: {$cuantos} renglon(es) repiten un correlativo del mismo lote; se tomó la primera aparición.";
+            $avisos[] = "{$etiqueta}: {$cuantos} renglon(es) repiten un correlativo del mismo lote; se cargaron igual, cada uno con su QR.";
         }
-
-        // M es la cantidad del modelo cuando el lote trae una sola numeración.
-        // Con varias no hay una cantidad que creerle y se cuentan los renglones.
-        foreach ($modelos as $clave => &$modelo) {
-            $grupos = $numeraciones[$clave] ?? [];
-            $modelo['cantidad_correlativo'] = count($grupos) === 1 ? (int) array_key_first($grupos) : null;
-        }
-        unset($modelo);
 
         return ['filas' => $modelos, 'avisos' => [...$avisos, ...$this->avisosDeNumeracion($modelos, $numeraciones)]];
     }
@@ -526,8 +506,8 @@ class ImportadorDeLayout
      * Por marca + lote, la numeración «de M» debería traer los correlativos
      * 1..M y nada más. Un lote con varias «de M» trae renglones de otro lote
      * (el export de planta los cruzó); uno con huecos vino corto; uno con
-     * números fuera de rango, numerado de más. Ninguno bloquea, pero hay que
-     * verlo porque es la cantidad contra la que se paga.
+     * números fuera de rango, numerado de más. Es diagnóstico: no bloquea ni
+     * cambia la cantidad, pero le dice a planta qué corregir.
      *
      * @param  array<string, array{marca: string, lote: ?string}>  $modelos
      * @param  array<string, array<int, array<int, int>>>  $numeraciones  clave de modelo => M => n => renglones
@@ -551,7 +531,7 @@ class ImportadorDeLayout
                     array_keys($grupos),
                     $grupos,
                 ));
-                $avisos[] = "{$etiqueta}: mezcla numeraciones {$lista}; traen renglones de otro lote y la cantidad se contó de los renglones.";
+                $avisos[] = "{$etiqueta}: mezcla numeraciones {$lista}; parecen renglones de otro lote. La cantidad se contó de los renglones.";
 
                 continue;
             }
@@ -570,7 +550,7 @@ class ImportadorDeLayout
                 $sobran > 0 ? "sobran {$sobran} fuera de rango" : null,
             ]));
 
-            $avisos[] = "{$etiqueta}: la numeración «de {$total}» trae ".count($vistos)." correlativo(s); {$detalle}; la cantidad queda en {$total}.";
+            $avisos[] = "{$etiqueta}: la numeración «de {$total}» trae ".count($vistos)." correlativo(s); {$detalle}. La cantidad se contó de los renglones.";
         }
 
         return $avisos;
