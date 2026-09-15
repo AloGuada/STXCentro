@@ -269,6 +269,23 @@ describe('admin destajos', function () {
         $this->assertDatabaseMissing('prod_destajos', ['id' => $destajo->id]);
     });
 
+    test('borrar el destajo borra la produccion capturada en sus fechas y respeta la de otras semanas', function () {
+        $destajo = Destajo::factory()->create(['fecha_inicio' => '2026-02-03', 'fecha_fin' => '2026-02-09']);
+        $marca = marcaConPiezas(3);
+        $grupo = GrupoTrabajo::factory()->create();
+        obraPagaProcesos($marca->obra_id, proceso());
+
+        capturarPiezas([$marca->piezas[0], $marca->piezas[1]], $grupo, '2026-02-05');
+        capturarPiezas([$marca->piezas[2]], $grupo, '2026-02-12');
+
+        $this->actingAs($this->user)
+            ->delete(route('admin.prod.destajos.destroy', $destajo))
+            ->assertRedirect(route('admin.prod.destajos.index'));
+
+        expect(Registro::count())->toBe(1)
+            ->and(Registro::sole()->fecha->toDateString())->toBe('2026-02-12');
+    });
+
     test('destajo cannot be deleted if cerrado', function () {
         $destajo = Destajo::factory()->cerrado()->create();
 
