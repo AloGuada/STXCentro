@@ -374,7 +374,7 @@ export default function CatalogoShow({
                                                                     ].join(' · ')}
                                                                 >
                                                                     {pieza.correlativo !== null && (
-                                                                        <span className="text-base-content/50 mr-1">#{pieza.correlativo}</span>
+                                                                        <span className="text-base-content/50 mr-1">{pieza.correlativo} ·</span>
                                                                     )}
                                                                     {pieza.qs ?? pieza.qr}
                                                                 </span>
@@ -444,8 +444,8 @@ export default function CatalogoShow({
                             Columnas: QR, Marca, Descripcion, Categoria QS, Correlativo, Cantidad, Peso Kg, Area,
                             Longitud Mm, Lote. El archivo es una <strong>lista de piezas</strong>: un renglón por pieza, repitiendo
                             marca y lote tantas veces como piezas tenga el modelo. La marca se identifica por{' '}
-                            <strong>marca + lote</strong> y se paga contra su columna <strong>Cantidad</strong>. El QR
-                            es de la orden de trabajo: al recargar un modelo, los QR que no vengan en el archivo se
+                            <strong>marca + lote</strong> y se paga contra <strong>cuántas piezas traiga el archivo</strong>.
+                            El QR es de la orden de trabajo: al recargar un modelo, los QR que no vengan en el archivo se
                             desactivan y lo pagado bajo ellos sigue contando para el modelo. La categoria se crea
                             automaticamente si no existe. Los layouts viejos siguen cargando: sin QR se usa el QS,
                             Categoria entra como Categoria QS y una columna Etapa se lee como Lote.

@@ -26,9 +26,10 @@ use RuntimeException;
  * CATEGORIA QS y una columna ETAPA se lee como LOTE, que es el nombre nuevo del
  * mismo dato.
  *
- * La cantidad de la marca es **la que declara la columna CANTIDAD**: es contra
- * lo que se paga el modelo. Si el layout no la trae, se cuentan las piezas
- * activas. Cuando declara una cosa y trae otra, se avisa.
+ * La cantidad de la marca **se cuenta de los renglones**: es contra lo que se
+ * paga el modelo. La columna CANTIDAD viene con 1 por renglón en el layout de
+ * planta, así que no dice nada que el conteo no diga; si en cambio repite un
+ * total en cada renglón y ese total no cuadra con los renglones, se avisa.
  *
  * La marca se empareja por `(catálogo, marca, lote)` y la pieza por
  * `(catálogo, QR)`. El QR identifica la pieza **dentro de su orden de
@@ -116,12 +117,7 @@ class ImportadorDeLayout
             $this->desactivarPiezas($marcaIds);
             $this->escribirPiezas($catalogo, $porEscribir);
 
-            $declaradas = [];
-            foreach ($filas as $modelo) {
-                $declaradas[Concepto::claveDeModelo($modelo['marca'], $modelo['lote'])] = $modelo['cantidad_declarada'];
-            }
-
-            $this->recontarPiezas($tocadas, $declaradas);
+            $this->recontarPiezas($tocadas);
         });
 
         return [
@@ -222,7 +218,7 @@ class ImportadorDeLayout
      * garantiza que un QR no venga dos veces en el mismo archivo, que Postgres
      * tampoco deja tocar la misma fila dos veces en la misma sentencia.
      *
-     * @param  list<array{marca: Concepto, qr: string, qs: ?string, correlativo: ?int}>  $piezas
+     * @param  list<array{marca: Concepto, qr: string, qs: ?string, correlativo: ?string}>  $piezas
      */
     private function escribirPiezas(Catalogo $catalogo, array $piezas): void
     {
@@ -253,24 +249,20 @@ class ImportadorDeLayout
     }
 
     /**
-     * Deja en cada marca tocada su cantidad: la que declaró el layout, o si no
-     * la declaró, las piezas activas que le quedaron colgando.
+     * Deja en cada marca tocada su cantidad: las piezas activas que le quedaron
+     * colgando, que son las que trajo el archivo.
      *
      * Se hace al final y en bloque por lo mismo que las piezas: un `count()` y
      * un `update()` por marca son dos viajes por renglón del layout. Las marcas
      * se agrupan por cantidad, que casi todas comparten el mismo número.
      *
      * @param  list<Concepto>  $marcas
-     * @param  array<string, ?int>  $declaradas  clave de modelo => cantidad del layout
      */
-    private function recontarPiezas(array $marcas, array $declaradas): void
+    private function recontarPiezas(array $marcas): void
     {
-        $declaradaDe = [];
-        foreach ($marcas as $marca) {
-            $declaradaDe[(int) $marca->id] = $declaradas[$marca->claveModelo()] ?? null;
-        }
+        $marcaIds = array_map(fn (Concepto $marca): int => (int) $marca->id, $marcas);
 
-        foreach (array_chunk(array_keys($declaradaDe), 500) as $bloque) {
+        foreach (array_chunk($marcaIds, 500) as $bloque) {
             $conteos = Pieza::query()
                 ->whereIn('concepto_id', $bloque)
                 ->where('activo', true)
@@ -281,7 +273,7 @@ class ImportadorDeLayout
             $porCantidad = [];
 
             foreach ($bloque as $id) {
-                $porCantidad[(int) ($declaradaDe[$id] ?? $conteos[$id] ?? 0)][] = $id;
+                $porCantidad[(int) ($conteos[$id] ?? 0)][] = $id;
             }
 
             foreach ($porCantidad as $cantidad => $ids) {
@@ -370,7 +362,7 @@ class ImportadorDeLayout
      * Agrupa los renglones del archivo por modelo. Los datos del modelo se toman
      * del primer renglón que lo trae; los siguientes sólo aportan su pieza.
      *
-     * @return array{filas: array<string, array{marca: string, lote: ?string, descripcion: string, categoria: string, cantidad_declarada: ?int, peso_unitario: float, longitud: int, piezas: list<array{qr: string, qs: ?string, correlativo: ?int}>}>, avisos: list<string>}
+     * @return array{filas: array<string, array{marca: string, lote: ?string, descripcion: string, categoria: string, cantidades: list<int>, peso_unitario: float, longitud: int, piezas: list<array{qr: string, qs: ?string, correlativo: ?string}>}>, avisos: list<string>}
      */
     private function leer(string $ruta): array
     {
@@ -424,9 +416,7 @@ class ImportadorDeLayout
                 // El layout vigente la llama CATEGORIA QS; es una etiqueta de
                 // texto, no el número de QS. El nombre viejo sigue entrando.
                 'categoria' => trim((string) ($data['CATEGORIAQS'] ?? $data['CATEGORIA'] ?? '')),
-                // Sin columna o en cero, el layout no declara: la cantidad
-                // se cuenta de las piezas.
-                'cantidad_declarada' => $cantidad > 0 ? $cantidad : null,
+                'cantidades' => [],
                 'peso_unitario' => $peso,
                 'longitud' => (int) round((float) str_replace(',', '', (string) ($data['LONGITUDMM'] ?? '0'))),
                 'piezas' => [],
@@ -454,6 +444,7 @@ class ImportadorDeLayout
             }
 
             $qrVistos[$qr] = true;
+            $modelos[$clave]['cantidades'][] = $cantidad;
             $modelos[$clave]['piezas'][] = [
                 'qr' => $qr,
                 'qs' => $qs === '' ? null : $qs,
@@ -471,12 +462,13 @@ class ImportadorDeLayout
     }
 
     /**
-     * El layout dice cuántas piezas tiene el modelo en cada renglón, y ésa es
-     * la cantidad contra la que se paga. Si trae otro número de renglones se
-     * avisa: casi siempre el archivo vino incompleto o con una orden parcial,
-     * y conviene que alguien lo vea aunque no bloquee.
+     * La columna CANTIDAD del layout de planta trae 1 por renglón, y entonces
+     * no dice nada que el conteo no diga. Los layouts que repiten el total del
+     * modelo en cada renglón sí pueden contradecir a los renglones: casi
+     * siempre el archivo vino incompleto, y conviene que alguien lo vea aunque
+     * no bloquee.
      *
-     * @param  array<string, array{marca: string, lote: ?string, cantidad_declarada: ?int, piezas: list<array{qr: string, qs: ?string, correlativo: ?int}>}>  $modelos
+     * @param  array<string, array{marca: string, lote: ?string, cantidades: list<int>, piezas: list<array{qr: string, qs: ?string, correlativo: ?string}>}>  $modelos
      * @return list<string>
      */
     private function avisosDeCantidad(array $modelos): array
@@ -485,16 +477,36 @@ class ImportadorDeLayout
 
         foreach ($modelos as $modelo) {
             $llegaron = count($modelo['piezas']);
+            $declarada = $this->totalDeclarado($modelo['cantidades']);
 
-            if ($modelo['cantidad_declarada'] === null || $llegaron === $modelo['cantidad_declarada']) {
+            if ($declarada === null || $llegaron === $declarada) {
                 continue;
             }
 
             $etiqueta = Concepto::etiquetaDeModelo($modelo['marca'], $modelo['lote']);
-            $avisos[] = "{$etiqueta}: el layout dice {$modelo['cantidad_declarada']} pieza(s) y trae {$llegaron}; la cantidad queda en {$modelo['cantidad_declarada']}.";
+            $avisos[] = "{$etiqueta}: el layout dice {$declarada} pieza(s) y trae {$llegaron}; la cantidad queda en {$llegaron}.";
         }
 
         return $avisos;
+    }
+
+    /**
+     * El total que el layout repite en cada renglón del modelo, si es que lo
+     * repite. Un 1 por renglón (o una mezcla) no es un total.
+     *
+     * @param  list<int>  $cantidades
+     */
+    private function totalDeclarado(array $cantidades): ?int
+    {
+        $distintas = array_unique($cantidades);
+
+        if (count($distintas) !== 1) {
+            return null;
+        }
+
+        $valor = (int) reset($distintas);
+
+        return $valor > 1 ? $valor : null;
     }
 
     /**
@@ -521,14 +533,14 @@ class ImportadorDeLayout
     ];
 
     /**
-     * La numeración que planta le da a la pieza según su QR. Vacío o no
-     * numérico es «sin correlativo», no cero.
+     * La numeración que planta le da a la pieza según su QR, tal como la
+     * imprime («1 de 92»). Vacío es «sin correlativo».
      */
-    private function correlativo(mixed $valor): ?int
+    private function correlativo(mixed $valor): ?string
     {
         $texto = trim((string) $valor);
 
-        return $texto !== '' && is_numeric($texto) ? (int) round((float) $texto) : null;
+        return $texto === '' ? null : mb_substr($texto, 0, 30);
     }
 
     /**
