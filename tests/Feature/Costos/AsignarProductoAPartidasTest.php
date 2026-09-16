@@ -58,12 +58,15 @@ it('asigna el producto por nombre a la partida de orden, a su requisición y a s
 
     expect($partidaOc->fresh())
         ->producto_id->toBe($producto->id)
+        ->item_id->toBe($producto->item_id)
         ->codigo_producto->toBe('ART-00454')
         ->descripcion->toBe('GUANTES DE BOLITA')
         ->and($partidaReq->fresh())
         ->producto_id->toBe($producto->id)
         ->descripcion->toBe('Guantes  de bolita')
         ->and($renglon->fresh()->producto_id)->toBe($producto->id)
+        ->and($renglon->fresh()->item_id)->toBe($producto->item_id)
+        ->and($partidaReq->fresh()->item_id)->toBe($producto->item_id)
         ->and($flete->fresh()->producto_id)->toBeNull();
 });
 

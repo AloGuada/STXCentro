@@ -110,7 +110,7 @@ class AsignadorProductoAPartidas
             $resumen['recepciones'] += EntregaDetalle::query()
                 ->where('orden_compra_detalle_id', $partida->id)
                 ->whereNull('producto_id')
-                ->update(['producto_id' => $producto->id]);
+                ->update(['producto_id' => $producto->id, 'item_id' => $item->id]);
         }
 
         foreach ($plan['requisiciones'] as ['detalle' => $partida, 'item' => $item]) {
@@ -140,16 +140,19 @@ class AsignadorProductoAPartidas
     }
 
     /**
-     * El producto y, si la partida no traía código, el del maestro (el del
-     * item, no la copia del producto: hay productos adoptados por la fusión que
-     * todavía traen su código viejo). La descripción y la unidad son snapshot
-     * del documento y no se tocan.
+     * El producto, el item y, si la partida no traía código, el del maestro (el
+     * del item, no la copia del producto: hay productos adoptados por la fusión
+     * que todavía traen su código viejo). La descripción y la unidad son
+     * snapshot del documento y no se tocan.
+     *
+     * `item_id` va explícito porque se escribe con `saveQuietly` y el trait que
+     * lo llena no corre sin eventos.
      *
      * @return array<string, mixed>
      */
     private function valoresPara(OrdenCompraDetalle|RequisicionDetalle $partida, Item $item): array
     {
-        $valores = ['producto_id' => $item->producto->id];
+        $valores = ['producto_id' => $item->producto->id, 'item_id' => $item->id];
 
         if (blank($partida->codigo_producto) && $item->codigo !== null) {
             $valores['codigo_producto'] = $item->codigo;
