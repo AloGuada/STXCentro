@@ -1,6 +1,6 @@
 <?php
 
-namespace Database\Seeders\Alm;
+namespace Database\Seeders;
 
 use App\Enums\Alm\ProductoTipo;
 use App\Models\Alm\Articulo;
@@ -18,7 +18,7 @@ use Illuminate\Support\Facades\DB;
  * Idempotente: lo que ya exista con ese nombre se reutiliza.
  *
  * Después de correrlo: `costos:asignar-producto-a-partidas --force` y
- * `alm:reponer-entradas --force`. Cumplido, se archiva en `_archive/`.
+ * `alm:reponer-entradas --force`. Corrido en producción el 2026-09-16.
  */
 class AltaArticulosPendientesSeeder extends Seeder
 {
