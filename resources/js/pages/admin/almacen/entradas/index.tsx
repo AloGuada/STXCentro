@@ -1,5 +1,5 @@
 import { DataTable, type Column } from '@/components/data-table';
-import { Select, SelectItem } from '@/components/ui/select';
+import { SearchSelect } from '@/components/ui/search-select';
 import AppLayout from '@/layouts/app-layout';
 import { etiquetaDeAlmacen } from '@/lib/alm/almacenes';
 import type { BreadcrumbItem } from '@/types';
@@ -134,17 +134,15 @@ export default function EntradasIndex({ entradas, filters, almacenes, ordenesAbi
                     getRowHref={(e) => `/admin/almacen/entradas/${e.id}`}
                 >
                     <div className="w-52">
-                        <Select
+                        <SearchSelect
                             value={filters.almacen_id ?? ''}
                             onValueChange={(v) => filtrar({ almacen_id: v || undefined })}
                             placeholder="Todos los almacenes"
-                        >
-                            {almacenes.map((a) => (
-                                <SelectItem key={a.id} value={String(a.id)}>
-                                    {etiquetaDeAlmacen(a)}
-                                </SelectItem>
-                            ))}
-                        </Select>
+                            options={[
+                                { value: '', label: 'Todos los almacenes' },
+                                ...almacenes.map((a) => ({ value: String(a.id), label: etiquetaDeAlmacen(a) })),
+                            ]}
+                        />
                     </div>
 
                     <label className="flex cursor-pointer items-center gap-2">

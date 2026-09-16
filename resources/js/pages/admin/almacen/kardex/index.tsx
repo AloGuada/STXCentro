@@ -1,4 +1,5 @@
 import { Input } from '@/components/ui/input';
+import { SearchSelect } from '@/components/ui/search-select';
 import { Select, SelectItem } from '@/components/ui/select';
 import AppLayout from '@/layouts/app-layout';
 import { etiquetaDeAlmacen } from '@/lib/alm/almacenes';
@@ -96,48 +97,43 @@ export default function KardexIndex({ movimientos, filters, totales, almacenes, 
                 <div className="mb-4 flex flex-wrap items-end gap-3">
                     <div className="w-52">
                         <label className="label label-text text-xs">Almacén</label>
-                        <Select
+                        <SearchSelect
                             value={filters.almacen_id ?? ''}
                             onValueChange={(v) => filtrar({ almacen_id: v || undefined })}
                             placeholder="Todos"
-                        >
-                            {almacenes.map((a) => (
-                                <SelectItem key={a.id} value={String(a.id)}>
-                                    {etiquetaDeAlmacen(a)} — {a.nombre}
-                                </SelectItem>
-                            ))}
-                        </Select>
+                            options={[
+                                { value: '', label: 'Todos' },
+                                ...almacenes.map((a) => ({ value: String(a.id), label: `${etiquetaDeAlmacen(a)} — ${a.nombre}` })),
+                            ]}
+                        />
                     </div>
 
                     <div className="w-64">
                         <label className="label label-text text-xs">Artículo</label>
-                        <Select
+                        <SearchSelect
                             value={filters.articulo_id ?? ''}
                             onValueChange={(v) => filtrar({ articulo_id: v || undefined })}
                             placeholder="Todos"
-                        >
-                            {productos.map((p) => (
-                                <SelectItem key={p.id} value={String(p.id)}>
-                                    {p.codigo} — {p.descripcion}
-                                </SelectItem>
-                            ))}
-                        </Select>
+                            maxOptions={30}
+                            options={[
+                                { value: '', label: 'Todos' },
+                                ...productos.map((p) => ({ value: String(p.id), label: `${p.codigo} — ${p.descripcion}` })),
+                            ]}
+                        />
                     </div>
 
                     <div className="w-44">
                         <label className="label label-text text-xs">Obra</label>
-                        <Select
+                        <SearchSelect
                             value={filters.obra_id ?? ''}
                             onValueChange={(v) => filtrar({ obra_id: v || undefined })}
                             placeholder="Todas"
-                        >
-                            <SelectItem value="libre">Sin asignar</SelectItem>
-                            {obras.map((o) => (
-                                <SelectItem key={o.id} value={String(o.id)}>
-                                    {o.no}
-                                </SelectItem>
-                            ))}
-                        </Select>
+                            options={[
+                                { value: '', label: 'Todas' },
+                                { value: 'libre', label: 'Sin asignar' },
+                                ...obras.map((o) => ({ value: String(o.id), label: o.no })),
+                            ]}
+                        />
                     </div>
 
                     <div className="w-44">

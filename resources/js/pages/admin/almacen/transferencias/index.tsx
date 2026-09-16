@@ -1,4 +1,5 @@
 import { DataTable, type Column } from '@/components/data-table';
+import { SearchSelect } from '@/components/ui/search-select';
 import { Select, SelectItem } from '@/components/ui/select';
 import AppLayout from '@/layouts/app-layout';
 import { etiquetaDeAlmacen } from '@/lib/alm/almacenes';
@@ -172,17 +173,15 @@ export default function TransferenciasIndex({ transferencias, filters, almacenes
                     getRowHref={(t) => `/admin/almacen/transferencias/${t.id}`}
                 >
                     <div className="w-52">
-                        <Select
+                        <SearchSelect
                             value={filters.almacen_id ?? ''}
                             onValueChange={(v) => filtrar({ almacen_id: v || undefined })}
                             placeholder="Cualquier almacén"
-                        >
-                            {almacenes.map((a) => (
-                                <SelectItem key={a.id} value={String(a.id)}>
-                                    {etiquetaDeAlmacen(a)}
-                                </SelectItem>
-                            ))}
-                        </Select>
+                            options={[
+                                { value: '', label: 'Cualquier almacén' },
+                                ...almacenes.map((a) => ({ value: String(a.id), label: etiquetaDeAlmacen(a) })),
+                            ]}
+                        />
                     </div>
 
                     <div className="w-40">

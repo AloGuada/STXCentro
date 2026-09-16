@@ -1,6 +1,6 @@
 import { BotonFormato } from '@/components/alm/boton-formato';
 import { DataTable, type Column } from '@/components/data-table';
-import { Select, SelectItem } from '@/components/ui/select';
+import { SearchSelect } from '@/components/ui/search-select';
 import AppLayout from '@/layouts/app-layout';
 import { etiquetaDeAlmacen } from '@/lib/alm/almacenes';
 import type { BreadcrumbItem } from '@/types';
@@ -111,31 +111,27 @@ export default function SalidasIndex({ salidas, filters, almacenes, obras }: Pro
                     getRowHref={(s) => `/admin/almacen/salidas/${s.id}`}
                 >
                     <div className="w-48">
-                        <Select
+                        <SearchSelect
                             value={filters.almacen_id ?? ''}
                             onValueChange={(v) => filtrar({ almacen_id: v || undefined })}
                             placeholder="Todos los almacenes"
-                        >
-                            {almacenes.map((a) => (
-                                <SelectItem key={a.id} value={String(a.id)}>
-                                    {etiquetaDeAlmacen(a)}
-                                </SelectItem>
-                            ))}
-                        </Select>
+                            options={[
+                                { value: '', label: 'Todos los almacenes' },
+                                ...almacenes.map((a) => ({ value: String(a.id), label: etiquetaDeAlmacen(a) })),
+                            ]}
+                        />
                     </div>
 
                     <div className="w-48">
-                        <Select
+                        <SearchSelect
                             value={filters.obra_id ?? ''}
                             onValueChange={(v) => filtrar({ obra_id: v || undefined })}
                             placeholder="Todas las obras"
-                        >
-                            {obras.map((o) => (
-                                <SelectItem key={o.id} value={String(o.id)}>
-                                    {o.no} — {o.descripcion}
-                                </SelectItem>
-                            ))}
-                        </Select>
+                            options={[
+                                { value: '', label: 'Todas las obras' },
+                                ...obras.map((o) => ({ value: String(o.id), label: `${o.no} — ${o.descripcion}` })),
+                            ]}
+                        />
                     </div>
 
                     <label className="flex cursor-pointer items-center gap-2">
