@@ -58,7 +58,7 @@ test('guardar precio de una celda no pisa código ni observaciones existentes', 
         ->assertRedirect();
 
     $cot->refresh();
-    expect($cot->precio_unitario)->toBe('150.00')
+    expect($cot->precio_unitario)->toBe('150.0000')
         ->and($cot->moneda)->toBe('usd')
         ->and($cot->codigo_producto)->toBe('ABC-123')
         ->and($cot->tiempo_entrega_dias)->toBe(7)
@@ -227,7 +227,7 @@ test('agregar una partida desde cotización crea el renglón', function () {
     expect($detalle)->not->toBeNull()
         ->and($detalle->descripcion)->toBe('Cemento gris 50kg')
         ->and($detalle->unidad)->toBe('saco')
-        ->and($detalle->cantidad)->toBe('20.00')
+        ->and($detalle->cantidad)->toBe('20.0000')
         ->and($detalle->obra_rubro_id)->toBe($rubro->id)
         ->and($detalle->uso_cfdi_id)->toBe($uso->id);
 });
