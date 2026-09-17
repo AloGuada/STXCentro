@@ -240,6 +240,22 @@ test('compras solicita por la pantalla y el jefe autoriza', function () {
         ->and((float) $partida->fresh()->cantidad_cancelada)->toBe(40.0);
 });
 
+test('la pantalla de la orden trae lo cancelado y sus cancelaciones', function () {
+    [$oc, $partida] = ordenConPresupuesto(100, 10);
+    recibirUnidades($oc, $partida, 60);
+    $cancelacion = app(CanceladorDeUnidades::class)->solicitar($partida->fresh(), 40, 'El proveedor ya no surte el resto');
+
+    $this->actingAs(usuarioDeCompras(['costos.ordenes-compra.cancelar', 'costos.ordenes-compra.ver-todas']))
+        ->get(route('admin.costos.ordenes-compra.show', $oc))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('admin/costos/ordenes-compra/show')
+            ->where('ordenCompra.detalles.0.cantidad_cancelada', '0.0000')
+            ->where('ordenCompra.detalles.0.cancelaciones.0.id', $cancelacion->id)
+            ->where('ordenCompra.detalles.0.cancelaciones.0.estatus', 'pendiente')
+            ->where('ordenCompra.estatus', 'pendiente_aprobacion'));
+});
+
 test('sin permiso de cancelar no se solicita', function () {
     [$oc, $partida] = ordenConPresupuesto(100, 10);
 
