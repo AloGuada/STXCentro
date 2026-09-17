@@ -720,6 +720,31 @@ function ValidacionProveedoresModal({
     );
 }
 
+/**
+ * Lo que compras canceló después en la orden. No vive en la requisición: sale
+ * de los renglones de OC que nacieron de esta partida
+ * (`requisicion_detalle_id`), así que sólo aparece cuando ya hubo orden.
+ */
+function CanceladoEnOc({ detalle }: { detalle: { cantidad: number; unidad: string; orden_compra_detalles?: { cantidad_cancelada: number; orden_compra?: { folio: string } | null }[] } }) {
+    const renglones = (detalle.orden_compra_detalles ?? []).filter((o) => Number(o.cantidad_cancelada) > 0);
+
+    if (renglones.length === 0) {
+        return null;
+    }
+
+    const cancelado = renglones.reduce((acc, o) => acc + Number(o.cantidad_cancelada), 0);
+    const folios = renglones.map((o) => o.orden_compra?.folio).filter(Boolean).join(', ');
+
+    return (
+        <div className="text-error text-xs font-normal">
+            −{cancelado.toLocaleString('es-MX', { maximumFractionDigits: 4 })} cancelado en OC{folios ? ` ${folios}` : ''}
+            <div className="text-base-content/60">
+                quedan {Math.max(0, Number(detalle.cantidad) - cancelado).toLocaleString('es-MX', { maximumFractionDigits: 4 })} {detalle.unidad}
+            </div>
+        </div>
+    );
+}
+
 export default function RequisicionesShow({
     requisicion,
     proveedores,
@@ -2268,6 +2293,7 @@ function ComparativoCotizaciones({
                                 <td className="text-right">
                                     {Number(d.cantidad).toLocaleString('es-MX', { maximumFractionDigits: 4 })}{' '}
                                     {d.unidad}
+                                    <CanceladoEnOc detalle={d} />
                                 </td>
                                 <td>
                                     {d.descripcion}

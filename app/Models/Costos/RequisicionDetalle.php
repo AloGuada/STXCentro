@@ -86,4 +86,34 @@ class RequisicionDetalle extends Model
     {
         return $this->hasMany(RequisicionSeleccion::class, 'requisicion_detalle_id');
     }
+
+    /**
+     * Los renglones de orden de compra que nacieron de esta partida. La liga ya
+     * existía (`requisicion_detalle_id`): sirve para saber qué pasó con lo que
+     * se pidió sin guardar nada en la requisición.
+     *
+     * @return HasMany<OrdenCompraDetalle, $this>
+     */
+    public function ordenCompraDetalles(): HasMany
+    {
+        return $this->hasMany(OrdenCompraDetalle::class, 'requisicion_detalle_id');
+    }
+
+    /**
+     * Unidades de esta partida que compras dio por canceladas en la orden, ya
+     * con la firma del jefe de compras. Derivado: no vive en la requisición.
+     */
+    public function cantidadCanceladaEnOc(): float
+    {
+        return (float) $this->ordenCompraDetalles->sum(fn (OrdenCompraDetalle $d) => (float) $d->cantidad_cancelada);
+    }
+
+    /**
+     * Lo que queda vivo de lo que se pidió, una vez descontado lo cancelado en
+     * la orden. Si la partida nunca llegó a una OC, es la cantidad pedida.
+     */
+    public function cantidadVigenteEnOc(): float
+    {
+        return max(0.0, (float) $this->cantidad - $this->cantidadCanceladaEnOc());
+    }
 }

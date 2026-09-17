@@ -184,7 +184,16 @@
                 $seleccionIds = $d->selecciones->pluck('cotizacion_precio_id')->map(fn ($v) => (int) $v)->all();
             @endphp
             <tr>
-                <td class="text-right">{{ \App\Support\Cantidad::formatear($d->cantidad) }} {{ $d->unidad }}</td>
+                <td class="text-right">
+                    {{ \App\Support\Cantidad::formatear($d->cantidad) }} {{ $d->unidad }}
+                    @php $canceladoOc = $d->cantidadCanceladaEnOc(); @endphp
+                    @if($canceladoOc > 0)
+                        <div style="font-size: 8px; color: #b91c1c;">
+                            &minus;{{ \App\Support\Cantidad::formatear($canceladoOc) }} cancel. en OC<br>
+                            quedan {{ \App\Support\Cantidad::formatear($d->cantidadVigenteEnOc()) }} {{ $d->unidad }}
+                        </div>
+                    @endif
+                </td>
                 <td>
                     {{ $d->descripcion }}
                     @if($d->solo_cotizacion)

@@ -400,6 +400,7 @@ class OrdenCompraController extends Controller
             'departamento',
             'detalles.usoCfdi:id,clave',
             'detalles.obraRubro.obra:id,no',
+            'detalles.cancelaciones.autorizador:id,name',
             'requisicion:id,folio',
         ]);
 
@@ -426,6 +427,7 @@ class OrdenCompraController extends Controller
             'departamento',
             'detalles.cotizaciones.opcion',
             'detalles.selecciones.cotizacionPrecio',
+            'detalles.ordenCompraDetalles:id,requisicion_detalle_id,cantidad,cantidad_cancelada',
             'detalles.selecciones.proveedor:id,razon_social,tipo_persona,regimen_fiscal_id',
             'detalles.selecciones.proveedor.regimenFiscal:id,clave',
             'detalles.obraRubro.obra:id,no,descripcion',
