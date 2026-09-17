@@ -434,7 +434,7 @@ export default function OrdenesCompraShow({ ordenCompra, retenciones, usuarios }
                                         </thead>
                                         <tbody>
                                             {cancelacionesDeLaOrden.map((c) => (
-                                                <tr key={c.id}>
+                                                <tr key={c.id} className="bg-error/10">
                                                     <td>{c.partida}</td>
                                                     <td className="text-right">
                                                         {Number(c.cantidad).toLocaleString('es-MX')} {c.unidad}
