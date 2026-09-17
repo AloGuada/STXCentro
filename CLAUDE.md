@@ -306,12 +306,6 @@ Sistema integrador empresarial que centraliza 8 módulos: autenticación con rol
 
 ## Spatie Permissions
 
-### Configuración del Modelo Usuario
-```php
-// app/Models/Usuario.php - UUID con HasRoles
-// app/Models/User.php - Alias de Usuario para Fortify (ver MEMORY.md sobre desajuste model_type)
-```
-
 ### Convención de Nombres de Permisos
 Formato: `{módulo}.{recurso}.{acción}`
 
@@ -341,48 +335,11 @@ Formato: `{módulo}.{recurso}.{acción}`
 
 ## Rutas (routes/)
 
-| Archivo | Descripción |
-|---------|-------------|
-| `routes/admin.php` | Todas las rutas admin con prefijo `/admin` (incluye sub-grupos por módulo) |
-| `routes/sti.php` | Rutas públicas de tickets STI |
-| `routes/intra.php` | Rutas públicas de intranet |
-| `routes/portal.php` | Portal de proveedores (auth propio, facturas, OCs, pagos) |
-| `routes/web.php` | Homepage y auth |
-
 ### Convención de Rutas con Recursos en Español
 ```php
 // Siempre usar .parameters() para evitar mala pluralización
 Route::resource('proveedores', ProveedorController::class)->parameters(['proveedores' => 'proveedor']);
 Route::resource('planes', PlanController::class)->parameters(['planes' => 'plan']);
-```
-
-## Convenciones de Modelos
-
-### UUIDs en Usuario
-```php
-use Illuminate\Database\Eloquent\Concerns\HasUuids;
-
-class Usuario extends Authenticatable
-{
-    use HasUuids, HasRoles;
-}
-```
-
-### Relaciones Polimórficas (Media)
-```php
-// En cualquier modelo que tenga archivos adjuntos
-public function media(): MorphMany
-{
-    return $this->morphMany(Media::class, 'mediable');
-}
-```
-
-### Relaciones Polimórficas (Tags)
-```php
-public function tags(): MorphMany
-{
-    return $this->morphMany(Tag::class, 'statusable');
-}
 ```
 
 ## Convenciones de Controladores

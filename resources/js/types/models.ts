@@ -4531,3 +4531,335 @@ export type BadgeConfig = {
     created_at: string;
     updated_at: string;
 };
+
+// =========================================
+// Calidad
+// =========================================
+
+/**
+ * Los catálogos del módulo comparten forma: un nombre y si sigue en uso. Aquí
+ * nada se borra, se desactiva — un valor inactivo sale de los desplegables pero
+ * no toca los registros que ya lo mencionan.
+ */
+export type QalCatalogoSimple = {
+    id: number;
+    nombre: string;
+    activo: boolean;
+    created_at: string;
+    updated_at: string;
+};
+
+/** De dónde sale quien firma un lugar de la hoja: quien la elaboró o una persona fija. */
+export type QalOrigenFirmante = 'creador' | 'usuario';
+
+/** Un lugar de firma de los formatos PDF de Calidad, en su orden. */
+export type QalFirmante = {
+    id: number;
+    orden: number;
+    /** Lo que va sobre la firma: Elaboró, Revisó, Aprobó… */
+    etiqueta: string;
+    cargo: string;
+    origen: QalOrigenFirmante;
+    usuario_id: string | null;
+    /** Nombre de la persona fija; null si firma quien elaboró o todavía no se elige. */
+    usuario: string | null;
+    tiene_rubrica: boolean;
+};
+
+export type QalUsuarioFirmante = {
+    id: string;
+    nombre: string;
+    tiene_rubrica: boolean;
+};
+
+export type QalOpcionOrigenFirmante = {
+    valor: QalOrigenFirmante;
+    etiqueta: string;
+};
+
+/** A qué lista del catálogo de defectos pertenece uno; cada lista es de una etapa. */
+export type QalAmbitoDefecto =
+    | 'soldadura'
+    | 'pintura'
+    | 'accesorio_dimensional'
+    | 'accesorio_barrenos'
+    | 'accesorio_limpieza';
+
+export type QalDefecto = QalCatalogoSimple & {
+    ambito: QalAmbitoDefecto;
+    clave: string | null;
+};
+
+export type QalOpcionAmbitoDefecto = {
+    valor: QalAmbitoDefecto;
+    etiqueta: string;
+    fase: QalFaseTransformacion;
+};
+
+/** Laboratorio que firma los informes de ensayos no destructivos. */
+export type QalLaboratorio = QalCatalogoSimple & {
+    /** Como se le nombra dentro del informe. */
+    siglas: string | null;
+};
+
+/**
+ * Tipo de pieza, por el prefijo oficial de ingeniería. Con él la captura deduce
+ * sola el tipo: en `PIP-TP12-3`, el prefijo `TP` la resuelve como trabe
+ * principal sin que el inspector elija nada.
+ */
+export type QalTipoPieza = {
+    id: number;
+    prefijo: string;
+    descripcion: string;
+    activo: boolean;
+    created_at: string;
+    updated_at: string;
+};
+
+/**
+ * Soldador del padrón. La `clave` es la que se estampa en la pieza y la que
+ * enlaza con su WPQR en el dosier: si no coincide, el dosier reporta que no
+ * tiene certificado.
+ */
+export type QalSoldador = QalCatalogoSimple & {
+    clave: string | null;
+    certificacion: string | null;
+    /** Sin fecha no se puede afirmar que esté vencida, así que no se asume. */
+    certificacion_vence_at: string | null;
+};
+
+/** Métodos de prueba no destructiva. Los define la norma, no la empresa. */
+export type QalMetodoPnd = 'UT' | 'MT' | 'PT' | 'RT' | 'VT';
+
+/** Las tres transformaciones por las que pasa una pieza. */
+export type QalFaseTransformacion = '1ª' | '2ª' | '3ª';
+
+/**
+ * El veredicto del laboratorio sobre un punto examinado. Son dos: el reexamen
+ * posterior a una reparación entra como su propio renglón, no corrigiendo el
+ * veredicto anterior.
+ */
+export type QalResultadoPnd = 'aceptada' | 'rechazada';
+
+/** La obra vista desde Calidad. */
+export type QalObra = {
+    id: number;
+    no: string;
+    descripcion: string | null;
+    activa?: boolean;
+    /** De dónde sale el número de pruebas comprometidas, en palabras. */
+    pnd_nota?: string | null;
+};
+
+/**
+ * Un método dentro del plan de PND de la obra, ya cruzado con lo ensayado.
+ *
+ * `comprometidas` en **nulo** significa «este método no entra en el contrato»,
+ * que no es lo mismo que un cero —«se pactaron cero»—. La pantalla los pinta
+ * distinto, así que el nulo no debe colapsarse a 0 al leerlo.
+ */
+export type QalPndAvance = {
+    metodo: QalMetodoPnd;
+    nombre: string;
+    detecta: string;
+    /** Los parámetros que suele traer el informe de este método. */
+    parametros: string[];
+    comprometidas: number | null;
+    /** Puntos examinados, no juntas: el denominador del porcentaje de rechazo. */
+    spots: number;
+    rechazados: number;
+    reportes: number;
+};
+
+/** Un parámetro con que el laboratorio corrió la prueba. */
+export type QalPndParametro = {
+    id: number;
+    clave: string;
+    valor: string;
+};
+
+/**
+ * Un renglón de la rejilla del informe: **un punto examinado, no una junta**.
+ * `J-18-1-2` es el segundo spot de la junta `18-1`.
+ */
+export type QalPndJunta = {
+    id: number;
+    /** La marca de Producción, cuando la del laboratorio es única en el catálogo vigente de la obra. */
+    concepto_id: number | null;
+    /** El texto tal como lo escribió el laboratorio; se conserva siempre. */
+    marca: string;
+    junta: string;
+    modulo: string | null;
+    spot: number;
+    resultado: QalResultadoPnd;
+    discontinuidad: string | null;
+    longitud_discontinuidad: string | null;
+    espesor: string | null;
+    soldador_id: number | null;
+    concepto?: { id: number; marca: string; lote: string | null } | null;
+};
+
+/** Evidencia fotográfica del informe. */
+export type QalPndFoto = {
+    id: number;
+    ruta: string;
+    nombre: string | null;
+};
+
+/**
+ * El informe que emite el laboratorio de pruebas no destructivas.
+ *
+ * `reporte_no` es el folio **del laboratorio**: se teclea, no se genera. El
+ * encabezado vive una sola vez y la rejilla cuelga de él.
+ */
+export type QalPndReporte = {
+    id: number;
+    reporte_no: string;
+    metodo: QalMetodoPnd;
+    laboratorio_id: number;
+    qal_obra_id: number;
+    lugar: string | null;
+    fecha_prueba: string;
+    fecha_emision: string | null;
+    /** La semana va siempre con su año: sola es ambigua entre ejercicios. */
+    anio: number;
+    semana: number;
+    porcentaje_inspeccion: string | null;
+    tecnico: string | null;
+    material: string | null;
+    norma: string | null;
+    archivo_pdf: string | null;
+    created_at?: string;
+    updated_at?: string;
+    laboratorio?: QalLaboratorio | null;
+    juntas?: QalPndJunta[];
+    parametros?: QalPndParametro[];
+    fotos?: QalPndFoto[];
+    /** Puntos examinados del informe, contados en la consulta. */
+    spots?: number;
+    rechazados?: number;
+};
+
+/**
+ * Una obra en la hoja de PND del reporte semanal.
+ *
+ * Va en **acumulado del proyecto**, no de la semana: lo que se pactó con el
+ * cliente es el total del contrato, así que el avance sólo significa algo
+ * contra todo lo ensayado hasta la fecha.
+ *
+ * La unidad es el **spot** —un punto examinado—, no la junta: una junta puede
+ * llevar varios puntos, y contarlas subestimaría lo ensayado.
+ */
+export type QalReporteSemanalPnd = {
+    obra_id: number;
+    obra: string;
+    descripcion: string | null;
+    /** Puntos examinados en toda la obra. */
+    spots: number;
+    rechazados: number;
+    /** El numerador del avance: un punto rechazado se ensayó, pero no cumple. */
+    aceptados: number;
+    metodos: Record<QalMetodoPnd, { spots: number; aceptados: number; rechazados: number }>;
+    /** Piezas del proyecto. `null` = no está capturado en la ficha de la obra. */
+    pz_total: number | null;
+    /** Spots comprometidos. `null` = la obra no tiene plan de PND todavía. */
+    comprometidos: number | null;
+    /** Marcas distintas con al menos un ensayo. Son piezas, no ensayos. */
+    piezas_con_pnd: number;
+    piezas_sin_rechazo: number;
+};
+
+/**
+ * Dónde se originó una incidencia aparecida en obra.
+ *
+ * El taller de pintura cuenta como taller en el corte del reporte semanal:
+ * también es un defecto que salió de la nave.
+ */
+export type QalAreaIncidencia = 'taller' | 'taller_pintura' | 'montaje';
+
+/** A quién se le atribuye la incidencia. Son los siete del formato en Excel. */
+export type QalDepartamentoIncidencia =
+    | '1a'
+    | '2a'
+    | 'pintura_taller'
+    | 'pintura_obra'
+    | 'ingenieria'
+    | 'logistica'
+    | 'construccion';
+
+/** Una opción de enum con la etiqueta que se enseña. */
+export type QalOpcion = { valor: string; etiqueta: string };
+
+/**
+ * El avance de montaje de una obra en una semana: el **denominador**.
+ *
+ * `pz_montadas` en nulo es «falta el dato»; cero es «no se montó nada». La
+ * pantalla los pinta distinto porque el porcentaje del segundo es calculable y
+ * el del primero no.
+ *
+ * `sin_incidencias` es un dato, no un hueco: dice que la semana se revisó y no
+ * hubo hallazgos, que no es lo mismo que una semana en blanco.
+ */
+export type QalObraMontaje = {
+    id: number;
+    qal_obra_id: number;
+    anio: number;
+    semana: number;
+    pz_montadas: number | null;
+    sin_incidencias: boolean;
+    notas: string | null;
+};
+
+/**
+ * Una incidencia de montaje.
+ *
+ * El numerador son las **piezas con defecto**, no el número de incidencias: un
+ * solo hallazgo puede afectar a diez piezas. El estado sale de `cerrada_en`;
+ * `abierta` es la misma verdad ya resuelta por el modelo.
+ */
+export type QalObraIncidencia = {
+    id: number;
+    qal_obra_id: number;
+    anio: number;
+    semana: number;
+    fecha: string;
+    area: QalAreaIncidencia;
+    departamento: QalDepartamentoIncidencia;
+    pz_defecto: number;
+    folio: string | null;
+    descripcion: string | null;
+    cerrada_en: string | null;
+    abierta: boolean;
+    capturista?: { id: string; name: string } | null;
+};
+
+/** Una obra en la portada de incidencias, con su año ya sumado. */
+export type QalIncidenciaObraResumen = {
+    id: number;
+    no: string;
+    descripcion: string | null;
+    pz_total: number | null;
+    pz_montadas: number;
+    pz_montadas_semana: number;
+    semanas: number;
+    incidencias: number;
+    pz_defecto: number;
+    abiertas: number;
+    incidencias_semana: number;
+    /** `null` = no hay piezas montadas capturadas, así que no hay porcentaje. */
+    tasa: number | null;
+};
+
+/** Una semana en la tabla de historial de la obra. */
+export type QalIncidenciaSemana = {
+    semana: number;
+    /** Lunes y domingo de la semana ISO, en palabras. */
+    rango: string;
+    montaje_id: number | null;
+    pz_montadas: number | null;
+    sin_incidencias: boolean;
+    notas: string | null;
+    incidencias: number;
+    pz_defecto: number;
+    tasa: number | null;
+};

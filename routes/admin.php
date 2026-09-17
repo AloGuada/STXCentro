@@ -106,6 +106,7 @@ use App\Http\Controllers\Admin\Drive\DriveCarpetaAccesoController;
 use App\Http\Controllers\Admin\Drive\DriveCarpetaController;
 use App\Http\Controllers\Admin\Drive\DriveDashboardController as DriveAdminDashboardController;
 use App\Http\Controllers\Admin\Drive\DriveExternoController;
+use App\Http\Controllers\Admin\FirmaController as MiFirmaController;
 use App\Http\Controllers\Admin\Infra\RecorridoController as InfraRecorridoController;
 use App\Http\Controllers\Admin\Infra\TurnoController as InfraTurnoController;
 use App\Http\Controllers\Admin\Intra\AreaController as IntraAreaController;
@@ -123,6 +124,7 @@ use App\Http\Controllers\Admin\Prod\DestajoController as ProdDestajoController;
 use App\Http\Controllers\Admin\Prod\GrupoPrecioConceptoController as ProdGrupoPrecioConceptoController;
 use App\Http\Controllers\Admin\Prod\GrupoPrecioController as ProdGrupoPrecioController;
 use App\Http\Controllers\Admin\Prod\GrupoTrabajoController as ProdGrupoTrabajoController;
+use App\Http\Controllers\Admin\Prod\ModeloController as ProdModeloController;
 use App\Http\Controllers\Admin\Prod\ObraProcesoController as ProdObraProcesoController;
 use App\Http\Controllers\Admin\Prod\PagoExtraController as ProdPagoExtraController;
 use App\Http\Controllers\Admin\Prod\ProcesoController as ProdProcesoController;
@@ -130,6 +132,32 @@ use App\Http\Controllers\Admin\Prod\RegistroController as ProdRegistroController
 use App\Http\Controllers\Admin\Prod\TipoPagoExtraController as ProdTipoPagoExtraController;
 use App\Http\Controllers\Admin\Prod\UbicacionController as ProdUbicacionController;
 use App\Http\Controllers\Admin\ProveedorController;
+use App\Http\Controllers\Admin\Qal\AccesorioController as QalAccesorioController;
+use App\Http\Controllers\Admin\Qal\CatalogoController as QalCatalogoController;
+use App\Http\Controllers\Admin\Qal\DashboardController as QalDashboardController;
+use App\Http\Controllers\Admin\Qal\DefectoController as QalDefectoController;
+use App\Http\Controllers\Admin\Qal\DosierController as QalDosierController;
+use App\Http\Controllers\Admin\Qal\DossierArchivoController as QalDossierArchivoController;
+use App\Http\Controllers\Admin\Qal\DossierDescargaController as QalDossierDescargaController;
+use App\Http\Controllers\Admin\Qal\DossierPlantillaController as QalDossierPlantillaController;
+use App\Http\Controllers\Admin\Qal\EquipoController as QalEquipoController;
+use App\Http\Controllers\Admin\Qal\FirmanteController as QalFirmanteController;
+use App\Http\Controllers\Admin\Qal\IncidenciasController as QalIncidenciasController;
+use App\Http\Controllers\Admin\Qal\InspeccionController as QalInspeccionController;
+use App\Http\Controllers\Admin\Qal\LaboratorioController as QalLaboratorioController;
+use App\Http\Controllers\Admin\Qal\ModeloMarcaController as QalModeloMarcaController;
+use App\Http\Controllers\Admin\Qal\OperadorController as QalOperadorController;
+use App\Http\Controllers\Admin\Qal\PiezaController as QalPiezaController;
+use App\Http\Controllers\Admin\Qal\PiezasDelPlanController as QalPiezasDelPlanController;
+use App\Http\Controllers\Admin\Qal\PndController as QalPndController;
+use App\Http\Controllers\Admin\Qal\ProgramacionController as QalProgramacionController;
+use App\Http\Controllers\Admin\Qal\RegistroController as QalRegistroController;
+use App\Http\Controllers\Admin\Qal\ReporteController as QalReporteController;
+use App\Http\Controllers\Admin\Qal\ReporteSemanalController as QalReporteSemanalController;
+use App\Http\Controllers\Admin\Qal\ResponsableController as QalResponsableController;
+use App\Http\Controllers\Admin\Qal\SoldadorController as QalSoldadorController;
+use App\Http\Controllers\Admin\Qal\SupervisorPinturaController as QalSupervisorPinturaController;
+use App\Http\Controllers\Admin\Qal\TipoPiezaController as QalTipoPiezaController;
 use App\Http\Controllers\Admin\RegimenFiscalController;
 use App\Http\Controllers\Admin\Rh\DashboardController as RhDashboardController;
 use App\Http\Controllers\Admin\Rh\OnboardingController as RhOnboardingController;
@@ -151,9 +179,15 @@ use App\Http\Controllers\Admin\Sti\TecnicoController as StiTecnicoController;
 use App\Http\Controllers\Admin\Sti\TicketController as StiTicketController;
 use App\Http\Controllers\Admin\TagController;
 use App\Http\Controllers\Admin\UsuarioController;
+use App\Services\Qal\Formatos\Formatos;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(function () {
+    // La rúbrica es de la persona, no de un módulo: cualquiera dibuja la suya.
+    Route::get('mi-firma', [MiFirmaController::class, 'edit'])->name('firma.edit');
+    Route::post('mi-firma', [MiFirmaController::class, 'update'])->name('firma.update');
+    Route::delete('mi-firma', [MiFirmaController::class, 'destroy'])->name('firma.destroy');
+
     Route::patch('usuarios/{usuario}/estado', [UsuarioController::class, 'estado'])->name('usuarios.estado');
     Route::resource('usuarios', UsuarioController::class);
     Route::resource('roles', RoleController::class);
@@ -184,6 +218,35 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::post('catalogos/{catalogo}/nueva-version', [ProdCatalogoController::class, 'nuevaVersion'])->name('catalogos.nueva-version');
         Route::get('catalogos/{catalogo}/comparar/{contra}', [ProdCatalogoController::class, 'comparar'])->name('catalogos.comparar');
         Route::post('catalogos/{catalogo}/import-csv', [ProdConceptoController::class, 'importCsv'])->name('catalogos.import-csv');
+
+        // El modelo 3D de la obra: su IFC convertido en marcas con sus
+        // cordones. Es una opcion del catalogo porque aqui esta quien tiene el
+        // IFC; Calidad reporta las juntas sobre esos cordones.
+        Route::get('catalogos/{catalogo}/modelos', [ProdModeloController::class, 'index'])
+            ->middleware('permission:qal.modelos.ver')
+            ->name('catalogos.modelos');
+        Route::prefix('modelos')->name('modelos.')->group(function () {
+            Route::post('/', [ProdModeloController::class, 'store'])
+                ->middleware('permission:qal.modelos.crear')
+                ->name('store');
+            Route::middleware('permission:qal.modelos.ver')->group(function () {
+                Route::get('{modelo}', [ProdModeloController::class, 'show'])
+                    ->whereNumber('modelo')
+                    ->name('show');
+                Route::get('{modelo}/estado', [ProdModeloController::class, 'estado'])
+                    ->whereNumber('modelo')
+                    ->name('estado');
+            });
+            Route::middleware('permission:qal.modelos.crear')->group(function () {
+                Route::post('{modelo}/reprocesar', [ProdModeloController::class, 'reprocesar'])
+                    ->name('reprocesar');
+                Route::post('{modelo}/resolver-marcas', [ProdModeloController::class, 'resolverMarcas'])
+                    ->name('resolver-marcas');
+            });
+            Route::delete('{modelo}', [ProdModeloController::class, 'destroy'])
+                ->middleware('permission:qal.modelos.eliminar')
+                ->name('destroy');
+        });
         Route::resource('catalogos', ProdCatalogoController::class)
             ->parameters(['catalogos' => 'catalogo'])
             ->except(['create', 'edit']);
@@ -1095,6 +1158,265 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::post('archivos/{archivo}/marcar-visto', [DgReporteController::class, 'marcarVisto'])->name('archivos.marcar-visto');
         Route::patch('archivos/{archivo}/notas', [DgReporteController::class, 'updateNotas'])->name('archivos.notas.update');
         Route::delete('archivos/{archivo}', [DgReporteController::class, 'destroyArchivo'])->name('archivos.destroy');
+    });
+
+    // Calidad admin routes
+    //
+    // El modulo se rehace bajo el prefijo qal_, que sustituye a cal_. Las
+    // tablas, los modelos y los permisos cal.* se quedan intactos porque los
+    // usa la aplicacion anterior por API (routes/api.php, guard Sanctum)
+    // mientras siga viva; mueren con ella. Aqui nada apunta a cal.
+    //
+    // La URL sigue siendo /admin/calidad: qal es el prefijo de la base, no el
+    // nombre del modulo.
+    Route::prefix('calidad')->name('qal.')->group(function () {
+        // El tablero solo lee: resume lo que capturaron las demas pantallas.
+        Route::get('dashboard', [QalDashboardController::class, 'index'])
+            ->middleware('permission:qal.dashboard.ver')
+            ->name('dashboard');
+        // Captura de inspección: 1ª, 2ª con sus juntas y pintura en una sola
+        // pantalla, porque la tablet se queda abierta aquí y lo que cambia es
+        // la fase. El lector de QR pregunta por la pieza sin salir de ella.
+        Route::middleware('permission:qal.inspecciones.crear')->group(function () {
+            Route::get('formularios', [QalInspeccionController::class, 'create'])
+                ->name('formularios');
+            Route::post('inspecciones', [QalInspeccionController::class, 'store'])
+                ->name('inspecciones.store');
+            // Una inspección nueva de la misma pieza: la anterior se conserva.
+            Route::get('inspecciones/{inspeccion}/reinspeccionar', [QalInspeccionController::class, 'reinspeccionar'])
+                ->name('inspecciones.reinspeccionar');
+            Route::get('piezas/resolver', [QalPiezaController::class, 'resolver'])
+                ->name('piezas.resolver');
+        });
+        Route::middleware('permission:qal.inspecciones.editar')->group(function () {
+            Route::get('inspecciones/{inspeccion}/edit', [QalInspeccionController::class, 'edit'])
+                ->name('inspecciones.edit');
+            Route::put('inspecciones/{inspeccion}', [QalInspeccionController::class, 'update'])
+                ->name('inspecciones.update');
+        });
+        Route::delete('inspecciones/{inspeccion}', [QalInspeccionController::class, 'destroy'])
+            ->middleware('permission:qal.inspecciones.eliminar')
+            ->name('inspecciones.destroy');
+
+        // Lotes de accesorios: la entrega se captura en Formularios (modo
+        // lote) y el avance de cada marca se consulta en la pestaña
+        // Accesorios del tablero; aquí sólo se escribe.
+        Route::prefix('accesorios')->name('accesorios.')->group(function () {
+            Route::middleware('permission:qal.accesorios.crear')->group(function () {
+                Route::post('sublotes', [QalAccesorioController::class, 'store'])
+                    ->name('sublotes.store');
+                Route::get('lotes/{lote}/sublote', [QalAccesorioController::class, 'nuevoSublote'])
+                    ->name('lotes.sublote');
+                Route::get('sublotes/{sublote}/reinspeccionar', [QalAccesorioController::class, 'reinspeccionar'])
+                    ->name('sublotes.reinspeccionar');
+            });
+            Route::middleware('permission:qal.accesorios.editar')->group(function () {
+                Route::get('sublotes/{sublote}/edit', [QalAccesorioController::class, 'edit'])
+                    ->name('sublotes.edit');
+                Route::put('sublotes/{sublote}', [QalAccesorioController::class, 'update'])
+                    ->name('sublotes.update');
+            });
+            Route::delete('sublotes/{sublote}', [QalAccesorioController::class, 'destroy'])
+                ->middleware('permission:qal.accesorios.eliminar')
+                ->name('sublotes.destroy');
+        });
+
+        // La marca de un modelo 3D con sus cordones, para montar el visor. La
+        // pide la captura de soldado, así que capturar alcanza para leerla; la
+        // pantalla del modelo vive en Producción, junto al catálogo de la obra.
+        Route::get('modelos/marcas/{modeloMarca}', [QalModeloMarcaController::class, 'show'])
+            ->middleware('permission:qal.modelos.ver|qal.inspecciones.crear')
+            ->name('modelos.marca');
+
+        // La base en crudo de lo capturado, para auditar: quien la abre ve lo
+        // que capturó cualquier inspector. Exportar va aparte (RF-18.3): es
+        // sacar la información del sistema.
+        Route::get('registros', [QalRegistroController::class, 'index'])
+            ->middleware('permission:qal.registros.ver')
+            ->name('registros.index');
+        Route::get('registros/exportar', [QalRegistroController::class, 'exportar'])
+            ->middleware('permission:qal.registros.exportar')
+            ->name('registros.exportar');
+        // Producción contra calidad, semana a semana. Cuelga del mismo permiso
+        // que la captura porque lo que compara es justo lo que se inspecciona;
+        // cuando pueda guardar el plan va a pedir qal.programacion.capturar.
+        // Avance de producción: el plan de la semana contra lo que calidad
+        // inspeccionó. El plan lo teclea Producción; el resto se deduce.
+        Route::get('avance', [QalProgramacionController::class, 'index'])
+            ->middleware('permission:qal.programacion.ver')
+            ->name('avance');
+        Route::post('avance/programaciones', [QalProgramacionController::class, 'store'])
+            ->middleware('permission:qal.programacion.capturar')
+            ->name('avance.programaciones.store');
+        // El formulario «agregar al plan» (obra, marca, QR): responde JSON
+        // para no recargar el plan que se está escribiendo.
+        Route::middleware('permission:qal.programacion.capturar')->prefix('avance')->name('avance.')->group(function () {
+            Route::get('marcas', [QalPiezasDelPlanController::class, 'marcas'])->name('marcas');
+            Route::get('piezas', [QalPiezasDelPlanController::class, 'piezas'])->name('piezas');
+            Route::get('pieza', [QalPiezasDelPlanController::class, 'pieza'])->name('pieza');
+        });
+
+        // Pruebas no destructivas. Es recurso aparte de reportes: aqui se
+        // cuentan juntas soldadas evaluadas por un laboratorio externo, alla
+        // piezas revisadas a la vista por el inspector. No se suman.
+        Route::get('pnd', [QalPndController::class, 'index'])
+            ->middleware('permission:qal.pnd.ver')
+            ->name('pnd.index');
+        Route::get('pnd/create', [QalPndController::class, 'create'])
+            ->middleware('permission:qal.pnd.crear')
+            ->name('pnd.create');
+        Route::post('pnd', [QalPndController::class, 'store'])
+            ->middleware('permission:qal.pnd.crear')
+            ->name('pnd.store');
+        Route::get('pnd/{pnd}/edit', [QalPndController::class, 'edit'])
+            ->middleware('permission:qal.pnd.ver')
+            ->name('pnd.edit');
+        Route::post('pnd/{pnd}', [QalPndController::class, 'update'])
+            ->middleware('permission:qal.pnd.editar')
+            ->name('pnd.update');
+        Route::delete('pnd/{pnd}', [QalPndController::class, 'destroy'])
+            ->middleware('permission:qal.pnd.eliminar')
+            ->name('pnd.destroy');
+        Route::post('pnd/{pnd}/resolver-marcas', [QalPndController::class, 'resolverMarcas'])
+            ->middleware('permission:qal.pnd.editar')
+            ->name('pnd.resolver-marcas');
+
+        // Incidencias en obra: lo que falla durante el montaje. Circuito
+        // aparte del taller, y quien lo captura es el residente, no el
+        // inspector, por eso tiene sus propios permisos.
+        //
+        // La captura va toda colgada de la obra ({obra}) porque el avance de
+        // montaje y las incidencias solo significan algo dentro de una: un
+        // porcentaje de todas las obras juntas mezcla denominadores.
+        Route::prefix('incidencias')->name('incidencias.')->group(function () {
+            Route::get('/', [QalIncidenciasController::class, 'index'])
+                ->middleware('permission:qal.incidencias.ver')
+                ->name('index');
+            Route::get('{obra}', [QalIncidenciasController::class, 'show'])
+                ->whereNumber('obra')
+                ->middleware('permission:qal.incidencias.ver')
+                ->name('show');
+
+            Route::middleware('permission:qal.incidencias.capturar')->group(function () {
+                Route::post('{obra}/montaje', [QalIncidenciasController::class, 'guardarMontaje'])
+                    ->name('montaje');
+                Route::post('{obra}/sin-incidencias', [QalIncidenciasController::class, 'sinIncidencias'])
+                    ->name('sin-incidencias');
+                Route::post('{obra}', [QalIncidenciasController::class, 'store'])
+                    ->name('store');
+                Route::patch('{obra}/{incidencia}/estado', [QalIncidenciasController::class, 'cambiarEstado'])
+                    ->name('estado');
+            });
+
+            Route::middleware('permission:qal.incidencias.eliminar')->group(function () {
+                Route::delete('{obra}/montaje/{montaje}', [QalIncidenciasController::class, 'borrarMontaje'])
+                    ->name('montaje.destroy');
+                Route::delete('{obra}/{incidencia}', [QalIncidenciasController::class, 'destroy'])
+                    ->name('destroy');
+            });
+        });
+
+        // El reporte semanal (F-STX-CA-31). Permiso propio y no el del
+        // tablero: el tablero es la herramienta diaria del area y esto es el
+        // documento con folio de formato que sale de la empresa.
+        Route::get('reporte-semanal', [QalReporteSemanalController::class, 'index'])
+            ->middleware('permission:qal.reporte-semanal.ver')
+            ->name('reporte-semanal');
+
+        // Los formatos PDF F-STX-*: la pantalla que los previsualiza y el PDF
+        // de cada uno.
+        Route::get('reportes', [QalReporteController::class, 'index'])
+            ->middleware('permission:qal.reportes.ver')
+            ->name('reportes.index');
+        Route::get('reportes/{formato}', [QalReporteController::class, 'pdf'])
+            ->whereIn('formato', Formatos::claves())
+            ->middleware('permission:qal.reportes.ver')
+            ->name('reportes.pdf');
+
+        // El dosier: los de cada obra y el catálogo de plantillas.
+        Route::get('dosier', [QalDosierController::class, 'index'])
+            ->middleware('permission:qal.dossier.ver')
+            ->name('dosier.index');
+        Route::middleware('permission:qal.dossier.editar')->prefix('dosier/plantillas')->name('dosier.plantillas.')->group(function () {
+            Route::post('/', [QalDossierPlantillaController::class, 'store'])->name('store');
+            Route::put('{plantilla}', [QalDossierPlantillaController::class, 'update'])->name('update');
+            Route::patch('{plantilla}/toggle', [QalDossierPlantillaController::class, 'toggle'])->name('toggle');
+            Route::put('{plantilla}/arbol', [QalDossierPlantillaController::class, 'arbol'])->name('arbol');
+        });
+        Route::middleware('permission:qal.dossier.ver')->group(function () {
+            Route::get('dosier/{dossier}', [QalDosierController::class, 'show'])->whereNumber('dossier')->name('dosier.show');
+            Route::get('dosier/{dossier}/descargar', QalDossierDescargaController::class)->whereNumber('dossier')->name('dosier.descargar');
+            Route::get('dosier/{dossier}/archivos/{archivo}', [QalDossierArchivoController::class, 'ver'])
+                ->whereNumber(['dossier', 'archivo'])
+                ->name('dosier.archivos.ver');
+        });
+        Route::middleware('permission:qal.dossier.editar')->group(function () {
+            Route::post('dosier', [QalDosierController::class, 'store'])->name('dosier.store');
+            Route::put('dosier/{dossier}', [QalDosierController::class, 'update'])->whereNumber('dossier')->name('dosier.update');
+            Route::delete('dosier/{dossier}', [QalDosierController::class, 'destroy'])->whereNumber('dossier')->name('dosier.destroy');
+            Route::put('dosier/{dossier}/secciones', [QalDosierController::class, 'secciones'])->whereNumber('dossier')->name('dosier.secciones');
+            Route::post('dosier/{dossier}/secciones/{seccion}/archivos', [QalDossierArchivoController::class, 'store'])
+                ->whereNumber(['dossier', 'seccion'])
+                ->name('dosier.archivos.store');
+            Route::put('dosier/{dossier}/secciones/{seccion}/archivos/orden', [QalDossierArchivoController::class, 'reordenar'])
+                ->whereNumber(['dossier', 'seccion'])
+                ->name('dosier.archivos.reordenar');
+            Route::delete('dosier/{dossier}/archivos/{archivo}', [QalDossierArchivoController::class, 'destroy'])
+                ->whereNumber(['dossier', 'archivo'])
+                ->name('dosier.archivos.destroy');
+        });
+
+        // El plan comprometido es contrato, no captura: lo edita quien
+        // administra la ficha de la obra.
+        Route::put('pnd/plan/{obra}', [QalPndController::class, 'guardarPlan'])
+            ->middleware('permission:qal.obras.editar')
+            ->name('pnd.plan');
+        // Catalogos del modulo: una sola pantalla con pestanas. Se entra con
+        // cualquiera de los permisos de ver, y el front esconde las pestanas
+        // que el usuario no puede consultar.
+        Route::get('catalogos', [QalCatalogoController::class, 'index'])
+            ->middleware('permission:qal.soldadores.ver|qal.laboratorios.ver|qal.tipos-pieza.ver|qal.equipos.ver|qal.operadores.ver|qal.responsables.ver|qal.supervisores-pintura.ver|qal.defectos.ver|qal.firmantes.ver')
+            ->name('catalogos.index');
+
+        // El orden de firma de los formatos PDF. Éste sí se borra: ningún
+        // registro cita a un firmante.
+        Route::middleware('permission:qal.firmantes.editar')->group(function () {
+            Route::post('catalogos/firmantes', [QalFirmanteController::class, 'store'])->name('catalogos.firmantes.store');
+            Route::put('catalogos/firmantes/orden', [QalFirmanteController::class, 'reordenar'])->name('catalogos.firmantes.reordenar');
+            Route::put('catalogos/firmantes/{firmante}', [QalFirmanteController::class, 'update'])
+                ->whereNumber('firmante')
+                ->name('catalogos.firmantes.update');
+            Route::delete('catalogos/firmantes/{firmante}', [QalFirmanteController::class, 'destroy'])
+                ->whereNumber('firmante')
+                ->name('catalogos.firmantes.destroy');
+        });
+
+        // Escritura, un permiso por catalogo. Ninguno tiene destroy: aqui nada
+        // se borra, se desactiva.
+        $catalogos = [
+            'soldadores' => [QalSoldadorController::class, 'soldadores'],
+            'laboratorios' => [QalLaboratorioController::class, 'laboratorios'],
+            'tipos-pieza' => [QalTipoPiezaController::class, 'tipos-pieza'],
+            'equipos' => [QalEquipoController::class, 'equipos'],
+            'operadores' => [QalOperadorController::class, 'operadores'],
+            'responsables' => [QalResponsableController::class, 'responsables'],
+            'supervisores-pintura' => [QalSupervisorPinturaController::class, 'supervisores-pintura'],
+            'defectos' => [QalDefectoController::class, 'defectos'],
+        ];
+
+        foreach ($catalogos as $ruta => [$controlador, $permiso]) {
+            Route::post("catalogos/{$ruta}", [$controlador, 'store'])
+                ->middleware("permission:qal.{$permiso}.crear")
+                ->name("catalogos.{$ruta}.store");
+            Route::put("catalogos/{$ruta}/{id}", [$controlador, 'update'])
+                ->whereNumber('id')
+                ->middleware("permission:qal.{$permiso}.editar")
+                ->name("catalogos.{$ruta}.update");
+            Route::patch("catalogos/{$ruta}/{id}/toggle", [$controlador, 'toggle'])
+                ->whereNumber('id')
+                ->middleware("permission:qal.{$permiso}.editar")
+                ->name("catalogos.{$ruta}.toggle");
+        }
     });
 
     // Documentacion

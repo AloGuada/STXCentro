@@ -1,0 +1,11 @@
+fastapi
+uvicorn[standard]
+python-multipart
+ifcopenshell==0.8.*
+trimesh
+numpy
+shapely
+
+# pruebas
+pytest
+httpx

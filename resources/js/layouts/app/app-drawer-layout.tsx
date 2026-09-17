@@ -23,9 +23,11 @@ import {
     FileCheck,
     Folder,
     FolderTree,
+    GitCompareArrows,
     Globe,
     Image,
     Layers,
+    LayoutDashboard,
     LayoutGrid,
     KeyRound,
     Landmark,
@@ -40,16 +42,20 @@ import {
     PanelLeftOpen,
     PenTool,
     Puzzle,
+    Radar,
     Receipt,
     Scale,
     ScanBarcode,
     Settings,
     Shield,
     ShieldAlert,
+    ShieldCheck,
     ShoppingCart,
+    Table2,
     Tag,
     Ticket,
     TrendingDown,
+    TriangleAlert,
     Undo2,
     Users,
     HardDrive,
@@ -219,6 +225,96 @@ const navGroups: NavGroup[] = [
                 href: '/admin/prod/configuracion',
                 icon: Settings,
                 permission: 'prod.configuracion.ver',
+            },
+        ],
+    },
+    {
+        // Va pegado a Produccion: inspecciona justo lo que sale de la nave.
+        title: 'Calidad',
+        icon: ShieldCheck,
+        // El orden lo fijo el usuario; las listas por etapa del plan no son
+        // el menu.
+        items: [
+            {
+                // Va primero: es la pantalla con la que se entra a mirar como
+                // va la obra. Los lotes de accesorios son una pestaña suya.
+                title: 'Dashboard',
+                href: '/admin/calidad/dashboard',
+                icon: LayoutDashboard,
+                permission: 'qal.dashboard.ver',
+            },
+            {
+                title: 'Formularios',
+                href: '/admin/calidad/formularios',
+                icon: FileCheck,
+                permission: 'qal.inspecciones.crear',
+            },
+            {
+                // Pruebas no destructivas: juntas soldadas evaluadas por un
+                // laboratorio externo. No se suman con las piezas que el
+                // inspector revisa a la vista, por eso es entrada aparte.
+                title: 'PND',
+                href: '/admin/calidad/pnd',
+                icon: Radar,
+                permission: 'qal.pnd.ver',
+            },
+            {
+                // La base en crudo de lo que se captura en Formularios: aqui se
+                // consulta y se audita, alla se llena.
+                title: 'Registros',
+                href: '/admin/calidad/registros',
+                icon: Table2,
+                permission: 'qal.registros.ver',
+            },
+            {
+                // El F-STX-CA-31 que se manda a direccion. Es un documento con
+                // folio de formato y semana de corte, no el tablero filtrado.
+                title: 'Reporte semanal',
+                href: '/admin/calidad/reporte-semanal',
+                icon: CalendarRange,
+                permission: 'qal.reporte-semanal.ver',
+            },
+            {
+                // Los formatos F-STX-* en PDF: los que van al dosier del
+                // cliente y los de control interno.
+                title: 'Reportes',
+                href: '/admin/calidad/reportes',
+                icon: FileText,
+                permission: 'qal.reportes.ver',
+            },
+            {
+                // El repositorio de PDF por sección que se entrega al
+                // cliente, con su catálogo de plantillas.
+                title: 'Dosier',
+                href: '/admin/calidad/dosier',
+                icon: BookOpen,
+                permission: 'qal.dossier.ver',
+            },
+            {
+                title: 'Catálogos',
+                href: '/admin/calidad/catalogos',
+                icon: Folder,
+                // Las listas viven en una sola pantalla, y cada pestaña se
+                // esconde sola segun los permisos del usuario.
+                permissionModulo: 'qal',
+            },
+            {
+                // Lo que produccion programo contra lo que calidad vio. Se llama
+                // avance y no produccion para no confundirlo con el modulo prod_,
+                // que es otra cosa: aqui la unidad es la pieza inspeccionada.
+                title: 'Avance de produccion',
+                href: '/admin/calidad/avance',
+                icon: GitCompareArrows,
+                permission: 'qal.programacion.ver',
+            },
+            {
+                // Lo que falla durante el montaje, en obra. Circuito aparte del
+                // taller: aqui el denominador son las piezas ya montadas, no
+                // las inspeccionadas en planta.
+                title: 'Incidencias en obra',
+                href: '/admin/calidad/incidencias',
+                icon: TriangleAlert,
+                permission: 'qal.incidencias.ver',
             },
         ],
     },
@@ -1412,14 +1508,12 @@ function SidebarContent({
                                 Cambiar contraseña
                             </button>
                         </li>
-                        {auth.es_aprobador_costos && (
-                            <li>
-                                <Link href="/admin/costos/firma" prefetch>
-                                    <PenTool className="size-4" />
-                                    Mi firma
-                                </Link>
-                            </li>
-                        )}
+                        <li>
+                            <Link href="/admin/mi-firma" prefetch>
+                                <PenTool className="size-4" />
+                                Mi firma
+                            </Link>
+                        </li>
                         <li>
                             <Link
                                 href="/logout"

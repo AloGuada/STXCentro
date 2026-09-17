@@ -478,6 +478,95 @@ class RolesAndPermissionsSeeder extends Seeder
             'cal.usuarios.gestionar',
         ];
 
+        // Permisos del modulo Calidad, version nueva (prefijo qal_)
+        //
+        // Los cal.* de arriba se conservan porque los usa la aplicacion
+        // anterior por API mientras siga viva; se borran el dia que se apague.
+        // Todo lo que se construya de ahora en adelante pide qal.*.
+        //
+        // Los catalogos no tienen 'eliminar': ahi nada se borra, se desactiva,
+        // para no dejar reportes citando algo que ya no existe.
+        $qalPermissions = [
+            'qal.obras.ver',
+            'qal.obras.crear',
+            'qal.obras.editar',
+            // Avance de producción: ver el cruce y capturar el plan de la semana.
+            'qal.programacion.ver',
+            'qal.programacion.capturar',
+            'qal.usuarios.gestionar',
+            'qal.soldadores.ver',
+            'qal.soldadores.crear',
+            'qal.soldadores.editar',
+            'qal.laboratorios.ver',
+            'qal.laboratorios.crear',
+            'qal.laboratorios.editar',
+            'qal.tipos-pieza.ver',
+            'qal.tipos-pieza.crear',
+            'qal.tipos-pieza.editar',
+            'qal.equipos.ver',
+            'qal.equipos.crear',
+            'qal.equipos.editar',
+            'qal.operadores.ver',
+            'qal.operadores.crear',
+            'qal.operadores.editar',
+            'qal.responsables.ver',
+            'qal.responsables.crear',
+            'qal.responsables.editar',
+            'qal.supervisores-pintura.ver',
+            'qal.supervisores-pintura.crear',
+            'qal.supervisores-pintura.editar',
+            // Un solo catálogo de defectos, tipado por etapa.
+            'qal.defectos.ver',
+            'qal.defectos.crear',
+            'qal.defectos.editar',
+            // El orden de firma de los formatos PDF; sin crear/eliminar
+            // aparte: acomodar las firmas es una sola tarea.
+            'qal.firmantes.ver',
+            'qal.firmantes.editar',
+            // PND es recurso aparte de reportes: son juntas soldadas evaluadas
+            // por un laboratorio externo, no piezas revisadas a la vista, y las
+            // captura otra persona.
+            'qal.pnd.ver',
+            'qal.pnd.crear',
+            'qal.pnd.editar',
+            'qal.pnd.eliminar',
+            // El tablero solo lee, y su lector es direccion, no el inspector.
+            'qal.dashboard.ver',
+            // El reporte semanal es el documento con folio de formato que sale
+            // de la empresa, no la herramienta diaria del area.
+            'qal.reporte-semanal.ver',
+            // Los formatos PDF F-STX-*, los del dosier y los internos.
+            'qal.reportes.ver',
+            // El dosier de obra y su catálogo de plantillas.
+            'qal.dossier.ver',
+            'qal.dossier.editar',
+            // Incidencias en obra: lo que falla durante el montaje. Es un
+            // circuito aparte del taller y lo captura el residente, no el
+            // inspector, por eso lleva sus propios permisos.
+            'qal.incidencias.ver',
+            'qal.incidencias.capturar',
+            'qal.incidencias.eliminar',
+            // La captura de 1ª, 2ª y pintura. Las juntas se capturan en el
+            // mismo formulario que la pieza y no llevan permiso aparte.
+            'qal.inspecciones.ver',
+            'qal.inspecciones.crear',
+            'qal.inspecciones.editar',
+            'qal.inspecciones.eliminar',
+            'qal.accesorios.ver',
+            'qal.accesorios.crear',
+            'qal.accesorios.editar',
+            'qal.accesorios.eliminar',
+            'qal.modelos.ver',
+            'qal.modelos.crear',
+            'qal.modelos.eliminar',
+            // La base en crudo; exportar va aparte porque saca la información
+            // del sistema.
+            'qal.registros.ver',
+            'qal.registros.exportar',
+            'qal.programacion.ver',
+            'qal.programacion.capturar',
+        ];
+
         // Permisos Core
         $corePermissions = [
             'usuarios.ver',
@@ -543,6 +632,7 @@ class RolesAndPermissionsSeeder extends Seeder
             'drive' => $drivePermissions,
             'dg' => $dgPermissions,
             'cal' => $calPermissions,
+            'qal' => $qalPermissions,
             'core' => $corePermissions,
             'cotiz' => $cotizPermissions,
             'cotizTrabajo' => $cotizTrabajoPermissions,

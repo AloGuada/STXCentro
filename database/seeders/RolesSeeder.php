@@ -89,6 +89,8 @@ class RolesSeeder extends Seeder
 
         // Admin Produccion tiene todos los permisos de produccion
         $adminProduccion->givePermissionTo($permisos['prod']);
+        // y teclea la programación semanal que Calidad cruza contra lo inspeccionado.
+        $adminProduccion->givePermissionTo(['qal.programacion.ver', 'qal.programacion.capturar']);
 
         // Admin Infra tiene todos los permisos de infraestructura
         $adminInfra->givePermissionTo($permisos['infra']);
@@ -189,8 +191,11 @@ class RolesSeeder extends Seeder
         // Admin RH tiene todos los permisos de recursos humanos
         $adminRh->givePermissionTo($permisos['rh']);
 
-        // Admin Calidad tiene todos los permisos de calidad
+        // Admin Calidad tiene todos los permisos de calidad, en los dos
+        // prefijos: qal.* es el modulo nuevo y cal.* lo que aun sirve la API
+        // de la aplicacion anterior. Los cal.* se quitan cuando esa se apague.
         $adminCal->givePermissionTo($permisos['cal']);
+        $adminCal->givePermissionTo($permisos['qal']);
 
         // Inspector Calidad tiene permisos de ver/crear/editar reportes y flechas
         $inspectorCal->givePermissionTo([
@@ -205,6 +210,20 @@ class RolesSeeder extends Seeder
             'cal.flechas.crear',
             'cal.flechas.editar',
             'cal.soldadores.ver',
+            'qal.obras.ver',
+            'qal.programacion.ver',
+            'qal.soldadores.ver',
+            'qal.inspecciones.ver',
+            'qal.inspecciones.crear',
+            'qal.inspecciones.editar',
+            'qal.accesorios.ver',
+            'qal.accesorios.crear',
+            'qal.accesorios.editar',
+            'qal.modelos.ver',
+            'qal.registros.ver',
+            'qal.firmantes.ver',
+            'qal.reportes.ver',
+            'qal.dossier.ver',
         ]);
 
         // Empleado tiene permisos básicos de lectura

@@ -2,59 +2,16 @@
 
 namespace App\Http\Controllers\Admin\Costos;
 
-use App\Http\Controllers\Controller;
-use Illuminate\Http\RedirectResponse;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Str;
-use Inertia\Inertia;
-use Inertia\Response;
+use App\Http\Controllers\Admin\FirmaController as FirmaDelUsuarioController;
 
-class FirmaController extends Controller
+/**
+ * La misma rúbrica, desde Costos: aquí llega el aprobador al que se le exige
+ * antes de firmar una solicitud, así que enseña la página con ese contexto.
+ */
+class FirmaController extends FirmaDelUsuarioController
 {
-    public function edit(): Response
+    protected function pagina(): string
     {
-        $user = auth()->user();
-
-        return Inertia::render('admin/costos/firma/edit', [
-            'firmaUrl' => $user->firma_path
-                ? Storage::url($user->firma_path)
-                : null,
-        ]);
-    }
-
-    public function update(Request $request): RedirectResponse
-    {
-        $request->validate([
-            'firma' => ['required', 'string'],
-        ]);
-
-        $user = $request->user();
-
-        if ($user->firma_path) {
-            Storage::disk('public')->delete($user->firma_path);
-        }
-
-        $dataUrl = $request->input('firma');
-        $imageData = base64_decode(Str::after($dataUrl, 'base64,'));
-        $path = 'firmas/'.$user->id.'_'.time().'.png';
-
-        Storage::disk('public')->put($path, $imageData);
-
-        $user->update(['firma_path' => $path]);
-
-        return back()->with('success', 'Firma actualizada correctamente.');
-    }
-
-    public function destroy(Request $request): RedirectResponse
-    {
-        $user = $request->user();
-
-        if ($user->firma_path) {
-            Storage::disk('public')->delete($user->firma_path);
-            $user->update(['firma_path' => null]);
-        }
-
-        return back()->with('success', 'Firma eliminada.');
+        return 'admin/costos/firma/edit';
     }
 }
