@@ -2553,11 +2553,47 @@ export type CostosOrdenCompraDetalle = {
     descripcion: string;
     unidad: string;
     cantidad: number;
+    /** Unidades que compras dio por canceladas y el jefe de compras autorizó. */
+    cantidad_cancelada: number;
     precio_unitario: number;
     subtotal: number;
     uso_cfdi_id: number | null;
     obra_rubro?: CostosObraRubro;
     uso_cfdi?: Pick<CostosUsoCfdi, 'id' | 'clave' | 'descripcion'>;
+    cancelaciones?: CostosOcCancelacionUnidades[];
+    created_at: string;
+    updated_at: string;
+};
+
+export type CostosOcCancelacionUnidadesEstatus = 'pendiente' | 'autorizada' | 'rechazada';
+
+export const OC_CANCELACION_ESTATUS_LABELS: Record<CostosOcCancelacionUnidadesEstatus, string> = {
+    pendiente: 'Pendiente de autorizar',
+    autorizada: 'Autorizada',
+    rechazada: 'Rechazada',
+};
+
+export const OC_CANCELACION_ESTATUS_COLORS: Record<CostosOcCancelacionUnidadesEstatus, string> = {
+    pendiente: 'badge-warning',
+    autorizada: 'badge-success',
+    rechazada: 'badge-error',
+};
+
+/**
+ * Unidades canceladas de una partida. No surten efecto hasta que el jefe de
+ * compras las autoriza; mientras están pendientes, la orden se reporta como
+ * pendiente de aprobación.
+ */
+export type CostosOcCancelacionUnidades = {
+    id: number;
+    orden_compra_detalle_id: number;
+    cantidad: number;
+    motivo: string;
+    estatus: CostosOcCancelacionUnidadesEstatus;
+    motivo_rechazo: string | null;
+    autorizado_at: string | null;
+    solicitante?: Pick<Usuario, 'id' | 'name'> | null;
+    autorizador?: Pick<Usuario, 'id' | 'name'> | null;
     created_at: string;
     updated_at: string;
 };

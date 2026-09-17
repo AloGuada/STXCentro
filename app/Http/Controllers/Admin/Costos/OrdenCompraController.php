@@ -306,6 +306,8 @@ class OrdenCompraController extends Controller
             'detalles.obraRubro.rubro',
             'detalles.obraRubro.obra',
             'detalles.usoCfdi:id,clave,descripcion',
+            'detalles.cancelaciones.solicitante:id,name',
+            'detalles.cancelaciones.autorizador:id,name',
             'entregas.detalles.ordenCompraDetalle:id,descripcion,unidad,cantidad,precio_unitario',
             'entregas.detalles.devoluciones',
             'entregas.recibidor:id,name',

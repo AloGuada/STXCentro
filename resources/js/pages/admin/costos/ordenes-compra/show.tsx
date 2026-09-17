@@ -1,9 +1,10 @@
-import { Head, Link } from '@inertiajs/react';
+import { Head, Link, router } from '@inertiajs/react';
 import { ChevronDownIcon, ChevronRightIcon, DownloadIcon, FileIcon, FileTextIcon, FolderIcon, FolderOpenIcon, PaperclipIcon } from 'lucide-react';
 import { Fragment, useState } from 'react';
 import { ActivityTimeline } from '@/components/costos/activity-timeline';
 import { FormattedDate } from '@/components/ui/formatted-date';
 import { CancelarModal } from '@/components/costos/cancelar-modal';
+import { CancelarUnidadesModal } from '@/components/costos/cancelar-unidades-modal';
 import { DevolverItemModal } from '@/components/costos/devolver-item-modal';
 import { EditarRecepcionModal, type RecepcionEditable } from '@/components/costos/editar-recepcion-modal';
 import { formatMoney as fmtMonto } from '@/components/costos/monto';
@@ -13,8 +14,8 @@ import { Button } from '@/components/ui/button';
 import { useCan } from '@/hooks/use-can';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
-import type { CostosOrdenCompra, CostosOrdenCompraEstatus, CostosRetencionDesglose } from '@/types/models';
-import { DEVOLUCION_ESTATUS_COLORS, DEVOLUCION_ESTATUS_LABELS, FACTURA_ESTATUS_COLORS, FACTURA_ESTATUS_LABELS, MODO_PAGO_LABELS, ORDEN_COMPRA_ESTATUS_COLORS, ORDEN_COMPRA_ESTATUS_LABELS, TIPO_MONEDA_LABELS } from '@/types/models';
+import type { CostosOcCancelacionUnidades, CostosOrdenCompra, CostosOrdenCompraEstatus, CostosRetencionDesglose } from '@/types/models';
+import { OC_CANCELACION_ESTATUS_COLORS, OC_CANCELACION_ESTATUS_LABELS, DEVOLUCION_ESTATUS_COLORS, DEVOLUCION_ESTATUS_LABELS, FACTURA_ESTATUS_COLORS, FACTURA_ESTATUS_LABELS, MODO_PAGO_LABELS, ORDEN_COMPRA_ESTATUS_COLORS, ORDEN_COMPRA_ESTATUS_LABELS, TIPO_MONEDA_LABELS } from '@/types/models';
 
 type Props = {
     ordenCompra: CostosOrdenCompra;
@@ -36,6 +37,13 @@ function getStepIndex(estatus: CostosOrdenCompraEstatus): number {
     return steps.findIndex((s) => s.key === estatus);
 }
 
+
+type CancelarUnidadesTarget = {
+    detalleId: number;
+    partidaDescripcion: string;
+    unidad: string;
+    cantidadCancelable: number;
+};
 
 type DevolverTarget = {
     entregaDetalleId: number;
@@ -63,6 +71,7 @@ export default function OrdenesCompraShow({ ordenCompra, retenciones, usuarios }
     const [showCancelarModal, setShowCancelarModal] = useState(false);
     const [showSubirFacturaModal, setShowSubirFacturaModal] = useState(false);
     const [devolverTarget, setDevolverTarget] = useState<DevolverTarget | null>(null);
+    const [cancelarUnidadesTarget, setCancelarUnidadesTarget] = useState<CancelarUnidadesTarget | null>(null);
     const [cancelarEntregaId, setCancelarEntregaId] = useState<number | null>(null);
     const [editandoEntrega, setEditandoEntrega] = useState<RecepcionEditable | null>(null);
     const puedeCancelarEntrega = can('costos.entregas.cancelar');
@@ -95,17 +104,42 @@ export default function OrdenesCompraShow({ ordenCompra, retenciones, usuarios }
                 estatus: f.estatus ?? null,
             }));
 
-    // Cantidad pendiente por recibir de una partida = ordenado − recibido (solo
-    // recepciones vigentes, las canceladas no cuentan).
-    const pendientePorRecibir = (detalleId: number, ordenado: number): number => {
+    // Cantidad pendiente por recibir de una partida = ordenado − cancelado −
+    // recibido (solo recepciones vigentes, las canceladas no cuentan). Mismo
+    // cálculo que el tope del backend: si divergen, la orden aparece en la
+    // bandeja de almacén y luego rechaza la captura.
+    const pendientePorRecibir = (detalleId: number, ordenado: number, cancelado = 0): number => {
         const recibido = (ordenCompra.entregas ?? [])
             .filter((e) => !e.cancelada_at)
             .flatMap((e) => e.detalles ?? [])
             .filter((ed) => ed.orden_compra_detalle_id === detalleId)
             .reduce((acc, ed) => acc + Number(ed.cantidad_recibida), 0);
 
-        return Math.max(0, Number(ordenado) - recibido);
+        return Math.max(0, Number(ordenado) - Number(cancelado) - recibido);
     };
+
+    // Lo que todavía se puede dar por cancelado: el pendiente por recibir menos
+    // lo que otra cancelación ya tiene tomado esperando firma.
+    const cancelablePorPartida = (
+        detalleId: number,
+        ordenado: number,
+        cancelado = 0,
+        cancelaciones: CostosOcCancelacionUnidades[] = [],
+    ): number => {
+        const enEspera = cancelaciones
+            .filter((c) => c.estatus === 'pendiente')
+            .reduce((acc, c) => acc + Number(c.cantidad), 0);
+
+        return Math.max(0, pendientePorRecibir(detalleId, ordenado, cancelado) - enEspera);
+    };
+
+    const puedeCancelarUnidades = can('costos.ordenes-compra.cancelar') && ordenCompra.estatus !== 'cancelada';
+    const puedeAutorizarCancelacion = can('costos.ordenes-compra.autorizar-cancelacion');
+
+    const cancelacionesDeLaOrden = (ordenCompra.detalles ?? []).flatMap((d) =>
+        (d.cancelaciones ?? []).map((c) => ({ ...c, partida: d.descripcion, unidad: d.unidad })),
+    );
+    const cancelacionesPendientes = cancelacionesDeLaOrden.filter((c) => c.estatus === 'pendiente');
 
     const puedeCrearAnticipo = can('costos.anticipos.crear')
         && !['cancelada', 'pagada'].includes(ordenCompra.estatus);
@@ -303,9 +337,11 @@ export default function OrdenesCompraShow({ ordenCompra, retenciones, usuarios }
                                             <th>Uso CFDI</th>
                                             <th className="text-right">Cantidad</th>
                                             <th>Unidad</th>
+                                            <th className="text-right">Canceladas</th>
                                             <th className="text-right">Pendiente por recibir</th>
                                             <th className="text-right">P. Unitario</th>
                                             <th className="text-right">Subtotal</th>
+                                            {puedeCancelarUnidades && <th />}
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -327,19 +363,146 @@ export default function OrdenesCompraShow({ ordenCompra, retenciones, usuarios }
                                                 <td className="text-right">{Number(d.cantidad).toLocaleString('es-MX', { maximumFractionDigits: 4 })}</td>
                                                 <td>{d.unidad}</td>
                                                 <td className="text-right">
+                                                    {Number(d.cantidad_cancelada) > 0 ? (
+                                                        <span className="text-error">{Number(d.cantidad_cancelada).toLocaleString('es-MX')}</span>
+                                                    ) : (
+                                                        '-'
+                                                    )}
+                                                </td>
+                                                <td className="text-right">
                                                     {(() => {
-                                                        const pend = pendientePorRecibir(d.id, d.cantidad);
+                                                        const pend = pendientePorRecibir(d.id, d.cantidad, d.cantidad_cancelada);
                                                         return <span className={pend <= 0 ? 'text-success' : 'font-medium'}>{pend.toLocaleString('es-MX')}</span>;
                                                     })()}
                                                 </td>
                                                 <td className="text-right">{formatMoney(d.precio_unitario)}</td>
                                                 <td className="text-right">{formatMoney(d.subtotal)}</td>
+                                                {puedeCancelarUnidades && (
+                                                    <td className="text-right">
+                                                        {(() => {
+                                                            const cancelable = cancelablePorPartida(d.id, d.cantidad, d.cantidad_cancelada, d.cancelaciones ?? []);
+                                                            if (cancelable <= 0) return null;
+
+                                                            return (
+                                                                <button
+                                                                    type="button"
+                                                                    className="btn btn-ghost btn-xs text-error"
+                                                                    onClick={() =>
+                                                                        setCancelarUnidadesTarget({
+                                                                            detalleId: d.id,
+                                                                            partidaDescripcion: d.descripcion,
+                                                                            unidad: d.unidad,
+                                                                            cantidadCancelable: cancelable,
+                                                                        })
+                                                                    }
+                                                                >
+                                                                    Cancelar unidades
+                                                                </button>
+                                                            );
+                                                        })()}
+                                                    </td>
+                                                )}
                                             </tr>
                                         ))}
                                     </tbody>
                                 </table>
                             </div>
                         </div>
+
+                        {cancelacionesDeLaOrden.length > 0 && (
+                            <div>
+                                <h2 className="mb-3 text-lg font-medium">
+                                    Unidades canceladas
+                                    {cancelacionesPendientes.length > 0 && (
+                                        <span className="badge badge-warning badge-sm ml-2">
+                                            {cancelacionesPendientes.length} por autorizar
+                                        </span>
+                                    )}
+                                </h2>
+                                <div className="overflow-x-auto">
+                                    <table className="table table-sm">
+                                        <thead>
+                                            <tr>
+                                                <th>Partida</th>
+                                                <th className="text-right">Cantidad</th>
+                                                <th>Motivo</th>
+                                                <th>Solicito</th>
+                                                <th>Estatus</th>
+                                                <th>Autorizo</th>
+                                                {puedeAutorizarCancelacion && <th />}
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {cancelacionesDeLaOrden.map((c) => (
+                                                <tr key={c.id}>
+                                                    <td>{c.partida}</td>
+                                                    <td className="text-right">
+                                                        {Number(c.cantidad).toLocaleString('es-MX')} {c.unidad}
+                                                    </td>
+                                                    <td className="max-w-xs text-sm">
+                                                        {c.motivo}
+                                                        {c.motivo_rechazo && (
+                                                            <div className="text-error text-xs">Rechazo: {c.motivo_rechazo}</div>
+                                                        )}
+                                                    </td>
+                                                    <td className="text-sm">{c.solicitante?.name ?? '-'}</td>
+                                                    <td>
+                                                        <span className={`badge badge-sm ${OC_CANCELACION_ESTATUS_COLORS[c.estatus]}`}>
+                                                            {OC_CANCELACION_ESTATUS_LABELS[c.estatus]}
+                                                        </span>
+                                                    </td>
+                                                    <td className="text-sm">
+                                                        {c.autorizador?.name ?? '-'}
+                                                        {c.autorizado_at && (
+                                                            <div className="text-base-content/60 text-xs">
+                                                                <FormattedDate value={c.autorizado_at} />
+                                                            </div>
+                                                        )}
+                                                    </td>
+                                                    {puedeAutorizarCancelacion && (
+                                                        <td className="text-right">
+                                                            {c.estatus === 'pendiente' && (
+                                                                <div className="flex justify-end gap-1">
+                                                                    <button
+                                                                        type="button"
+                                                                        className="btn btn-xs btn-outline"
+                                                                        onClick={() =>
+                                                                            router.post(
+                                                                                `/admin/costos/ordenes-compra/cancelaciones/${c.id}/autorizar`,
+                                                                                {},
+                                                                                { preserveScroll: true },
+                                                                            )
+                                                                        }
+                                                                    >
+                                                                        Autorizar
+                                                                    </button>
+                                                                    <button
+                                                                        type="button"
+                                                                        className="btn btn-xs btn-ghost text-error"
+                                                                        onClick={() => {
+                                                                            const motivo = window.prompt('Por que no se autoriza la cancelacion?');
+                                                                            if (motivo && motivo.trim().length >= 10) {
+                                                                                router.post(
+                                                                                    `/admin/costos/ordenes-compra/cancelaciones/${c.id}/rechazar`,
+                                                                                    { motivo_rechazo: motivo },
+                                                                                    { preserveScroll: true },
+                                                                                );
+                                                                            }
+                                                                        }}
+                                                                    >
+                                                                        Rechazar
+                                                                    </button>
+                                                                </div>
+                                                            )}
+                                                        </td>
+                                                    )}
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        )}
 
                         {retenciones && (
                             <div className="flex justify-end">
@@ -651,6 +814,17 @@ export default function OrdenesCompraShow({ ordenCompra, retenciones, usuarios }
                         cantidadDisponible={devolverTarget.cantidadDisponible}
                         open={true}
                         onClose={() => setDevolverTarget(null)}
+                    />
+                )}
+
+                {cancelarUnidadesTarget && (
+                    <CancelarUnidadesModal
+                        detalleId={cancelarUnidadesTarget.detalleId}
+                        partidaDescripcion={cancelarUnidadesTarget.partidaDescripcion}
+                        unidad={cancelarUnidadesTarget.unidad}
+                        cantidadCancelable={cancelarUnidadesTarget.cantidadCancelable}
+                        open={true}
+                        onClose={() => setCancelarUnidadesTarget(null)}
                     />
                 )}
 

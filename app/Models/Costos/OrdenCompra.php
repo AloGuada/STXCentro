@@ -399,13 +399,26 @@ class OrdenCompra extends Model
     public function scopePendientesDeRecibir(Builder $query): Builder
     {
         return $query->whereHas('detalles', fn ($q) => $q->whereRaw(
-            'costos_ordenes_compra_detalle.cantidad > ('
+            'costos_ordenes_compra_detalle.cantidad - costos_ordenes_compra_detalle.cantidad_cancelada > ('
             .'select coalesce(sum(ed.cantidad_recibida), 0) '
             .'from costos_entrega_detalle ed '
             .'inner join costos_entregas e on e.id = ed.entrega_id '
             .'where ed.orden_compra_detalle_id = costos_ordenes_compra_detalle.id '
             .'and e.cancelada_at is null)',
         ));
+    }
+
+    /**
+     * ¿Alguna partida trae unidades canceladas que el jefe de compras todavía
+     * no autoriza? Mientras haya una, la orden se reporta pendiente de
+     * aprobación: hay algo que alguien tiene que firmar.
+     */
+    public function tieneCancelacionPendiente(): bool
+    {
+        return OrdenCompraDetalleCancelacion::query()
+            ->whereIn('orden_compra_detalle_id', $this->detalles()->select('costos_ordenes_compra_detalle.id'))
+            ->pendiente()
+            ->exists();
     }
 
     /**
@@ -472,7 +485,7 @@ class OrdenCompra extends Model
     {
         $this->loadMissing('detalles');
 
-        return (float) $this->detalles->sum(fn ($d) => (float) $d->cantidad * (float) $d->precio_unitario);
+        return (float) $this->detalles->sum(fn ($d) => $d->cantidadVigente() * (float) $d->precio_unitario);
     }
 
     /**

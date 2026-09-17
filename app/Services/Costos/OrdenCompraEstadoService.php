@@ -39,6 +39,14 @@ class OrdenCompraEstadoService
             return null;
         }
 
+        // Unidades canceladas esperando la firma del jefe de compras: la orden
+        // se reporta pendiente de aprobación aunque sus facturas digan otra
+        // cosa. Va antes que todo para que ningún recálculo posterior —una
+        // recepción, una factura— la saque de ahí sin que nadie haya firmado.
+        if ($orden->tieneCancelacionPendiente()) {
+            return OrdenCompraEstatus::PendienteAprobacion;
+        }
+
         $facturas = $orden->facturas()
             ->where('estatus', '!=', FacturaEstatus::Cancelada->value)
             ->get();
