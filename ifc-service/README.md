@@ -1,8 +1,8 @@
 # ifc-service
 
 Servicio aparte que convierte el IFC de una obra en una marca por archivo, con
-sus cordones de soldadura detectados por geometría. Lo consume Calidad
-(`App\Services\Qal\Ifc\IfcClient`) para los modelos 3D.
+sus piezas ya barrenadas y sus cordones de soldadura detectados por geometría.
+Lo consume Calidad (`App\Services\Qal\Ifc\IfcClient`) para los modelos 3D.
 
 Corre aparte de Laravel, como el OCR de RH: procesar un IFC tarda minutos y no
 cabe en una petición web. Laravel sube el archivo desde un job de la cola
@@ -17,7 +17,12 @@ baja `modelo.glb`, la estructura entera sin cordones.
 - `welds.py`: copia literal de `demo3d/welds.py` más `WELDS_VERSION`. Tekla no
   exporta soldaduras, así que se deducen de la geometría. **Si se cambia el
   algoritmo, se sube `WELDS_VERSION`**: cada modelo guarda con qué versión se
-  calcularon sus cordones.
+  calcularon sus cordones. `agrupar_juntas` junta los cordones del mismo par de
+  piezas que se tocan: eso es lo que en el plano lleva un solo símbolo.
+- `holes.py`: copia literal de `demo3d/holes.py`. Tekla tampoco exporta los
+  barrenos, pero cada `IfcMechanicalFastener` trae un disco por placa
+  atravesada: de ahí sale la forma real del orificio, se corta en la malla
+  (necesita `manifold3d`) y el peso de la pieza ya lo descuenta.
 - `trabajos.py`: los trabajos, de uno en uno. El estado de cada uno vive en
   su carpeta (`estado.json`) y al arrancar el servicio retoma los que quedaron
   a medias sin repetir las marcas ya escritas.
@@ -63,6 +68,17 @@ cola: `php artisan queue:work --queue=ifc`.
 | GET | `/resultado/{id}` | zip con `index.json` y `marks/*` (409 si no está listo) |
 | DELETE | `/trabajos/{id}` | 204 |
 | GET | `/salud` | `{ok, welds_version}` |
+
+## Ficha de una marca (`marks/<MARCA>.json`)
+
+- `piezas[]`: perfil, material, peso (ya descontados los barrenos) y
+  `orificios[]` con tipo, diámetro, espesor de la placa, centro y eje.
+- `soldaduras[]`: los cordones, cada uno con su `junta_id` y si es `remate`.
+- `juntas[]`: lo que calidad cuenta como una soldadura. Lleva `forma`,
+  `largo_mm` de todos sus tramos, los `tramos` (ids de cordón), el `principal`
+  y los catetos que gobiernan. Es la lista que Laravel usa de plantilla para
+  los formularios de segunda y PND.
+- `totales`: `juntas`, `soldaduras`, `soldadura_mm` y `orificios`.
 
 Los trabajos viven en `%TEMP%/ifc-service/<id>/` (o en `IFC_SERVICE_RAIZ`).
 Laravel borra la carpeta al terminar de importar; si el servicio se reinicia a

@@ -8,8 +8,9 @@ modelo) y detecta sus cordones con welds.py.
 
 Salida:
     <salida>/index.json           indice de marcas, con la version de welds
-    <salida>/marks/<MARCA>.glb    un mesh por pieza, centrado en la marca
-    <salida>/marks/<MARCA>.json   ficha de piezas y cordones
+    <salida>/marks/<MARCA>.glb    un mesh por pieza, ya barrenado y centrado
+    <salida>/marks/<MARCA>.json   ficha de piezas (con sus orificios), cordones
+                                  y juntas
 """
 import json
 import re
@@ -23,7 +24,8 @@ import ifcopenshell
 import ifcopenshell.geom as geom
 import ifcopenshell.util.element as ue
 
-from welds import WELDS_VERSION, detect_welds
+from holes import cut_holes, find_holes, load_bolts, mover, publicar
+from welds import WELDS_VERSION, agrupar_juntas, detect_welds
 
 DENSIDAD = 7850.0
 RE_ID = re.compile(r"^ID[0-9a-f-]{30,}$", re.I)
@@ -59,6 +61,7 @@ def safe_name(mark):
 
 
 def exportar_marcas(ifc, salida, *, welds=True, only=None, bolts=False, completo=True,
+                    barrenos=True,
                     progreso: Optional[Callable[[int, int], None]] = None) -> dict:
     """
     ifc:      ruta del .ifc
@@ -66,6 +69,7 @@ def exportar_marcas(ifc, salida, *, welds=True, only=None, bolts=False, completo
     welds:    calcular los cordones (lo lento)
     only:     prefijo de marca, para exportar solo algunas
     bolts:    incluir los pernos como piezas
+    barrenos: cortar los orificios en la malla (salen de los tornillos del IFC)
     completo: escribir ademas modelo.glb con la estructura entera (todas las
               instancias, sin cordones), para verla de un vistazo
     progreso: se llama con (marcas_hechas, marcas_total) conforme avanza
@@ -132,6 +136,10 @@ def exportar_marcas(ifc, salida, *, welds=True, only=None, bolts=False, completo
     # ve las marcas listas (`completo` dice si ya estan todas). Una marca que ya
     # tiene su .glb y su .json de una corrida anterior no se vuelve a calcular:
     # asi una conversion interrumpida se retoma donde iba.
+    # Los orificios no vienen en el IFC: salen de los tornillos (ver holes.py).
+    # Se leen una sola vez para todo el modelo.
+    tornillos = load_bolts(model, verbose=False) if barrenos else []
+
     index = {}
     for k, mark in enumerate(marcas, 1):
         safe = safe_name(mark)
@@ -140,7 +148,7 @@ def exportar_marcas(ifc, salida, *, welds=True, only=None, bolts=False, completo
         else:
             piezas_mesh = meshes_by_mark.get(mark) or {}
             if piezas_mesh:
-                index[mark] = _exportar_una(mark, asm_by_mark[mark], piezas_mesh, info_by_guid, marks, welds, bolts)
+                index[mark] = _exportar_una(mark, asm_by_mark[mark], piezas_mesh, info_by_guid, marks, welds, bolts, tornillos)
         _escribir_index(salida, index, welds, completo=(k == len(marcas)))
         if progreso:
             progreso(k, len(marcas))
@@ -204,8 +212,10 @@ def _escribir_index(salida, index, welds, *, completo, modelo=None):
         "marcas": index,
         "totales": {
             "marcas": len(index),
+            "juntas": sum(m.get("juntas") or 0 for m in index.values()),
             "soldaduras": sum(m["soldaduras"] for m in index.values()),
             "soldadura_mm": round(sum(m["soldadura_mm"] for m in index.values()), 1),
+            "orificios": sum(m.get("orificios") or 0 for m in index.values()),
         },
     }
     tmp = salida / "index.json.tmp"
@@ -222,23 +232,33 @@ def entrada_de_ficha(ficha, safe):
         "piezas": len(ficha.get("piezas", [])),
         "peso_kg": ficha["totales"]["peso_kg"],
         "ensambles": ficha.get("ensambles_en_modelo", 1),
+        "juntas": len(ficha.get("juntas", [])),
         "soldaduras": len(ficha.get("soldaduras", [])),
         "soldadura_mm": ficha["totales"]["soldadura_mm"],
+        "orificios": ficha["totales"].get("orificios", 0),
         "bbox_mm": ficha["totales"]["bbox_mm"],
     }
 
 
-def _exportar_una(mark, ensambles, piezas_mesh, info_by_guid, marks, welds, bolts):
+def _exportar_una(mark, ensambles, piezas_mesh, info_by_guid, marks, welds, bolts, tornillos=()):
     allv = np.concatenate([m.vertices for m in piezas_mesh.values()], axis=0)
     lo, hi = allv.min(axis=0), allv.max(axis=0)
     origen = np.array([(lo[0] + hi[0]) / 2, (lo[1] + hi[1]) / 2, lo[2]])
+
+    # Los orificios se buscan en coordenadas de obra, antes de centrar la marca.
+    orificios = find_holes(tornillos, {g: m for g, m in piezas_mesh.items()
+                                       if info_by_guid[g]["clase"] != "IfcMechanicalFastener"}) if tornillos else {}
 
     scene, piezas, centradas = trimesh.Scene(), [], {}
     for i, (guid, mesh) in enumerate(piezas_mesh.items()):
         mesh.vertices -= origen
         node = f"P{i:03d}"
-        scene.add_geometry(mesh, node_name=node, geom_name=node)
+        # Los cordones se calculan sobre la pieza maciza: el barreno no es
+        # rincon soldable, y una malla cortada ensucia los parches planos.
         centradas[node] = mesh
+        hs = orificios.get(guid, [])
+        mesh, cortados = cut_holes(mesh, mover(hs, origen))
+        scene.add_geometry(mesh, node_name=node, geom_name=node)
         dims = (mesh.bounds[1] - mesh.bounds[0]) * 1000.0
         try:
             vol = abs(float(mesh.volume))
@@ -251,11 +271,16 @@ def _exportar_una(mark, ensambles, piezas_mesh, info_by_guid, marks, welds, bolt
             "largo_mm": round(float(max(dims)), 1),
             "peso_kg": round(vol * DENSIDAD, 2),
             "centro": [round(float(x), 4) for x in mesh.bounds.mean(axis=0)],
+            "orificios": publicar(hs, origen),
+            "orificios_cortados": cortados,
         })
         piezas.append(d)
     piezas.sort(key=lambda p: (-p["peso_kg"], p["node"]))
 
     solds = detect_welds(centradas, verbose=False) if welds else []
+    # Lo que calidad cuenta como UNA soldadura: los cordones quedan como tramos
+    # de su junta, con "junta_id" y "remate" puestos por agrupar_juntas.
+    juntas = agrupar_juntas(solds)
 
     safe = safe_name(mark)
     scene.export(marks / f"{safe}.glb")
@@ -268,12 +293,15 @@ def _exportar_una(mark, ensambles, piezas_mesh, info_by_guid, marks, welds, bolt
         "welds_version": WELDS_VERSION if welds else None,
         "piezas": piezas,
         "soldaduras": solds,
+        "juntas": juntas,
         "totales": {
             "piezas": len(piezas),
             "peso_kg": round(sum(p["peso_kg"] for p in piezas), 2),
             "bbox_mm": [round(float(x), 1) for x in (hi - lo) * 1000.0],
+            "juntas": len(juntas),
             "soldaduras": len(solds),
             "soldadura_mm": round(sum(w["largo_mm"] for w in solds), 1),
+            "orificios": sum(len(p["orificios"]) for p in piezas),
         },
     }
     # El json va al final y por un temporal: si el proceso muere a medio

@@ -44,6 +44,8 @@ class ImportadorDeModelo
                 'peso_kg' => $entrada['peso_kg'] ?? 0,
                 'ensambles' => $entrada['ensambles'] ?? 0,
                 'soldaduras' => $entrada['soldaduras'] ?? 0,
+                'juntas' => $entrada['juntas'] ?? 0,
+                'orificios' => $entrada['orificios'] ?? 0,
                 'bbox_mm' => $entrada['bbox_mm'] ?? null,
             ]);
 
@@ -52,8 +54,10 @@ class ImportadorDeModelo
             foreach (array_chunk($datos['soldaduras'] ?? [], 500) as $bloque) {
                 $fila->cordones()->createMany(array_map(fn (array $cordon): array => [
                     'numero' => $cordon['id'],
+                    'junta_id' => $cordon['junta_id'] ?? null,
                     'tipo' => $cordon['tipo'],
                     'junta' => $cordon['junta'] ?? null,
+                    'remate' => (bool) ($cordon['remate'] ?? false),
                     'piezas' => $cordon['piezas'] ?? [],
                     'largo_mm' => $cordon['largo_mm'],
                     'ancho_mm' => $cordon['ancho_mm'] ?? null,
@@ -88,6 +92,8 @@ class ImportadorDeModelo
             'resumen' => [
                 'marcas' => $modelo->marcas()->count(),
                 'cordones' => $modelo->cordones()->count(),
+                'juntas' => (int) $modelo->marcas()->sum('juntas'),
+                'orificios' => (int) $modelo->marcas()->sum('orificios'),
                 'soldadura_mm' => $indice['totales']['soldadura_mm'] ?? null,
                 'marcas_sin_catalogo' => $modelo->marcas()->whereNull('concepto_id')->count(),
             ],

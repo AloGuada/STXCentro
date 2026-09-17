@@ -4,7 +4,8 @@ python-multipart
 ifcopenshell==0.8.*
 trimesh
 numpy
-shapely
+shapely>=2.1
+manifold3d>=3.5    # motor booleano de trimesh: corta los barrenos (holes.py)
 
 # pruebas
 pytest

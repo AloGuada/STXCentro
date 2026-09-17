@@ -18,6 +18,10 @@ export type CordonVisor = {
     id: number;
     numero: number;
     identificador: string;
+    /** La junta a la que pertenece: lo que en el plano lleva un solo símbolo. */
+    junta_id: number | null;
+    /** Tramo corto que da la vuelta por la punta; es parte de la junta. */
+    remate: boolean;
     tipo: 'filete' | 'costura';
     junta: string | null;
     piezas: string[];

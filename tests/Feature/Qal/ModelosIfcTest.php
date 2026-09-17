@@ -44,10 +44,14 @@ function usuarioDeModelos(array $permisos = ['qal.modelos.ver', 'qal.modelos.cre
     return $usuario;
 }
 
-/** Las marcas que entregaría el servicio: una columna con dos cordones y una placa sin ninguno. */
+/**
+ * Las marcas que entregaría el servicio: una columna con dos cordones que son
+ * UNA junta —lo que en el plano lleva un solo símbolo— y seis barrenos, y una
+ * placa sin soldadura ni barrenos.
+ */
 const MARCAS_DEL_SERVICIO = [
-    'SX-CM2-11' => ['file' => 'SX-CM2-11', 'nombre' => 'COLUMNA', 'piezas' => 3, 'peso_kg' => 120.5, 'ensambles' => 4, 'soldaduras' => 2, 'soldadura_mm' => 600, 'bbox_mm' => [400, 400, 3000]],
-    'SX-XX9-1' => ['file' => 'SX-XX9-1', 'nombre' => 'PLACA', 'piezas' => 1, 'peso_kg' => 5, 'ensambles' => 1, 'soldaduras' => 0, 'soldadura_mm' => 0, 'bbox_mm' => [100, 100, 12]],
+    'SX-CM2-11' => ['file' => 'SX-CM2-11', 'nombre' => 'COLUMNA', 'piezas' => 3, 'peso_kg' => 120.5, 'ensambles' => 4, 'soldaduras' => 2, 'juntas' => 1, 'orificios' => 6, 'soldadura_mm' => 600, 'bbox_mm' => [400, 400, 3000]],
+    'SX-XX9-1' => ['file' => 'SX-XX9-1', 'nombre' => 'PLACA', 'piezas' => 1, 'peso_kg' => 5, 'ensambles' => 1, 'soldaduras' => 0, 'juntas' => 0, 'orificios' => 0, 'soldadura_mm' => 0, 'bbox_mm' => [100, 100, 12]],
 ];
 
 /** El index.json tal como lo va escribiendo el servicio. */
@@ -58,20 +62,23 @@ function indiceDelServicio(array $marcas, bool $completo): array
         'modelo' => $completo ? 'modelo.glb' : null,
         'welds_version' => '2026-08-21',
         'marcas' => array_intersect_key(MARCAS_DEL_SERVICIO, array_flip($marcas)),
-        'totales' => ['marcas' => count($marcas), 'soldaduras' => 2, 'soldadura_mm' => 600],
+        'totales' => ['marcas' => count($marcas), 'juntas' => 1, 'soldaduras' => 2, 'soldadura_mm' => 600, 'orificios' => 6],
     ];
 }
 
 function fichaDelServicio(string $marca): string
 {
-    $cordon = fn (int $id): array => [
-        'id' => $id, 'piezas' => ['P001', 'P000'], 'tipo' => 'filete', 'junta' => 'T', 'largo_mm' => 300,
+    $cordon = fn (int $id, bool $remate = false): array => [
+        'id' => $id, 'junta_id' => 1, 'remate' => $remate, 'piezas' => ['P001', 'P000'], 'tipo' => 'filete', 'junta' => 'T', 'largo_mm' => 300,
         'ancho_mm' => 8, 'angulo' => 90, 't1_mm' => 8, 't2_mm' => 12, 'cateto_min_mm' => 4.76,
         'cateto_max_mm' => 6.41, 'garganta_min_mm' => 3.37, 'cateto_mm' => null,
         'preparacion' => ['bisel' => 'ninguno'], 'avisos' => [], 'centro' => [0, 0, 0], 'puntos' => [[0, 0, 0], [0.3, 0, 0]],
     ];
 
-    return json_encode(['marca' => $marca, 'soldaduras' => $marca === 'SX-CM2-11' ? [$cordon(1), $cordon(2)] : []]);
+    return json_encode([
+        'marca' => $marca,
+        'soldaduras' => $marca === 'SX-CM2-11' ? [$cordon(1), $cordon(2, remate: true)] : [],
+    ]);
 }
 
 function modeloConArchivo(array $atributos = []): Modelo
@@ -151,6 +158,11 @@ test('el job sube el archivo, guarda cada marca conforme el servicio la escribe 
         ->and($aMedias->resumen['progreso'])->toMatchArray(['marcas_hechas' => 1, 'marcas_total' => 2, 'marcas_guardadas' => 1])
         ->and($columna->concepto_id)->not->toBeNull()
         ->and($columna->cordones()->pluck('numero')->all())->toBe([1, 2])
+        // Los dos cordones son tramos de la misma junta, y el segundo es el remate.
+        ->and($columna->cordones()->pluck('junta_id')->all())->toBe([1, 1])
+        ->and($columna->cordones()->pluck('remate')->all())->toBe([false, true])
+        ->and($columna->juntas)->toBe(1)
+        ->and($columna->orificios)->toBe(6)
         ->and(ModeloMarca::query()->where('marca', 'SX-XX9-1')->exists())->toBeFalse();
     Storage::disk('public')->assertExists("qal/modelos/{$modelo->id}/marks/SX-CM2-11.glb");
 
@@ -161,6 +173,8 @@ test('el job sube el archivo, guarda cada marca conforme el servicio la escribe 
         ->and($listo->archivo_modelo)->toBe('modelo.glb')
         ->and($listo->resumen['marcas'])->toBe(2)
         ->and($listo->resumen['cordones'])->toBe(2)
+        ->and($listo->resumen['juntas'])->toBe(1)
+        ->and($listo->resumen['orificios'])->toBe(6)
         ->and($listo->resumen['marcas_sin_catalogo'])->toBe(1)
         // La columna no se volvió a bajar: ya estaba.
         ->and(ModeloMarca::query()->firstWhere('marca', 'SX-CM2-11')->id)->toBe($columna->id)
