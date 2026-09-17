@@ -21,7 +21,7 @@ class PortalOrdenCompraController extends Controller
             ->with([
                 'obra:id,no,descripcion',
                 'proveedor:id,razon_social,nombre_comercial',
-                'detalles:id,orden_compra_id,precio_unitario,cantidad',
+                'detalles:id,orden_compra_id,precio_unitario,cantidad,cantidad_cancelada',
                 'entregas.detalles.devoluciones',
                 'facturas.pago',
             ])

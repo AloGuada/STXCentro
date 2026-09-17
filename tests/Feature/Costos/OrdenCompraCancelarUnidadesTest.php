@@ -256,6 +256,34 @@ test('la pantalla de la orden trae lo cancelado y sus cancelaciones', function (
             ->where('ordenCompra.estatus', 'pendiente_aprobacion'));
 });
 
+/**
+ * El listado calcula el avance con los mismos accesores del modelo, pero carga
+ * las partidas con un select acotado. Si ese select no trae
+ * `cantidad_cancelada`, el accesor la lee como cero y el avance de entrega
+ * sigue mostrando el viejo: por eso se comprueba desde la pantalla y no sólo
+ * contra el modelo.
+ */
+test('el listado de ordenes recalcula el avance de entrega con lo cancelado', function () {
+    [$oc, $partida] = ordenConPresupuesto(100, 10);
+    recibirUnidades($oc, $partida, 60);
+    $usuario = usuarioDeCompras(['costos.ordenes-compra.ver', 'costos.ordenes-compra.ver-todas']);
+
+    $this->actingAs($usuario)
+        ->get(route('admin.costos.ordenes-compra.index'))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page->where('ordenes.data.0.porcentaje_recepcion', 60));
+
+    $cancelacion = app(CanceladorDeUnidades::class)->solicitar($partida->fresh(), 40, 'El proveedor ya no surte el resto');
+    app(CanceladorDeUnidades::class)->autorizar($cancelacion);
+
+    $this->actingAs($usuario)
+        ->get(route('admin.costos.ordenes-compra.index'))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('ordenes.data.0.porcentaje_recepcion', 100)
+            ->where('ordenes.data.0.detalles.0.cantidad_cancelada', '40.0000'));
+});
+
 test('sin permiso de cancelar no se solicita', function () {
     [$oc, $partida] = ordenConPresupuesto(100, 10);
 

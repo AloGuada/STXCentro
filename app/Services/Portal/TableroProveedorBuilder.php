@@ -55,7 +55,7 @@ class TableroProveedorBuilder
                         'pagoRaiz.media',
                         'pagoRaiz.pagosParciales.media',
                     ]),
-                'detalles:id,orden_compra_id,descripcion,unidad,cantidad,precio_unitario,subtotal',
+                'detalles:id,orden_compra_id,descripcion,unidad,cantidad,cantidad_cancelada,precio_unitario,subtotal',
             ])
             ->latest('id')
             ->paginate(self::POR_PAGINA)
