@@ -111,6 +111,26 @@ function contadoSubtitle(oc: CostosOrdenCompra, step: number): string {
     }
 }
 
+/**
+ * Aviso para el jefe de compras: hay unidades dadas por canceladas esperando su
+ * firma. Va en la columna de proceso porque la orden se reporta pendiente de
+ * aprobación justo por eso, y sin el aviso no se distingue de una orden que
+ * espera aprobación de factura.
+ */
+function AvisoCancelaciones({ oc }: { oc: CostosOrdenCompra }) {
+    const pendientes = oc.cancelaciones_pendientes_count ?? 0;
+
+    if (pendientes <= 0) {
+        return null;
+    }
+
+    return (
+        <div className="text-error mt-1.5 text-xs font-semibold">
+            {pendientes === 1 ? 'Cancelación de unidades por autorizar' : `${pendientes} cancelaciones de unidades por autorizar`}
+        </div>
+    );
+}
+
 function EtapaCell({ oc }: { oc: CostosOrdenCompra }) {
     // Las OCs de contado siguen otro flujo (anticipo por solicitud de pago).
     if (oc.tipo_pago === 'contado') {
@@ -123,6 +143,7 @@ function EtapaCell({ oc }: { oc: CostosOrdenCompra }) {
             <div>
                 <span className={etapa.badge}>{etapa.label}</span>
                 <div className="text-xs text-base-content/60 mt-1.5">{contadoSubtitle(oc, step)}</div>
+                <AvisoCancelaciones oc={oc} />
             </div>
         );
     }
@@ -132,6 +153,7 @@ function EtapaCell({ oc }: { oc: CostosOrdenCompra }) {
         <div>
             <span className={OC_ETAPA_BADGE[etapa]}>{OC_ETAPA_LABELS[etapa]}</span>
             <div className="text-xs text-base-content/60 mt-1.5">{etapaSubtitle(oc)}</div>
+            <AvisoCancelaciones oc={oc} />
         </div>
     );
 }

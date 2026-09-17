@@ -47,7 +47,13 @@ class OrdenCompraController extends Controller
                 'facturas.pago',
                 'solicitudesPago:id,orden_compra_id,folio,estatus',
             ])
-            ->withCount(['facturas', 'entregas' => fn ($q) => $q->activa(), 'detalles'])
+            ->withCount([
+                'facturas',
+                'entregas' => fn ($q) => $q->activa(),
+                'detalles',
+                // Para avisar en la columna de proceso que alguien tiene que firmar.
+                'cancelacionesDeUnidades as cancelaciones_pendientes_count' => fn ($q) => $q->pendiente(),
+            ])
             ->addSelect([
                 'pagos_count' => DB::table('costos_pagos')
                     ->join('costos_facturas', function ($join) {

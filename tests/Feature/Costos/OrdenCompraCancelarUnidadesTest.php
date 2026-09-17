@@ -284,6 +284,37 @@ test('el listado de ordenes recalcula el avance de entrega con lo cancelado', fu
             ->where('ordenes.data.0.detalles.0.cantidad_cancelada', '40.0000'));
 });
 
+/**
+ * En el listado, una orden con cancelaciones sin firmar se reporta pendiente de
+ * aprobación igual que una que espera la aprobación de una factura. El conteo
+ * es lo que deja distinguirlas y avisar al jefe de compras que hay algo suyo
+ * que firmar.
+ */
+test('el listado cuenta las cancelaciones que esperan firma', function () {
+    [$oc, $partida] = ordenConPresupuesto(100, 10);
+    recibirUnidades($oc, $partida, 60);
+    $usuario = usuarioDeCompras(['costos.ordenes-compra.ver', 'costos.ordenes-compra.ver-todas']);
+
+    $this->actingAs($usuario)
+        ->get(route('admin.costos.ordenes-compra.index'))
+        ->assertInertia(fn ($page) => $page->where('ordenes.data.0.cancelaciones_pendientes_count', 0));
+
+    $cancelacion = app(CanceladorDeUnidades::class)->solicitar($partida->fresh(), 40, 'El proveedor ya no surte el resto');
+
+    $this->actingAs($usuario)
+        ->get(route('admin.costos.ordenes-compra.index'))
+        ->assertInertia(fn ($page) => $page
+            ->where('ordenes.data.0.cancelaciones_pendientes_count', 1)
+            ->where('ordenes.data.0.estatus', 'pendiente_aprobacion'));
+
+    // Firmada deja de avisar.
+    app(CanceladorDeUnidades::class)->autorizar($cancelacion);
+
+    $this->actingAs($usuario)
+        ->get(route('admin.costos.ordenes-compra.index'))
+        ->assertInertia(fn ($page) => $page->where('ordenes.data.0.cancelaciones_pendientes_count', 0));
+});
+
 test('sin permiso de cancelar no se solicita', function () {
     [$oc, $partida] = ordenConPresupuesto(100, 10);
 

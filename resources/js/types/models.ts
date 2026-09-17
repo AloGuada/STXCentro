@@ -2534,6 +2534,8 @@ export type CostosOrdenCompra = {
     facturas_count?: number;
     entregas_count?: number;
     pagos_count?: number;
+    /** Cancelaciones de unidades esperando la firma del jefe de compras. */
+    cancelaciones_pendientes_count?: number;
     total_facturado?: number;
     total_pagado?: number;
     saldo_pendiente?: number;

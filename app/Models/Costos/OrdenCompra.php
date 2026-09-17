@@ -22,6 +22,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\Relations\MorphOne;
 use Illuminate\Support\Carbon;
@@ -409,16 +410,29 @@ class OrdenCompra extends Model
     }
 
     /**
+     * Las cancelaciones de unidades de todas sus partidas. Existe para poder
+     * contarlas en el listado con un solo `withCount`.
+     *
+     * @return HasManyThrough<OrdenCompraDetalleCancelacion, OrdenCompraDetalle, $this>
+     */
+    public function cancelacionesDeUnidades(): HasManyThrough
+    {
+        return $this->hasManyThrough(
+            OrdenCompraDetalleCancelacion::class,
+            OrdenCompraDetalle::class,
+            'orden_compra_id',
+            'orden_compra_detalle_id',
+        );
+    }
+
+    /**
      * ¿Alguna partida trae unidades canceladas que el jefe de compras todavía
      * no autoriza? Mientras haya una, la orden se reporta pendiente de
      * aprobación: hay algo que alguien tiene que firmar.
      */
     public function tieneCancelacionPendiente(): bool
     {
-        return OrdenCompraDetalleCancelacion::query()
-            ->whereIn('orden_compra_detalle_id', $this->detalles()->select('costos_ordenes_compra_detalle.id'))
-            ->pendiente()
-            ->exists();
+        return $this->cancelacionesDeUnidades()->pendiente()->exists();
     }
 
     /**
