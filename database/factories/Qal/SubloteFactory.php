@@ -2,6 +2,7 @@
 
 namespace Database\Factories\Qal;
 
+use App\Enums\Qal\FaseTransformacion;
 use App\Enums\Qal\NivelAql;
 use App\Enums\Qal\VeredictoLote;
 use App\Models\Qal\Inspector;
@@ -27,6 +28,7 @@ class SubloteFactory extends Factory
 
         return [
             'lote_id' => LoteAccesorio::factory(),
+            'fase' => FaseTransformacion::Segunda,
             'numero_inspeccion' => 1,
             'unidades' => 100,
             'fecha' => $fecha,
@@ -42,6 +44,12 @@ class SubloteFactory extends Factory
             'veredicto' => VeredictoLote::Aceptado,
             'capturado_en' => now(),
         ];
+    }
+
+    /** La entrega revisada ya pintada: se rechaza con los defectos de pintura. */
+    public function pintura(): static
+    {
+        return $this->state(fn (): array => ['fase' => FaseTransformacion::Tercera]);
     }
 
     public function rechazado(?string $disposicion = null): static

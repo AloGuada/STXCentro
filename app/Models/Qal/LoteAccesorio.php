@@ -2,6 +2,7 @@
 
 namespace App\Models\Qal;
 
+use App\Enums\Qal\FaseTransformacion;
 use App\Models\Concepto;
 use App\Models\Obra as ObraDelPortal;
 use App\Models\Usuario;
@@ -85,18 +86,24 @@ class LoteAccesorio extends Model
     }
 
     /**
-     * Cuánto del lote llegó y cuánto se liberó.
+     * Cuánto del lote llegó y cuánto se liberó, **en una transformación**.
      *
      * Cada sublote cuenta una vez, con su última inspección: uno rechazado y
      * luego aceptado es material liberado, no una entrega doble. Lo recibido
      * que no se liberó está detenido hasta reinspeccionarse o liberarse bajo
      * concesión. Lee `sublotes` ya cargados.
      *
+     * La fase es obligatoria porque las mismas unidades pasan dos veces: se
+     * reciben soldadas en 2ª y vuelven pintadas en 3ª. Sumarlas juntas daría
+     * más unidades recibidas que las que tiene el lote.
+     *
      * @return array{recibidas: int, liberadas: int, detenidas: int, sublotes: int, sin_disposicion: int, inspeccionadas: int, rechazadas: int}
      */
-    public function avance(): array
+    public function avance(FaseTransformacion $fase): array
     {
-        $ultimas = $this->sublotes
+        $deLaFase = $this->sublotes->filter(fn (Sublote $sublote): bool => $sublote->fase === $fase);
+
+        $ultimas = $deLaFase
             ->groupBy(fn (Sublote $sublote): int => $sublote->grupoId())
             ->map(fn ($grupo) => $grupo->sortBy('numero_inspeccion')->last());
 
@@ -109,8 +116,22 @@ class LoteAccesorio extends Model
             'detenidas' => $recibidas - $liberadas,
             'sublotes' => $ultimas->count(),
             'sin_disposicion' => $ultimas->filter(fn (Sublote $sublote): bool => $sublote->sinDisposicion())->count(),
-            'inspeccionadas' => (int) $this->sublotes->sum('muestra'),
-            'rechazadas' => (int) $this->sublotes->sum('rechazadas'),
+            'inspeccionadas' => (int) $deLaFase->sum('muestra'),
+            'rechazadas' => (int) $deLaFase->sum('rechazadas'),
+        ];
+    }
+
+    /**
+     * El avance de cada transformación, para quien tiene que enseñar las dos
+     * —o todavía no sabe en cuál se está capturando.
+     *
+     * @return array<string, array{recibidas: int, liberadas: int, detenidas: int, sublotes: int, sin_disposicion: int, inspeccionadas: int, rechazadas: int}>
+     */
+    public function avancePorFase(): array
+    {
+        return [
+            FaseTransformacion::Segunda->value => $this->avance(FaseTransformacion::Segunda),
+            FaseTransformacion::Tercera->value => $this->avance(FaseTransformacion::Tercera),
         ];
     }
 }

@@ -38,7 +38,7 @@ class SublotesExport implements FromCollection, ShouldAutoSize, WithHeadings, Wi
     public function headings(): array
     {
         return [
-            'Fecha', 'Año', 'Semana', 'Obra', 'Marca del lote', 'Descripción', 'Unidades del plano',
+            'Fecha', 'Año', 'Semana', 'Transformación', 'Obra', 'Marca del lote', 'Descripción', 'Unidades del plano',
             'Unidades de la entrega', '# Inspección', 'Vigente', 'Nivel', 'Muestra', 'Aceptación', 'Rechazo',
             'Conformes', 'Rechazadas', 'Veredicto', 'Disposición', 'Liberado', 'Defectos', 'Línea', 'Módulo',
             'Inspector', 'Observaciones',
@@ -59,6 +59,7 @@ class SublotesExport implements FromCollection, ShouldAutoSize, WithHeadings, Wi
                 $sublote->fecha->toDateString(),
                 $sublote->anio,
                 $sublote->semana,
+                $sublote->fase->value,
                 $sublote->lote->obra?->no,
                 $sublote->lote->marca,
                 $sublote->lote->descripcion,
@@ -75,8 +76,10 @@ class SublotesExport implements FromCollection, ShouldAutoSize, WithHeadings, Wi
                 $sublote->veredicto ? mb_strtoupper($sublote->veredicto->value) : 'EN CURSO',
                 $sublote->disposicion,
                 $sublote->liberado() ? 'Sí' : 'No',
+                // Con la familia delante: «Porosidad» existe en soldadura y en
+                // pintura, y sin ella las dos columnas se leen igual.
                 $sublote->defectos
-                    ->map(fn (SubloteDefecto $defecto): string => "#{$defecto->unidad} {$defecto->defecto->nombre}")
+                    ->map(fn (SubloteDefecto $defecto): string => "#{$defecto->unidad} {$defecto->defecto->ambito->etiqueta()}: {$defecto->defecto->nombre}")
                     ->implode('; '),
                 $sublote->linea,
                 $sublote->modulo,

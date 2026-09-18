@@ -3,6 +3,7 @@
 namespace App\Services\Qal;
 
 use App\Enums\Qal\EstatusInspeccion;
+use App\Enums\Qal\FaseTransformacion;
 use App\Enums\Qal\ResultadoPunto;
 use App\Models\Media;
 use App\Models\Qal\Inspeccion;
@@ -206,6 +207,7 @@ class FichaDeRegistro
             'cabecera' => $this->filas([
                 'Fecha' => $sublote->fecha->toDateString(),
                 'Semana' => "{$sublote->semana} / {$sublote->anio}",
+                'Transformación' => $sublote->fase->etiqueta(),
                 'Obra' => $lote->obra ? trim("{$lote->obra->no} — {$lote->obra->descripcion}", ' —') : null,
                 'Marca del lote' => $lote->marca,
                 'Descripción' => $lote->descripcion,
@@ -223,7 +225,8 @@ class FichaDeRegistro
                 'Línea' => $sublote->linea,
                 'Módulo' => $sublote->modulo,
                 'Responsable del módulo' => $sublote->responsable?->nombre,
-                'Soldador' => $sublote->soldador?->nombre,
+                // En 3ª la entrega llega pintada: el soldador no es de esta revisión.
+                'Soldador' => $sublote->fase === FaseTransformacion::Segunda ? $sublote->soldador?->nombre : null,
                 'Observaciones' => $sublote->observaciones,
                 'Inspector' => $sublote->inspector?->usuario?->name,
                 'Capturó' => $sublote->capturista?->name,

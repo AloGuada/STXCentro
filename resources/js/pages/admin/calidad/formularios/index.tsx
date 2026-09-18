@@ -298,7 +298,9 @@ export default function CapturaCalidad({ obras, obraId, marcas, lotes, avance, p
     const esPrimera = fase === '1ª';
     const esSegunda = fase === '2ª';
     const esTercera = fase === '3ª';
-    const esAccesorios = esSegunda && modo === 'acc';
+    // La misma marca de accesorios se revisa soldada en 2ª y pintada en 3ª: las
+    // dos entregas son un muestreo, cada una con los defectos de su etapa.
+    const esAccesorios = (esSegunda || esTercera) && modo === 'acc';
     const armado = campos.v('p2_subetapa') === 'Armado-Vestido';
     const soldado = esSegunda && campos.v('p2_subetapa') === 'Soldado';
 
@@ -553,6 +555,7 @@ export default function CapturaCalidad({ obras, obraId, marcas, lotes, avance, p
     /** Una entrega de accesorios: los datos de la marca y el muestreo de esta entrega. */
     const construirSublote = () => ({
         obra_id: campos.v('obra'),
+        fase,
         fecha: campos.v('fecha'),
         marca: campos.v('ac_marca'),
         descripcion: vacioANulo(campos.v('ac_desc')),
@@ -563,12 +566,16 @@ export default function CapturaCalidad({ obras, obraId, marcas, lotes, avance, p
         nivel: campos.v('ac_nivel') || 'II',
         conformes,
         rechazadas: rechazadas.map((unidad) => ({
-            defectos: [
-                ...idsDe(catalogos.defectosSoldadura, unidad.soldadura),
-                ...idsDe(catalogos.defectosAccDimensional, unidad.dimensional),
-                ...idsDe(catalogos.defectosAccBarrenos, unidad.barrenos),
-                ...(unidad.limpieza && catalogos.defectosAccLimpieza[0] ? [catalogos.defectosAccLimpieza[0].id] : []),
-            ],
+            // Pintada sólo cuenta la pintura: el servidor rechaza un defecto de
+            // otra familia en un sublote de 3ª, y son etapas distintas del dato.
+            defectos: esTercera
+                ? idsDe(catalogos.defectosPintura, unidad.pintura)
+                : [
+                      ...idsDe(catalogos.defectosSoldadura, unidad.soldadura),
+                      ...idsDe(catalogos.defectosAccDimensional, unidad.dimensional),
+                      ...idsDe(catalogos.defectosAccBarrenos, unidad.barrenos),
+                      ...(unidad.limpieza && catalogos.defectosAccLimpieza[0] ? [catalogos.defectosAccLimpieza[0].id] : []),
+                  ],
         })),
         disposicion: vacioANulo(disposicionAcc),
         linea: vacioANulo(campos.v('linea')),
@@ -802,7 +809,7 @@ export default function CapturaCalidad({ obras, obraId, marcas, lotes, avance, p
                                     </>
                                 )}
 
-                                {esSegunda && !conPrecarga && (
+                                {(esSegunda || esTercera) && !conPrecarga && (
                                     <div className="mt-4 border-t border-base-300 pt-[14px]">
                                         {/* Segunda decisión fundamental, y va aquí arriba porque cambia TODO el
                                             formulario: una pieza es una unidad concreta; un lote de accesorios son
@@ -931,10 +938,12 @@ export default function CapturaCalidad({ obras, obraId, marcas, lotes, avance, p
                                             soldadura: catalogos.defectosSoldadura.map((defecto) => defecto.nombre),
                                             dimensional: catalogos.defectosAccDimensional.map((defecto) => defecto.nombre),
                                             barrenos: catalogos.defectosAccBarrenos.map((defecto) => defecto.nombre),
+                                            pintura: catalogos.defectosPintura.map((defecto) => defecto.nombre),
                                         }}
                                         lotes={lotes}
                                         numero={precarga?.acc?.numero ?? 1}
                                         marcaFija={conPrecarga}
+                                        esPintura={esTercera}
                                         onAviso={avisar}
                                     />
                                     <Tarjeta titulo="Observaciones">

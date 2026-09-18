@@ -37,7 +37,7 @@ class RegistroController extends Controller
 
     private const ORDEN_PIEZAS = ['fecha', 'fase', 'marca', 'consecutivo', 'numero_inspeccion', 'modulo', 'estatus'];
 
-    private const ORDEN_SUBLOTES = ['fecha', 'unidades', 'muestra', 'rechazadas', 'veredicto', 'numero_inspeccion'];
+    private const ORDEN_SUBLOTES = ['fecha', 'fase', 'unidades', 'muestra', 'rechazadas', 'veredicto', 'numero_inspeccion'];
 
     public function index(Request $request, FichaDeRegistro $fichas): Response
     {
@@ -95,7 +95,9 @@ class RegistroController extends Controller
         return [
             'que' => $que,
             'obra' => $request->integer('obra') ?: null,
-            'fase' => $que === 'pza' ? FaseTransformacion::tryFrom((string) $request->query('fase'))?->value : null,
+            // La fase vale para las dos: un sublote se revisa soldado en 2ª o
+            // pintado en 3ª. El estatus sigue siendo sólo de la pieza.
+            'fase' => FaseTransformacion::tryFrom((string) $request->query('fase'))?->value,
             'inspector' => $request->integer('inspector') ?: null,
             'estatus' => $que === 'pza' ? EstatusInspeccion::tryFrom((string) $request->query('estatus'))?->value : null,
             'fecha' => preg_match('/^\d{4}-\d{2}-\d{2}$/', $fecha) ? $fecha : null,
@@ -151,6 +153,7 @@ class RegistroController extends Controller
             ->through(fn (Sublote $sublote): array => [
                 'id' => $sublote->id,
                 'fecha' => $sublote->fecha->toDateString(),
+                'fase' => $sublote->fase->value,
                 'obra' => $sublote->lote->obra?->no,
                 'marca' => $sublote->lote->marca,
                 'total_lote' => $sublote->lote->total_unidades,

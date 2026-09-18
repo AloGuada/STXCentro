@@ -55,16 +55,25 @@ export type Junta = {
     espesorMedido: string;
 };
 
-/** Una unidad rechazada del sublote de accesorios, por familias. */
+/**
+ * Una unidad rechazada del sublote de accesorios, por familias.
+ *
+ * Las familias son las de 2ª salvo `pintura`, que es la única que se usa en 3ª:
+ * un accesorio ya pintado no se rechaza por barrenos, eso se vio antes.
+ */
 export type PiezaRechazada = {
     soldadura: string[];
     dimensional: string[];
     barrenos: string[];
     limpieza: boolean;
+    pintura: string[];
 };
 
 export function textoPiezaRechazada(pieza: PiezaRechazada): string {
     const partes: string[] = [];
+    if (pieza.pintura.length) {
+        partes.push(`Pintura: ${pieza.pintura.join(', ')}`);
+    }
     if (pieza.soldadura.length) {
         partes.push(`Soldadura: ${pieza.soldadura.join(', ')}`);
     }
