@@ -55,6 +55,26 @@ export const PUNTOS_MAPEO: [string, string][] = [
     ['m_matbase', 'Material base dañado'],
 ];
 
+/** Cómo se llama la junta en el formato de mapeo. */
+export const TIPOS_JUNTA = ['Filete', 'Ranura'];
+
+/**
+ * De los puntos del mapeo, los que miran la junta *antes* de juzgar el cordón.
+ * El resto son discontinuidades de la soldadura ya depositada. La matriz los
+ * lleva todos seguidos; el panel de una junta los separa para que el inspector
+ * conteste primero la preparación y luego lo que ve en el cordón.
+ */
+export const PUNTOS_PREPARACION = new Set([
+    'm_material',
+    'm_prepfilete',
+    'm_prepranura',
+    'm_respaldo',
+    'm_acceso',
+    'm_corte',
+    'm_precal',
+    'm_limpieza',
+]);
+
 /**
  * Qué se hizo con el lote rechazado. El vacío es una opción real: significa
  * "pendiente de decidir", y así aparece marcado en los tableros. «Liberado bajo
