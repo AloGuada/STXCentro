@@ -243,49 +243,6 @@ export function FaseTercera({
                 </div>
             </Tarjeta>
 
-            <Tarjeta titulo="Inspección de pintura (3ª)">
-                <Rejilla cols={3}>
-                    <Campo label="Espesor">
-                        <Selector value={campos.v('p3_esp')} onChange={(valor) => campos.set('p3_esp', valor)} opciones={['OK', 'Espesor bajo']} />
-                    </Campo>
-                    <Campo label="Visual">
-                        <Selector value={campos.v('p3_vis')} onChange={(valor) => campos.set('p3_vis', valor)} opciones={['OK', 'Con defecto']} />
-                    </Campo>
-                    <Campo label="Adherencia">
-                        <Selector
-                            value={campos.v('p3_adh')}
-                            onChange={(valor) => campos.set('p3_adh', valor)}
-                            opciones={['OK', 'Falla adherencia']}
-                        />
-                    </Campo>
-                </Rejilla>
-
-                <div className="mt-3">
-                    <Rejilla>
-                        <Campo label="Revisión (R1/R2/R3)">
-                            <Selector value={campos.v('p3_rev')} onChange={(valor) => campos.set('p3_rev', valor)} opciones={['R1', 'R2', 'R3']} />
-                        </Campo>
-                        <Campo label="Acción">
-                            <Selector
-                                value={campos.v('p3_accion')}
-                                onChange={(valor) => campos.set('p3_accion', valor)}
-                                opciones={[
-                                    ['A', 'A = Aceptada'],
-                                    ['R', 'R = Rechazada'],
-                                    ['RM', 'RM = Regresar a módulo'],
-                                ]}
-                            />
-                        </Campo>
-                    </Rejilla>
-                </div>
-
-                <div className="mt-[14px]">
-                    <Campo label="Defecto de pintura">
-                        <Chips opciones={defectosCatalogo} valor={defectos} onChange={onDefectos} />
-                    </Campo>
-                </div>
-            </Tarjeta>
-
             <Tarjeta titulo="Prueba de adherencia (F-STX-CA-08)" etiqueta="pintura">
                 <Pista>Opcional — no todas las piezas la llevan. Ábrela sólo si aplica. Norma ASTM D3359.</Pista>
                 <Boton tono="acero" onClick={() => onAdherencia(!adherenciaAbierta)}>
@@ -412,6 +369,50 @@ export function FaseTercera({
                 )}
             </Tarjeta>
 
+            {/* El veredicto va al final: se dictamina con los espesores y la
+                adherencia ya capturados, no antes de medirlos. */}
+            <Tarjeta titulo="Inspección de pintura (3ª)">
+                <Rejilla cols={3}>
+                    <Campo label="Espesor">
+                        <Selector value={campos.v('p3_esp')} onChange={(valor) => campos.set('p3_esp', valor)} opciones={['OK', 'Espesor bajo']} />
+                    </Campo>
+                    <Campo label="Visual">
+                        <Selector value={campos.v('p3_vis')} onChange={(valor) => campos.set('p3_vis', valor)} opciones={['OK', 'Con defecto']} />
+                    </Campo>
+                    <Campo label="Adherencia">
+                        <Selector
+                            value={campos.v('p3_adh')}
+                            onChange={(valor) => campos.set('p3_adh', valor)}
+                            opciones={['OK', 'Falla adherencia']}
+                        />
+                    </Campo>
+                </Rejilla>
+
+                <div className="mt-3">
+                    <Rejilla>
+                        <Campo label="Revisión (R1/R2/R3)">
+                            <Selector value={campos.v('p3_rev')} onChange={(valor) => campos.set('p3_rev', valor)} opciones={['R1', 'R2', 'R3']} />
+                        </Campo>
+                        <Campo label="Acción">
+                            <Selector
+                                value={campos.v('p3_accion')}
+                                onChange={(valor) => campos.set('p3_accion', valor)}
+                                opciones={[
+                                    ['A', 'A = Aceptada'],
+                                    ['R', 'R = Rechazada'],
+                                    ['RM', 'RM = Regresar a módulo'],
+                                ]}
+                            />
+                        </Campo>
+                    </Rejilla>
+                </div>
+
+                <div className="mt-[14px]">
+                    <Campo label="Defecto de pintura">
+                        <Chips opciones={defectosCatalogo} valor={defectos} onChange={onDefectos} />
+                    </Campo>
+                </div>
+            </Tarjeta>
         </>
     );
 }
