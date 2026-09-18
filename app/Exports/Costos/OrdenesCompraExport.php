@@ -82,7 +82,7 @@ class OrdenesCompraExport implements FromCollection, ShouldAutoSize, WithHeading
         $ordenes = OrdenCompra::query()
             ->with([
                 'proveedor:id,razon_social,nombre_comercial',
-                'detalles:id,orden_compra_id,obra_rubro_id,descripcion,unidad,cantidad,precio_unitario,subtotal',
+                'detalles:id,orden_compra_id,obra_rubro_id,descripcion,unidad,cantidad,cantidad_cancelada,precio_unitario,subtotal',
                 'detalles.obraRubro.presupuesto.presupuestable',
             ])
             ->when($search, function ($query, $s) {

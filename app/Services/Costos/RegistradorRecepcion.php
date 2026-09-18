@@ -204,7 +204,7 @@ class RegistradorRecepcion
             $partida = $partidas->get($partidaId);
 
             $acumulado[$partidaId] = ($acumulado[$partidaId] ?? 0) + (float) $renglon['cantidad_recibida'];
-            $saldo = (float) $partida->cantidad - (float) ($yaRecibido[$partidaId] ?? 0);
+            $saldo = $partida->cantidadVigente() - (float) ($yaRecibido[$partidaId] ?? 0);
 
             if ($acumulado[$partidaId] > $saldo + config('costos.epsilon_cantidad')) {
                 throw ValidationException::withMessages([

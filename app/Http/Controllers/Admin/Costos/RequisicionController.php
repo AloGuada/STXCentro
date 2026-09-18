@@ -424,6 +424,10 @@ class RequisicionController extends Controller
             'cotizacionOpciones.proveedor:id,razon_social,nombre_comercial',
             'detalles.selecciones.cotizacionPrecio',
             'detalles.selecciones.proveedor:id,razon_social,estatus',
+            // Para saber qué se canceló después en la orden. La liga ya existe;
+            // la requisición no guarda nada de esto.
+            'detalles.ordenCompraDetalles:id,requisicion_detalle_id,orden_compra_id,cantidad,cantidad_cancelada',
+            'detalles.ordenCompraDetalles.ordenCompra:id,folio',
             'ocs',
             'aprobaciones.aprobador:id,name',
             'ordenesGeneradas:id,folio,proveedor_id,total,estatus,requisicion_id',
@@ -504,6 +508,7 @@ class RequisicionController extends Controller
             'departamento',
             'detalles.cotizaciones.opcion',
             'detalles.selecciones.cotizacionPrecio',
+            'detalles.ordenCompraDetalles:id,requisicion_detalle_id,cantidad,cantidad_cancelada',
             'detalles.selecciones.proveedor:id,razon_social,tipo_persona,regimen_fiscal_id',
             'detalles.selecciones.proveedor.regimenFiscal:id,clave',
             'detalles.obraRubro.obra:id,no,descripcion',

@@ -54,6 +54,7 @@ use App\Http\Controllers\Admin\Costos\FacturaAdminController as CostosFacturaAdm
 use App\Http\Controllers\Admin\Costos\FirmaController as CostosFirmaController;
 use App\Http\Controllers\Admin\Costos\NotaCreditoController as CostosNotaCreditoController;
 use App\Http\Controllers\Admin\Costos\ObraRubroController as CostosObraRubroController;
+use App\Http\Controllers\Admin\Costos\OrdenCompraCancelacionController as CostosOrdenCompraCancelacionController;
 use App\Http\Controllers\Admin\Costos\OrdenCompraController as CostosOrdenCompraController;
 use App\Http\Controllers\Admin\Costos\PagoController as CostosPagoController;
 use App\Http\Controllers\Admin\Costos\PermisoController as CostosPermisoController;
@@ -682,6 +683,11 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::get('ordenes-compra/exportar', [CostosOrdenCompraController::class, 'exportar'])->name('ordenes-compra.exportar');
         Route::resource('ordenes-compra', CostosOrdenCompraController::class)->only(['index', 'create', 'store', 'show', 'destroy'])->parameters(['ordenes-compra' => 'ordenCompra']);
         Route::post('ordenes-compra/{ordenCompra}/cancelar', [CostosOrdenCompraController::class, 'cancelar'])->name('ordenes-compra.cancelar');
+        // Cancelar unidades de una partida: compras la solicita, el jefe de
+        // compras la autoriza o la rechaza.
+        Route::post('ordenes-compra/partidas/{detalle}/cancelaciones', [CostosOrdenCompraCancelacionController::class, 'store'])->name('ordenes-compra.cancelaciones.store');
+        Route::post('ordenes-compra/cancelaciones/{cancelacion}/autorizar', [CostosOrdenCompraCancelacionController::class, 'autorizar'])->name('ordenes-compra.cancelaciones.autorizar');
+        Route::post('ordenes-compra/cancelaciones/{cancelacion}/rechazar', [CostosOrdenCompraCancelacionController::class, 'rechazar'])->name('ordenes-compra.cancelaciones.rechazar');
         Route::post('ordenes-compra/{ordenCompra}/factura-contado', [CostosOrdenCompraController::class, 'subirFacturaContado'])->name('ordenes-compra.factura-contado');
         Route::get('ordenes-compra/{ordenCompra}/pdf-requisicion', [CostosOrdenCompraController::class, 'pdfRequisicion'])->name('ordenes-compra.pdf-requisicion');
         Route::get('ordenes-compra/{ordenCompra}/pdf-oc', [CostosOrdenCompraController::class, 'pdfOc'])->name('ordenes-compra.pdf-oc');

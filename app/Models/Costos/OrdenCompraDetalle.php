@@ -6,6 +6,7 @@ use App\Models\Concerns\LlenaLlavesDeItem;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * @use HasFactory<\Database\Factories\Costos\OrdenCompraDetalleFactory>
@@ -40,6 +41,7 @@ class OrdenCompraDetalle extends Model
         'codigo_producto',
         'unidad',
         'cantidad',
+        'cantidad_cancelada',
         'precio_unitario',
         'subtotal',
     ];
@@ -51,6 +53,7 @@ class OrdenCompraDetalle extends Model
     {
         return [
             'cantidad' => 'decimal:4',
+            'cantidad_cancelada' => 'decimal:4',
             'precio_unitario' => 'decimal:4',
             'subtotal' => 'decimal:2',
             'sin_impuestos' => 'boolean',
@@ -81,5 +84,23 @@ class OrdenCompraDetalle extends Model
     public function requisicionDetalle(): BelongsTo
     {
         return $this->belongsTo(RequisicionDetalle::class, 'requisicion_detalle_id');
+    }
+
+    /**
+     * Las cancelaciones de unidades de esta partida, autorizadas o no.
+     *
+     * @return HasMany<OrdenCompraDetalleCancelacion, $this>
+     */
+    public function cancelaciones(): HasMany
+    {
+        return $this->hasMany(OrdenCompraDetalleCancelacion::class, 'orden_compra_detalle_id');
+    }
+
+    /**
+     * Lo que sigue vigente de la partida: lo pedido menos lo cancelado.
+     */
+    public function cantidadVigente(): float
+    {
+        return max(0.0, (float) $this->cantidad - (float) $this->cantidad_cancelada);
     }
 }

@@ -104,9 +104,13 @@
     </table>
 
     @php
-        $subtotal = $oc->detalles->sum(fn($d) => (float) $d->cantidad * (float) $d->precio_unitario);
+        // Sobre la cantidad VIGENTE (lo pedido menos lo cancelado): lo cancelado
+        // ya no se le debe al proveedor, y sumar lo pedido no cuadraria con el
+        // total de la orden.
+        $subtotal = $oc->detalles->sum(fn($d) => $d->cantidadVigente() * (float) $d->precio_unitario);
         // Las partidas "sin impuestos" suman al subtotal pero no causan IVA.
-        $baseIva = $oc->detalles->reject->sin_impuestos->sum(fn($d) => (float) $d->cantidad * (float) $d->precio_unitario);
+        $baseIva = $oc->detalles->reject->sin_impuestos->sum(fn($d) => $d->cantidadVigente() * (float) $d->precio_unitario);
+        $hayCanceladas = $oc->detalles->contains(fn($d) => (float) $d->cantidad_cancelada > 0);
         $iva = $baseIva * config('costos.iva_rate');
         $codMon = strtolower($oc->moneda ?? 'mxn') === 'mxn' ? '' : ' '.strtoupper($oc->moneda);
     @endphp
@@ -120,6 +124,10 @@
                 <th>Uso CFDI</th>
                 <th>Unidad</th>
                 <th>Cantidad</th>
+                @if($hayCanceladas)
+                <th>Cancel.</th>
+                <th>Vigente</th>
+                @endif
                 <th>P. Unitario</th>
                 <th>Subtotal</th>
             </tr>
@@ -138,12 +146,32 @@
                 <td>{{ optional($d->usoCfdi)->clave ?? '-' }}</td>
                 <td>{{ $d->unidad }}</td>
                 <td class="text-right">{{ \App\Support\Cantidad::formatear($d->cantidad) }}</td>
+                @if($hayCanceladas)
+                <td class="text-right">{{ (float) $d->cantidad_cancelada > 0 ? \App\Support\Cantidad::formatear($d->cantidad_cancelada) : '-' }}</td>
+                <td class="text-right">{{ \App\Support\Cantidad::formatear($d->cantidadVigente()) }}</td>
+                @endif
                 <td class="text-right">${{ \App\Support\Cantidad::formatear($d->precio_unitario) }}</td>
-                <td class="text-right">${{ number_format($d->cantidad * $d->precio_unitario, 2) }}</td>
+                <td class="text-right">${{ number_format($d->cantidadVigente() * (float) $d->precio_unitario, 2) }}</td>
             </tr>
             @endforeach
         </tbody>
     </table>
+
+    @if($hayCanceladas)
+    <div class="notas">
+        <strong>Unidades canceladas:</strong>
+        @foreach($oc->detalles as $d)
+            @foreach($d->cancelaciones->where('estatus', \App\Enums\Costos\CancelacionUnidadesEstatus::Autorizada) as $c)
+                <div>
+                    {{ \App\Support\Cantidad::formatear($c->cantidad) }} {{ $d->unidad }} de {{ $d->descripcion }}
+                    - {{ $c->motivo }}
+                    @if($c->autorizador) - autorizo {{ $c->autorizador->name }} @endif
+                    @if($c->autorizado_at) el {{ $c->autorizado_at->format('d/m/Y') }} @endif
+                </div>
+            @endforeach
+        @endforeach
+    </div>
+    @endif
 
     @if($oc->notas)
     <div class="notas">

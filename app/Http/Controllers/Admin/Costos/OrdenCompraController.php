@@ -41,13 +41,19 @@ class OrdenCompraController extends Controller
             ->with([
                 'proveedor:id,razon_social,nombre_comercial',
                 'departamento:id,descripcion',
-                'detalles:id,orden_compra_id,obra_rubro_id,descripcion,unidad,cantidad,precio_unitario,subtotal',
+                'detalles:id,orden_compra_id,obra_rubro_id,descripcion,unidad,cantidad,cantidad_cancelada,precio_unitario,subtotal',
                 'detalles.obraRubro.presupuesto.presupuestable',
                 'entregas.detalles.devoluciones',
                 'facturas.pago',
                 'solicitudesPago:id,orden_compra_id,folio,estatus',
             ])
-            ->withCount(['facturas', 'entregas' => fn ($q) => $q->activa(), 'detalles'])
+            ->withCount([
+                'facturas',
+                'entregas' => fn ($q) => $q->activa(),
+                'detalles',
+                // Para avisar en la columna de proceso que alguien tiene que firmar.
+                'cancelacionesDeUnidades as cancelaciones_pendientes_count' => fn ($q) => $q->pendiente(),
+            ])
             ->addSelect([
                 'pagos_count' => DB::table('costos_pagos')
                     ->join('costos_facturas', function ($join) {
@@ -306,6 +312,8 @@ class OrdenCompraController extends Controller
             'detalles.obraRubro.rubro',
             'detalles.obraRubro.obra',
             'detalles.usoCfdi:id,clave,descripcion',
+            'detalles.cancelaciones.solicitante:id,name',
+            'detalles.cancelaciones.autorizador:id,name',
             'entregas.detalles.ordenCompraDetalle:id,descripcion,unidad,cantidad,precio_unitario',
             'entregas.detalles.devoluciones',
             'entregas.recibidor:id,name',
@@ -392,6 +400,7 @@ class OrdenCompraController extends Controller
             'departamento',
             'detalles.usoCfdi:id,clave',
             'detalles.obraRubro.obra:id,no',
+            'detalles.cancelaciones.autorizador:id,name',
             'requisicion:id,folio',
         ]);
 
@@ -418,6 +427,7 @@ class OrdenCompraController extends Controller
             'departamento',
             'detalles.cotizaciones.opcion',
             'detalles.selecciones.cotizacionPrecio',
+            'detalles.ordenCompraDetalles:id,requisicion_detalle_id,cantidad,cantidad_cancelada',
             'detalles.selecciones.proveedor:id,razon_social,tipo_persona,regimen_fiscal_id',
             'detalles.selecciones.proveedor.regimenFiscal:id,clave',
             'detalles.obraRubro.obra:id,no,descripcion',
