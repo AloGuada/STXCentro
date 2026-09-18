@@ -79,6 +79,8 @@ class ModeloController extends Controller
                 'piezas' => $marca->piezas,
                 'peso_kg' => $marca->peso_kg,
                 'soldaduras' => $marca->soldaduras,
+                'juntas' => $marca->juntas,
+                'orificios' => $marca->orificios,
                 'en_catalogo' => $marca->concepto_id !== null,
             ]),
         ]);

@@ -28,6 +28,8 @@ type MarcaFila = {
     piezas: number;
     peso_kg: string;
     soldaduras: number;
+    juntas: number;
+    orificios: number;
     en_catalogo: boolean;
 };
 
@@ -101,7 +103,9 @@ export default function ModeloShow({ catalogo, modelo, marcas }: Props) {
                         </p>
                         {modelo.resumen?.marcas !== undefined && (
                             <p className="text-sm">
-                                {modelo.resumen.marcas} marcas · {modelo.resumen.cordones ?? 0} cordones
+                                {modelo.resumen.marcas} marcas · {modelo.resumen.juntas ?? 0} juntas en{' '}
+                                {modelo.resumen.cordones ?? 0} cordones
+                                {!!modelo.resumen.orificios && ` · ${modelo.resumen.orificios} barrenos`}
                                 {!!modelo.resumen.marcas_sin_catalogo && (
                                     <span className="text-warning"> · {modelo.resumen.marcas_sin_catalogo} sin marca en el catálogo vigente</span>
                                 )}
@@ -172,7 +176,9 @@ export default function ModeloShow({ catalogo, modelo, marcas }: Props) {
                                                 <span className="font-semibold">{fila.marca}</span>
                                                 {!fila.en_catalogo && <span className="text-warning ml-1 text-xs">sin catálogo</span>}
                                                 <span className="text-base-content/50 block truncate text-xs">
-                                                    {fila.nombre} · {fila.piezas} pz · {Number(fila.peso_kg)} kg · {fila.soldaduras} cordones
+                                                    {fila.nombre} · {fila.piezas} pz · {Number(fila.peso_kg)} kg · {fila.juntas} juntas
+                                                    {' '}({fila.soldaduras} cordones)
+                                                    {!!fila.orificios && ` · ${fila.orificios} barrenos`}
                                                 </span>
                                             </span>
                                             <button

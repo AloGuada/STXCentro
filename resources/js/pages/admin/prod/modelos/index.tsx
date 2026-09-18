@@ -29,6 +29,8 @@ export type ModeloResumen = {
     resumen: {
         marcas?: number;
         cordones?: number;
+        juntas?: number;
+        orificios?: number;
         soldadura_mm?: number | null;
         marcas_sin_catalogo?: number;
         progreso?: { marcas_hechas: number; marcas_total: number } | null;

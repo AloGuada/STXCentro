@@ -28,8 +28,10 @@ class ModeloCordon extends Model
     protected $fillable = [
         'modelo_marca_id',
         'numero',
+        'junta_id',
         'tipo',
         'junta',
+        'remate',
         'piezas',
         'largo_mm',
         'ancho_mm',
@@ -53,6 +55,8 @@ class ModeloCordon extends Model
         return [
             'tipo' => TipoCordon::class,
             'numero' => 'integer',
+            'junta_id' => 'integer',
+            'remate' => 'boolean',
             'piezas' => 'array',
             'largo_mm' => 'decimal:1',
             'ancho_mm' => 'decimal:1',

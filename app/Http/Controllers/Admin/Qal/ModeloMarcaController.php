@@ -39,6 +39,8 @@ class ModeloMarcaController extends Controller
                 'id' => $cordon->id,
                 'numero' => $cordon->numero,
                 'identificador' => $cordon->identificador(),
+                'junta_id' => $cordon->junta_id,
+                'remate' => $cordon->remate,
                 'tipo' => $cordon->tipo->value,
                 'junta' => $cordon->junta,
                 'piezas' => $cordon->piezas,

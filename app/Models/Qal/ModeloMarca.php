@@ -34,6 +34,8 @@ class ModeloMarca extends Model
         'peso_kg',
         'ensambles',
         'soldaduras',
+        'juntas',
+        'orificios',
         'bbox_mm',
     ];
 
@@ -47,6 +49,8 @@ class ModeloMarca extends Model
             'peso_kg' => 'decimal:2',
             'ensambles' => 'integer',
             'soldaduras' => 'integer',
+            'juntas' => 'integer',
+            'orificios' => 'integer',
             'bbox_mm' => 'array',
         ];
     }

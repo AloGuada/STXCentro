@@ -33,6 +33,12 @@ export function PanelCordon({ cordon, children }: { cordon: CordonVisor; childre
                 <span className="badge badge-ghost badge-sm">
                     {cordon.tipo === 'filete' ? 'Filete' : 'Costura'} {cordon.junta && JUNTA[cordon.junta] ? JUNTA[cordon.junta] : ''}
                 </span>
+                {cordon.junta_id !== null && (
+                    <span className="badge badge-outline badge-sm" title="La soldadura que en el plano lleva un solo símbolo">
+                        Junta J{cordon.junta_id}
+                        {cordon.remate ? ' · remate' : ''}
+                    </span>
+                )}
                 <span className={`text-xs font-semibold ${tono}`}>
                     {ETIQUETA_ESTADO[cordon.estado]}
                     {(cordon.correctas > 0 || cordon.con_defecto > 0) &&

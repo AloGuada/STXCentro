@@ -31,9 +31,15 @@ pieza (el interior del cajon) no lo es.
 
 Cada cordon lleva "tipo": "filete" o "costura".
 
+Lo que se CUENTA no es el cordon sino la JUNTA: los cordones del mismo par de
+piezas que se tocan o corren a menos de un espesor (los dos lados de una placa,
+un todo alrededor, las facetas de un tubo, los remates) son una sola soldadura,
+la que en el plano lleva un solo simbolo. Ver agrupar_juntas, mas abajo.
+
 Uso como libreria:
-    from welds import detect_welds
-    welds = detect_welds({node: trimesh, ...})
+    from welds import detect_welds, agrupar_juntas
+    cordones = detect_welds({node: trimesh, ...})
+    juntas = agrupar_juntas(cordones)       # pone "junta_id" y "remate" a cada cordon
 
 Uso directo sobre un glb ya exportado (rapido, no abre el IFC):
     python welds.py SX-CM2-11
@@ -54,11 +60,11 @@ ANG_MIN   = 0.0        # el angulo no decide: toda pieza en angulo lleva cordon
 ANG_MAX   = 170.0      # salvo lo casi coplanar, que no llega a ser un rincon
 PLANE_TOL = 2e-4       # 0.2 mm: dos caras en el mismo plano
 EDGE_TOL  = 2e-4       # 0.2 mm: una arista cae sobre el contorno
-COLIN_DEG = 1.0        # aristas mas alineadas que esto se fusionan en una
 
 # Version del algoritmo. Cada modelo 3D guarda con cual se calcularon sus
 # cordones: si se cambia la deteccion, se sube este valor.
-WELDS_VERSION = "2026-08-21"
+WELDS_VERSION = "2026-09-17"
+COLIN_DEG = 1.0        # aristas mas alineadas que esto se fusionan en una
 
 # --- AISC 360 J2 -----------------------------------------------------------
 # OJO: J2.4 da un MINIMO para que el cordon no se agriete al enfriarse contra
@@ -199,7 +205,36 @@ def _basis(n):
     return e1, np.cross(n, e1)
 
 
-def _planar_patches(mesh):
+def _sin_barrenos(u, n, d, e1, e2, orificios):
+    """
+    Tapa en el parche los barrenos de tornillo (ver holes.py). Un glb ya viene
+    barrenado, y un barreno en mitad de una huella de contacto parte el cordon;
+    las soldaduras se calculan sobre la pieza maciza. Solo se tapan los huecos
+    que caen sobre un orificio conocido: el hueco de un tubo se queda.
+    """
+    centros = [Point(c @ e1, c @ e2) for c, eje, esp in orificios
+               if abs(eje @ n) > 0.99 and abs(c @ n - d) <= esp / 2.0 + 1e-3]
+    if not centros:
+        return u
+
+    def tapar(poly):
+        dentro = [r for r in poly.interiors
+                  if not any(Polygon(r).contains(c) for c in centros)]
+        return Polygon(poly.exterior, dentro)
+
+    if isinstance(u, MultiPolygon):
+        return unary_union([tapar(g) for g in u.geoms])
+    return tapar(u)
+
+
+def orificios_de_ficha(ficha):
+    """{node: [(centro, eje, espesor_m)]} a partir del .json de una marca."""
+    return {p["node"]: [(np.array(h["centro"]), np.array(h["eje"]),
+                         h["espesor_mm"] / 1000.0) for h in p["orificios"]]
+            for p in ficha.get("piezas", []) if p.get("orificios")}
+
+
+def _planar_patches(mesh, orificios=()):
     """caras coplanares agrupadas -> [{n, d, poly(2D), e1, e2}]"""
     # las normales se recalculan de los vertices: trimesh no las corrige bien
     # si al nodo se le aplico un transform no rigido
@@ -236,6 +271,8 @@ def _planar_patches(mesh):
             u = unary_union(polys).buffer(1e-9).buffer(-1e-9)
             if u.is_empty or u.area < 1e-7:
                 continue
+            if orificios:
+                u = _sin_barrenos(u, n, d, e1, e2, orificios)
             out.append({'n': n, 'd': d, 'poly': u, 'e1': e1, 'e2': e2})
     return out
 
@@ -504,10 +541,11 @@ def _cordones_del_par(pa, pb, ma, mb, tol, min_len, ang_min, ang_max, costuras):
 
 # ---------------------------------------------------------------------------
 def detect_welds(meshes, tol=TOL_M, min_len=MIN_LEN_M, ang_min=ANG_MIN,
-                 ang_max=ANG_MAX, costuras=True, verbose=True):
+                 ang_max=ANG_MAX, costuras=True, verbose=True, orificios=None):
     """
     meshes: dict node -> trimesh.Trimesh (todas en el mismo sistema de coordenadas)
     costuras: incluir las juntas a 180 grados (un liston por el lado accesible)
+    orificios: orificios_de_ficha(...) si las mallas ya vienen barrenadas (un glb)
     devuelve: lista de dicts con la geometria y datos de cada cordon posible
     """
     nodes = list(meshes.keys())
@@ -522,7 +560,7 @@ def detect_welds(meshes, tol=TOL_M, min_len=MIN_LEN_M, ang_min=ANG_MIN,
                 continue
             for n in (na, nb):
                 if n not in patches:
-                    patches[n] = _planar_patches(meshes[n])
+                    patches[n] = _planar_patches(meshes[n], (orificios or {}).get(n, ()))
             try:
                 ws = _cordones_del_par(patches[na], patches[nb],
                                        meshes[na], meshes[nb], tol, min_len,
@@ -603,6 +641,152 @@ def detect_welds(meshes, tol=TOL_M, min_len=MIN_LEN_M, ang_min=ANG_MIN,
 
 
 # ---------------------------------------------------------------------------
+# JUNTAS: lo que calidad cuenta como UNA soldadura
+# ---------------------------------------------------------------------------
+# detect_welds da un cordon por cada arista recta de la huella, y eso infla el
+# numero: los dos lados de una placa, la vuelta por la punta (remate), las
+# facetas de un tubo o el contorno de un angulo son UNA soldadura, la que en el
+# plano lleva un solo simbolo (ambos lados / todo alrededor, AWS A2.4). Una
+# longitud minima no sirve de criterio: lo que en una nave es ruido, en una
+# armadura de angulos son tramos legitimos de 44 mm (ver estudio_juntas.py).
+#
+# Una JUNTA son los cordones del mismo par de piezas que se tocan por las
+# puntas o corren a menos de un espesor uno de otro. El mismo par unido en dos
+# sitios separados son dos juntas. Los cordones no se pierden: quedan como
+# tramos de su junta.
+JUNTA_TOL_M = 0.002    # dos cordones se tocan si sus puntas distan menos de 2 mm
+REMATE_MM   = 2.0      # remate: tramo no mas largo que el espesor + esto
+
+
+def _dist_tramos(P, Q):
+    a = np.linspace(0, 1, 9)[:, None]
+    X, Y = P[0] + (P[1] - P[0]) * a, Q[0] + (Q[1] - Q[0]) * a
+    return float(np.min(np.linalg.norm(X[:, None] - Y[None], axis=2)))
+
+
+def _se_tocan(a, b):
+    return min(np.linalg.norm(p - q) for p in a["_P"] for q in b["_P"]) < JUNTA_TOL_M
+
+
+def _misma_junta(a, b):
+    if _se_tocan(a, b):
+        return True
+    t = max(a["t1_mm"], a["t2_mm"], b["t1_mm"], b["t2_mm"]) / 1000.0 + JUNTA_TOL_M
+    return _dist_tramos(a["_P"], b["_P"]) <= t
+
+
+def _es_remate(w, grupo):
+    return len(grupo) > 1 and w["largo_mm"] <= max(w["t1_mm"], w["t2_mm"]) + REMATE_MM
+
+
+def _forma(g):
+    """Que dibujo hacen los tramos de una junta."""
+    n = len(g)
+    if n == 1:
+        return "1 lado"
+    remates = [w for w in g if _es_remate(w, g)]
+    largos = [w for w in g if not _es_remate(w, g)]
+    L = np.array([w["largo_mm"] for w in g])
+    if n >= 6 and L.std() < 0.15 * L.mean():
+        return "curva (tubo o redondo)"
+    if len(largos) == 2:
+        return "2 lados + remates" if remates else "2 lados"
+    if len(largos) == 1:
+        return "1 lado + remates"
+    if all(sum(_se_tocan(w, o) for o in g if o is not w) >= 2 for w in g):
+        return "todo alrededor"
+    if len(largos) == 3:
+        return "3 lados"
+    return f"contorno de {n} tramos"
+
+
+def agrupar_juntas(cordones):
+    """
+    cordones: la lista de detect_welds. A cada uno se le pone "junta_id" y
+    "remate", y se devuelve la lista de juntas, numerada igual que los cordones
+    (de abajo hacia arriba y, a igual altura, la mas larga primero).
+    """
+    for w in cordones:
+        w["_P"] = np.array(w["puntos"], dtype=np.float64)
+    pares = collections.defaultdict(list)
+    for w in cordones:
+        pares[tuple(sorted(w["piezas"]))].append(w)
+
+    grupos = []
+    for ws in pares.values():
+        padre = list(range(len(ws)))
+
+        def raiz(i):
+            while padre[i] != i:
+                padre[i] = padre[padre[i]]
+                i = padre[i]
+            return i
+
+        for i in range(len(ws)):
+            for j in range(i + 1, len(ws)):
+                if _misma_junta(ws[i], ws[j]):
+                    padre[raiz(i)] = raiz(j)
+        g = collections.defaultdict(list)
+        for i, w in enumerate(ws):
+            g[raiz(i)].append(w)
+        grupos.extend(g.values())
+
+    juntas = []
+    for g in grupos:
+        principal = max(g, key=lambda w: w["largo_mm"])
+        forma = _forma(g)
+        for w in g:
+            w["remate"] = _es_remate(w, g)
+        mandan = [w for w in g if not w["remate"]] or g
+
+        def mayor(k):
+            v = [w[k] for w in mandan if w.get(k) is not None]
+            return max(v) if v else None
+
+        cmax = [w["cateto_max_mm"] for w in mandan if w.get("cateto_max_mm") is not None]
+        tipos = {w["tipo"] for w in g}
+        avisos = []
+        for w in g:
+            avisos += [a for a in w["avisos"] if a not in avisos]
+        juntas.append({
+            "piezas": principal["piezas"],
+            "tipo": principal["tipo"] if len(tipos) == 1 else "mixta",
+            "junta": principal["junta"],
+            "forma": forma,
+            "largo_mm": round(sum(w["largo_mm"] for w in g), 1),
+            "tramos": [w["id"] for w in sorted(g, key=lambda w: -w["largo_mm"])],
+            "principal": principal["id"],
+            "cateto_min_mm": mayor("cateto_min_mm"),
+            "cateto_max_mm": min(cmax) if cmax else None,
+            "garganta_min_mm": mayor("garganta_min_mm"),
+            "avisos": avisos,
+            "centro": principal["centro"],
+        })
+    juntas.sort(key=lambda j: (round(j["centro"][2], 3), -j["largo_mm"], j["principal"]))
+    por_cordon = {}
+    for k, j in enumerate(juntas, 1):
+        j["id"] = k
+        for c in j["tramos"]:
+            por_cordon[c] = k
+    for w in cordones:
+        w["junta_id"] = por_cordon[w["id"]]
+        del w["_P"]
+    return juntas
+
+
+def poner_soldaduras(ficha, cordones):
+    """Deja en la ficha de una marca los cordones, sus juntas y los totales."""
+    juntas = agrupar_juntas(cordones)
+    ficha["soldaduras"] = cordones
+    ficha["juntas"] = juntas
+    t = ficha["totales"]
+    t["juntas"] = len(juntas)
+    t["soldaduras"] = len(cordones)
+    t["soldadura_mm"] = round(sum(w["largo_mm"] for w in cordones), 1)
+    return juntas
+
+
+# ---------------------------------------------------------------------------
 def meshes_from_glb(path):
     scene = trimesh.load(str(path), force='scene')
     out = {}
@@ -625,18 +809,18 @@ if __name__ == "__main__":
     base = Path(__file__).parent / "out" / "marks"
     meshes = meshes_from_glb(base / f"{mark}.glb")
     print(f"{mark}: {len(meshes)} piezas")
-    welds = detect_welds(meshes)
+    f = base / f"{mark}.json"
+    ficha = json.loads(f.read_text(encoding="utf-8")) if f.exists() else {}
+    welds = detect_welds(meshes, orificios=orificios_de_ficha(ficha))
     for w in welds[:15]:
         print(f"  S{w['id']:<3} {w['piezas'][0]}-{w['piezas'][1]:<6} "
               f"largo={w['largo_mm']:>7.1f} mm  ancho={w['ancho_mm']:>6.1f} mm  "
               f"ang={w['angulo']:>5.1f}")
 
-    f = base / f"{mark}.json"
     if f.exists():
-        d = json.loads(f.read_text(encoding="utf-8"))
-        d["soldaduras"] = welds
-        d["totales"]["soldaduras"] = len(welds)
-        d["totales"]["soldadura_mm"] = round(sum(w["largo_mm"] for w in welds), 1)
+        d = ficha
+        juntas = poner_soldaduras(d, welds)
+        print(f"{len(juntas)} juntas ({len(welds)} cordones)")
         f.write_text(json.dumps(d, ensure_ascii=False, indent=1), encoding="utf-8")
         print(f"Actualizado {f}")
 
@@ -645,5 +829,6 @@ if __name__ == "__main__":
             idx = json.loads(idxf.read_text(encoding="utf-8"))
             if mark in idx:
                 idx[mark]["soldaduras"] = len(welds)
+                idx[mark]["juntas"] = len(juntas)
                 idxf.write_text(json.dumps(idx, ensure_ascii=False, indent=1),
                                 encoding="utf-8")
