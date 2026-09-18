@@ -87,7 +87,15 @@ test('la adherencia guarda sus tres tiras y la evidencia', function () {
 
     $this->actingAs(inspectorDePintura())
         ->post(route('admin.qal.inspecciones.store'), pinturaValida($pieza, [
-            'adherencia' => ['metodo' => 'A', 'resultado' => 'Aceptado', 'tiras' => ['5A', '4A', '5A']],
+            'adherencia' => [
+                'resultado' => 'Aceptado',
+                // La tira 2 se cortó con el otro método: el espesor donde cayó era menor.
+                'tiras' => [
+                    ['metodo' => 'A', 'clasificacion' => '5A'],
+                    ['metodo' => 'B', 'clasificacion' => '4B'],
+                    ['metodo' => 'A', 'clasificacion' => '5A'],
+                ],
+            ],
             'fotos' => [
                 UploadedFile::fake()->create('tira-1.jpg', 200, 'image/jpeg'),
                 UploadedFile::fake()->create('tiras.pdf', 300, 'application/pdf'),
@@ -97,20 +105,46 @@ test('la adherencia guarda sus tres tiras y la evidencia', function () {
 
     $adherencia = Adherencia::sole();
 
-    expect($adherencia->tiras->pluck('clasificacion')->all())->toBe(['5A', '4A', '5A'])
+    expect($adherencia->tiras->pluck('clasificacion')->all())->toBe(['5A', '4B', '5A'])
+        ->and($adherencia->tiras->pluck('metodo')->all())->toBe(['A', 'B', 'A'])
         ->and($adherencia->fotos)->toHaveCount(2);
 
     Storage::disk('public')->assertExists($adherencia->fotos->pluck('path')->all());
 });
 
-test('cada tira es del metodo elegido', function () {
+test('la clasificacion de la tira es de la escala de SU metodo', function () {
     $pieza = Pieza::factory()->create();
 
     $this->actingAs(inspectorDePintura())
         ->post(route('admin.qal.inspecciones.store'), pinturaValida($pieza, [
-            'adherencia' => ['metodo' => 'A', 'tiras' => ['5B']],
+            'adherencia' => ['tiras' => [['metodo' => 'A', 'clasificacion' => '5B']]],
         ]))
-        ->assertSessionHasErrors('adherencia.tiras.0');
+        ->assertSessionHasErrors('adherencia.tiras.0.clasificacion');
+});
+
+test('una tira clasificada necesita decir con que metodo se corto', function () {
+    $pieza = Pieza::factory()->create();
+
+    $this->actingAs(inspectorDePintura())
+        ->post(route('admin.qal.inspecciones.store'), pinturaValida($pieza, [
+            'adherencia' => ['tiras' => [['metodo' => null, 'clasificacion' => '5A']]],
+        ]))
+        ->assertSessionHasErrors('adherencia.tiras.0.metodo');
+});
+
+test('las tres tiras pueden llevar metodos distintos', function () {
+    $pieza = Pieza::factory()->create();
+
+    $this->actingAs(inspectorDePintura())
+        ->post(route('admin.qal.inspecciones.store'), pinturaValida($pieza, [
+            'adherencia' => ['tiras' => [
+                ['metodo' => 'B', 'clasificacion' => '3B'],
+                ['metodo' => 'A', 'clasificacion' => '5A'],
+            ]],
+        ]))
+        ->assertSessionHasNoErrors();
+
+    expect(Adherencia::sole()->tiras->pluck('metodo')->all())->toBe(['B', 'A']);
 });
 
 test('sin prueba de adherencia no hay evidencia que guardar', function () {

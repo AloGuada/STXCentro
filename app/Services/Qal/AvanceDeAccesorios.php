@@ -53,7 +53,9 @@ class AvanceDeAccesorios
             'total_unidades' => $lote->total_unidades,
             'kg_unitario' => $lote->kg_unitario,
             'elementos_unitarios' => $lote->elementos_unitarios,
-            'avance' => $lote->avance(),
+            // Una por etapa: las mismas unidades se reciben soldadas en 2ª y
+            // vuelven pintadas en 3ª, y sumadas pasarían del total del lote.
+            'avance' => $lote->avancePorFase(),
             'grupos' => $lote->sublotes
                 ->groupBy(fn (Sublote $sublote): int => $sublote->grupoId())
                 ->map(fn ($grupo): array => $grupo
@@ -73,6 +75,7 @@ class AvanceDeAccesorios
     {
         return [
             'id' => $sublote->id,
+            'fase' => $sublote->fase->value,
             'numero_inspeccion' => $sublote->numero_inspeccion,
             'fecha' => $sublote->fecha->toDateString(),
             'unidades' => $sublote->unidades,

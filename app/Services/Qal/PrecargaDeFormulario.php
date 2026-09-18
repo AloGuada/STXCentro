@@ -2,6 +2,7 @@
 
 namespace App\Services\Qal;
 
+use App\Enums\Qal\FaseTransformacion;
 use App\Enums\Qal\TipoDatoPunto;
 use App\Models\Media;
 use App\Models\Qal\Inspeccion;
@@ -45,6 +46,7 @@ class PrecargaDeFormulario
         'accesorio_dimensional' => 'dimensional',
         'accesorio_barrenos' => 'barrenos',
         'accesorio_limpieza' => 'limpieza',
+        'pintura' => 'pintura',
     ];
 
     public function __construct(private readonly FichaDePieza $fichas) {}
@@ -165,7 +167,9 @@ class PrecargaDeFormulario
                 : ['metodo' => 'put', 'url' => route('admin.qal.accesorios.sublotes.update', $sublote, false)],
             'modoCaptura' => 'acc',
             'campos' => [
-                ...$this->camposDelLote($lote),
+                // La etapa es parte de lo que se inspeccionó: corregir o volver a
+                // mirar la entrega no la mueve de 2ª a 3ª.
+                ...$this->camposDelLote($lote, $sublote->fase),
                 'fecha' => $reinspeccion ? now()->toDateString() : $sublote->fecha->toDateString(),
                 'linea' => $this->texto($sublote->linea),
                 'modulo' => $this->texto($sublote->modulo),
@@ -190,17 +194,17 @@ class PrecargaDeFormulario
      *
      * @return array<string, mixed>
      */
-    public function deLote(LoteAccesorio $lote): array
+    public function deLote(LoteAccesorio $lote, FaseTransformacion $fase = FaseTransformacion::Segunda): array
     {
-        $avance = $lote->load('sublotes')->avance();
+        $avance = $lote->load('sublotes')->avance($fase);
 
         return [
             ...$this->vacia(),
             'modo' => 'nuevo',
-            'titulo' => "Nueva entrega de {$lote->marca}: van {$avance['recibidas']} de {$lote->total_unidades} unidades en {$avance['sublotes']} sublote(s).",
+            'titulo' => "Nueva entrega de {$lote->marca} en {$fase->value}: van {$avance['recibidas']} de {$lote->total_unidades} unidades en {$avance['sublotes']} sublote(s).",
             'destino' => ['metodo' => 'post', 'url' => route('admin.qal.accesorios.sublotes.store', [], false)],
             'modoCaptura' => 'acc',
-            'campos' => [...$this->camposDelLote($lote), 'fecha' => now()->toDateString()],
+            'campos' => [...$this->camposDelLote($lote, $fase), 'fecha' => now()->toDateString()],
             'acc' => ['conformes' => 0, 'rechazadas' => [], 'disposicion' => '', 'origenId' => null, 'numero' => 1],
         ];
     }
@@ -261,11 +265,14 @@ class PrecargaDeFormulario
         }
 
         if ($adherencia = $inspeccion->adherencia) {
-            $campos['p3_adhmet'] = $adherencia->metodo;
             $campos['p3_adhres'] = $this->texto($adherencia->resultado);
 
+            // La tira 1 no lleva sufijo: son las claves del formulario anterior
+            // y las que reconocen los inspectores.
             foreach ($adherencia->tiras as $tira) {
-                $campos[$tira->orden === 1 ? 'p3_adhclas' : "p3_adhclas{$tira->orden}"] = $tira->clasificacion;
+                $sufijo = $tira->orden === 1 ? '' : (string) $tira->orden;
+                $campos["p3_adhmet{$sufijo}"] = $tira->metodo;
+                $campos["p3_adhclas{$sufijo}"] = $tira->clasificacion;
             }
         }
 
@@ -321,10 +328,10 @@ class PrecargaDeFormulario
     /**
      * @return array<string, string>
      */
-    private function camposDelLote(LoteAccesorio $lote): array
+    private function camposDelLote(LoteAccesorio $lote, FaseTransformacion $fase = FaseTransformacion::Segunda): array
     {
         return [
-            'fase' => '2ª',
+            'fase' => $fase->value,
             'obra' => (string) $lote->obra_id,
             'ac_marca' => $lote->marca,
             'ac_desc' => $this->texto($lote->descripcion),
@@ -338,14 +345,14 @@ class PrecargaDeFormulario
      * Cada unidad rechazada con sus defectos repartidos por familia, como las
      * marca el modal de la captura.
      *
-     * @return list<array{soldadura: list<string>, dimensional: list<string>, barrenos: list<string>, limpieza: bool}>
+     * @return list<array{soldadura: list<string>, dimensional: list<string>, barrenos: list<string>, limpieza: bool, pintura: list<string>}>
      */
     private function unidadesRechazadas(Sublote $sublote): array
     {
         $unidades = [];
 
         for ($unidad = 1; $unidad <= $sublote->rechazadas; $unidad++) {
-            $unidades[$unidad] = ['soldadura' => [], 'dimensional' => [], 'barrenos' => [], 'limpieza' => false];
+            $unidades[$unidad] = ['soldadura' => [], 'dimensional' => [], 'barrenos' => [], 'limpieza' => false, 'pintura' => []];
         }
 
         /** @var SubloteDefecto $defecto */

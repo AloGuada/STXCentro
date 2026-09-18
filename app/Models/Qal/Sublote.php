@@ -2,6 +2,7 @@
 
 namespace App\Models\Qal;
 
+use App\Enums\Qal\FaseTransformacion;
 use App\Enums\Qal\NivelAql;
 use App\Enums\Qal\VeredictoLote;
 use App\Models\Usuario;
@@ -33,6 +34,7 @@ class Sublote extends Model
      */
     protected $fillable = [
         'lote_id',
+        'fase',
         'sublote_origen_id',
         'numero_inspeccion',
         'unidades',
@@ -63,6 +65,7 @@ class Sublote extends Model
     protected function casts(): array
     {
         return [
+            'fase' => FaseTransformacion::class,
             'nivel' => NivelAql::class,
             'veredicto' => VeredictoLote::class,
             'fecha' => 'date',
@@ -161,7 +164,7 @@ class Sublote extends Model
     }
 
     /**
-     * Los filtros de Registros: obra, inspector, fecha y marca del lote.
+     * Los filtros de Registros: obra, fase, inspector, fecha y marca del lote.
      *
      * @param  Builder<self>  $query
      * @param  array<string, mixed>  $filtros
@@ -170,6 +173,7 @@ class Sublote extends Model
     {
         $query
             ->when($filtros['obra'] ?? null, fn (Builder $consulta, int $obra) => $consulta->whereHas('lote', fn (Builder $lote) => $lote->where('obra_id', $obra)))
+            ->when($filtros['fase'] ?? null, fn (Builder $consulta, string $fase) => $consulta->where('fase', $fase))
             ->when($filtros['inspector'] ?? null, fn (Builder $consulta, int $inspector) => $consulta->where('inspector_id', $inspector))
             ->when($filtros['fecha'] ?? null, fn (Builder $consulta, string $fecha) => $consulta->whereDate('fecha', $fecha))
             ->when($filtros['buscar'] ?? null, fn (Builder $consulta, string $texto) => $consulta->whereHas('lote', fn (Builder $lote) => $lote->where('marca', 'like', "%{$texto}%")));

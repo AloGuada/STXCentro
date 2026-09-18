@@ -63,7 +63,11 @@ function pinturaConEvidencia(Pieza $pieza, array $cambios = []): array
         'kg' => 300,
         'estatus' => 'liberado',
         'pintura' => ['mediciones_visibles' => 5, 'lecturas' => [[4, 4, 4]]],
-        'adherencia' => ['metodo' => 'A', 'resultado' => 'Aceptado', 'tiras' => ['5A', '5A', '4A']],
+        'adherencia' => ['resultado' => 'Aceptado', 'tiras' => [
+            ['metodo' => 'A', 'clasificacion' => '5A'],
+            ['metodo' => 'A', 'clasificacion' => '5A'],
+            ['metodo' => 'A', 'clasificacion' => '4A'],
+        ]],
         ...$cambios,
     ];
 }

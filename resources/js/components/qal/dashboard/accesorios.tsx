@@ -27,6 +27,8 @@ type InspeccionSublote = {
     id: number;
     numero_inspeccion: number;
     fecha: string;
+    /** En qué transformación se revisó la entrega: '2ª' soldada, '3ª' pintada. */
+    fase: string;
     unidades: number;
     nivel: string;
     muestra: number;
@@ -42,6 +44,26 @@ type InspeccionSublote = {
     defectos: string;
 };
 
+type Avance = {
+    recibidas: number;
+    liberadas: number;
+    detenidas: number;
+    sublotes: number;
+    sin_disposicion: number;
+    inspeccionadas: number;
+    rechazadas: number;
+};
+
+const AVANCE_VACIO: Avance = {
+    recibidas: 0,
+    liberadas: 0,
+    detenidas: 0,
+    sublotes: 0,
+    sin_disposicion: 0,
+    inspeccionadas: 0,
+    rechazadas: 0,
+};
+
 type Lote = {
     id: number;
     marca: string;
@@ -50,15 +72,11 @@ type Lote = {
     total_unidades: number;
     kg_unitario: string | null;
     elementos_unitarios: number | null;
-    avance: {
-        recibidas: number;
-        liberadas: number;
-        detenidas: number;
-        sublotes: number;
-        sin_disposicion: number;
-        inspeccionadas: number;
-        rechazadas: number;
-    };
+    /**
+     * Uno por transformación: las mismas unidades se reciben soldadas en 2ª y
+     * vuelven pintadas en 3ª, así que sumarlas daría más de las que hay.
+     */
+    avance: Record<string, Avance | undefined>;
     /** Cada sublote físico con sus inspecciones, de la primera a la última. */
     grupos: InspeccionSublote[][];
 };
@@ -116,7 +134,10 @@ export function TabAccesorios({ datos, onObra }: { datos: DatosAccesorios; onObr
 function TarjetaLote({ lote }: { lote: Lote }) {
     const { can } = useCan();
     const [abierto, setAbierto] = useState(false);
-    const { avance } = lote;
+    // La barra es la de 2ª: es cuando el material llega y se libera. Lo pintado
+    // es una segunda pasada sobre las mismas unidades y se dice aparte.
+    const avance = lote.avance['2ª'] ?? AVANCE_VACIO;
+    const pintura = lote.avance['3ª'] ?? AVANCE_VACIO;
 
     const total = Math.max(lote.total_unidades, 1);
     const liberado = Math.min(100, (avance.liberadas / total) * 100);
@@ -178,6 +199,22 @@ function TarjetaLote({ lote }: { lote: Lote }) {
                         {numero(avance.inspeccionadas)} inspeccionadas en muestra · {numero(avance.rechazadas)} rechazadas
                     </span>
                 </div>
+
+                {/* Sólo cuando la marca ya se pintó: en una obra sin 3ª capturada
+                    el renglón sobraría y la barra de arriba es la que importa. */}
+                {pintura.sublotes > 0 && (
+                    <div className="text-base-content/70 mt-1 flex flex-wrap gap-x-5 gap-y-1 text-sm">
+                        <span className="badge badge-ghost badge-sm">3ª · pintura</span>
+                        <span>
+                            <b>{numero(pintura.recibidas)}</b> unidades revisadas pintadas en {pintura.sublotes}{' '}
+                            sublote(s)
+                        </span>
+                        <span>
+                            <b className={pintura.detenidas ? 'text-error' : ''}>{numero(pintura.detenidas)}</b>{' '}
+                            detenidas
+                        </span>
+                    </div>
+                )}
             </div>
 
             <button
@@ -251,6 +288,9 @@ function GrupoSublote({
                 <span>
                     Sublote #{posicion} · unidades {numero(rango[0])}–{numero(rango[1])}
                 </span>
+                {/* La misma marca se revisa soldada y pintada: sin esto las dos
+                    entregas se leen como si fueran la misma. */}
+                <span className="badge badge-ghost badge-sm">{ultima.fase}</span>
                 <Veredicto inspeccion={ultima} />
                 {grupo.length > 1 && (
                     <span className="badge badge-ghost badge-sm">

@@ -144,7 +144,7 @@ export function FaseSegunda({
     ) : (
         <>
             <Pista>
-                Toca un cordón para encuadrarlo y saltar a su renglón en la tabla. Naranja: falta revisarlo; verde:
+                Toca un cordón para encuadrarlo y contestarlo en el panel de al lado. Naranja: falta revisarlo; verde:
                 correcta; rojo: con defecto.
             </Pista>
             {falla3d && <p className="text-sm text-error">{falla3d}</p>}
@@ -157,7 +157,7 @@ export function FaseSegunda({
                         cordones={cordonesCaptura}
                         seleccionado={cordonSel}
                         onSeleccionar={setCordonSel}
-                        className="h-[360px]"
+                        className="h-[520px]"
                     />
                     <Pista className="mt-2 mb-0">
                         {conJunta} de {marcaVisible.cordones.length} cordones revisados en esta inspección.

@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Admin\Qal;
 
 use App\Enums\Qal\AmbitoDefecto;
+use App\Enums\Qal\FaseTransformacion;
 use App\Enums\Qal\NivelAql;
 use App\Models\Qal\Sublote;
 use App\Services\Qal\CalculadorAql;
@@ -20,14 +21,21 @@ use Illuminate\Validation\Validator;
 class SubloteRequest extends FormRequest
 {
     /**
-     * Las familias con las que se clasifica una unidad rechazada. Los
-     * accesorios que fallan por soldadura usan la lista de soldadura.
+     * Las familias con las que se clasifica una unidad rechazada, según en qué
+     * transformación se revisó la entrega. Los accesorios que fallan por
+     * soldadura usan la lista de soldadura; los que fallan pintados, la de
+     * pintura y sólo esa: un accesorio ya pintado no se rechaza por barrenos.
      */
     private const AMBITOS = [
-        AmbitoDefecto::Soldadura,
-        AmbitoDefecto::AccesorioDimensional,
-        AmbitoDefecto::AccesorioBarrenos,
-        AmbitoDefecto::AccesorioLimpieza,
+        FaseTransformacion::Segunda->value => [
+            AmbitoDefecto::Soldadura,
+            AmbitoDefecto::AccesorioDimensional,
+            AmbitoDefecto::AccesorioBarrenos,
+            AmbitoDefecto::AccesorioLimpieza,
+        ],
+        FaseTransformacion::Tercera->value => [
+            AmbitoDefecto::Pintura,
+        ],
     ];
 
     public function authorize(): bool
@@ -42,6 +50,11 @@ class SubloteRequest extends FormRequest
     {
         return [
             'obra_id' => ['required', 'integer', 'exists:obras,id'],
+            // En 1ª no hay lotes de accesorios: la pieza todavía es material cortado.
+            'fase' => [
+                'required',
+                Rule::enum(FaseTransformacion::class)->only([FaseTransformacion::Segunda, FaseTransformacion::Tercera]),
+            ],
             'fecha' => ['required', 'date', 'before_or_equal:today'],
             'marca' => ['required', 'string', 'max:80'],
             'descripcion' => ['nullable', 'string', 'max:255'],
@@ -54,10 +67,7 @@ class SubloteRequest extends FormRequest
             'conformes' => ['required', 'integer', 'min:0'],
             'rechazadas' => ['nullable', 'array'],
             'rechazadas.*.defectos' => ['required', 'array', 'min:1'],
-            'rechazadas.*.defectos.*' => [
-                'integer',
-                Rule::exists('qal_defectos', 'id')->whereIn('ambito', array_map(fn (AmbitoDefecto $ambito): string => $ambito->value, self::AMBITOS)),
-            ],
+            'rechazadas.*.defectos.*' => ['integer', Rule::exists('qal_defectos', 'id')->whereIn('ambito', $this->ambitos())],
             'disposicion' => ['nullable', 'string', 'max:120'],
 
             'linea' => ['nullable', 'string', 'max:10'],
@@ -103,7 +113,8 @@ class SubloteRequest extends FormRequest
             'fecha.before_or_equal' => 'La fecha de inspección no puede ser futura.',
             'rechazadas.*.defectos.required' => 'Cada unidad rechazada necesita al menos un defecto.',
             'rechazadas.*.defectos.min' => 'Cada unidad rechazada necesita al menos un defecto.',
-            'rechazadas.*.defectos.*.exists' => 'El defecto no es de las familias de accesorios.',
+            'fase.required' => 'Falta en qué transformación se revisó la entrega.',
+            'rechazadas.*.defectos.*.exists' => 'El defecto no es de las familias que se revisan en esa transformación.',
             'sublote_origen_id.prohibited' => 'Editar una inspección no la mueve a otro sublote.',
         ];
     }
@@ -113,6 +124,20 @@ class SubloteRequest extends FormRequest
         $sublote = $this->route('sublote');
 
         return $sublote instanceof Sublote ? $sublote : null;
+    }
+
+    /**
+     * Las familias de defecto que admite la fase capturada. Con una fase que no
+     * existe se toman las de 2ª: la regla de `fase` ya marcó el error, y ésta no
+     * tiene por qué inventar un segundo mensaje sobre lo mismo.
+     *
+     * @return list<string>
+     */
+    private function ambitos(): array
+    {
+        $ambitos = self::AMBITOS[(string) $this->input('fase')] ?? self::AMBITOS[FaseTransformacion::Segunda->value];
+
+        return array_map(fn (AmbitoDefecto $ambito): string => $ambito->value, $ambitos);
     }
 
     /** El sublote nunca mira más unidades de las que trajo la entrega. */
@@ -149,6 +174,14 @@ class SubloteRequest extends FormRequest
             return;
         }
 
+        // Volver a mirar la entrega es volver a mirarla en su etapa: la pintada
+        // no reinspecciona a la soldada, son dos controles distintos.
+        if ($origen->fase->value !== (string) $this->input('fase')) {
+            $validator->errors()->add('sublote_origen_id', 'La reinspección es de un sublote de otra transformación.');
+
+            return;
+        }
+
         $ultima = Sublote::query()
             ->where(fn ($consulta) => $consulta->where('id', $origen->grupoId())->orWhere('sublote_origen_id', $origen->grupoId()))
             ->orderByDesc('numero_inspeccion')
@@ -163,8 +196,18 @@ class SubloteRequest extends FormRequest
     {
         $sublote = $this->sublote();
 
-        if ($sublote !== null && ! $this->esDelLote($sublote->lote->obra_id, $sublote->lote->marca)) {
+        if ($sublote === null) {
+            return;
+        }
+
+        if (! $this->esDelLote($sublote->lote->obra_id, $sublote->lote->marca)) {
             $validator->errors()->add('marca', 'Editar no cambia la marca ni la obra: si se capturó en la marca equivocada, bórralo y captúralo en la otra.');
+        }
+
+        // La fase es parte de lo que se inspeccionó, no un dato que se corrige:
+        // cambiarla dejaría unidades rechazadas con defectos de la otra lista.
+        if ($sublote->fase->value !== (string) $this->input('fase')) {
+            $validator->errors()->add('fase', 'Editar no cambia la transformación: si se capturó en la etapa equivocada, bórralo y captúralo en la otra.');
         }
     }
 

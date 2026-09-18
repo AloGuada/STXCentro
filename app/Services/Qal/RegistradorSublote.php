@@ -42,6 +42,7 @@ class RegistradorSublote
 
             $lote = $this->lote($datos, $capturista, $sublote?->lote ?? $origen?->lote);
 
+            $fase = FaseTransformacion::from($datos['fase']);
             $unidades = (int) $datos['unidades'];
             $nivel = NivelAql::from($datos['nivel']);
             $plan = $this->aql->plan($unidades, $nivel, tope: $unidades);
@@ -54,7 +55,7 @@ class RegistradorSublote
                 'numero_inspeccion' => $origen ? $this->siguienteNumero($origen) : 1,
                 'inspector_id' => Inspector::query()->firstOrCreate(
                     ['usuario_id' => $capturista->getKey()],
-                    ['fase' => FaseTransformacion::Segunda],
+                    ['fase' => $fase],
                 )->id,
                 'capturado_en' => now(),
                 'capturista_id' => $capturista->getKey(),
@@ -62,6 +63,7 @@ class RegistradorSublote
 
             $sublote->fill([
                 'lote_id' => $lote->id,
+                'fase' => $fase,
                 'unidades' => $unidades,
                 'fecha' => $fecha,
                 'anio' => $fecha->isoWeekYear(),

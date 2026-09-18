@@ -92,6 +92,8 @@ type FilaPieza = {
 type FilaSublote = {
     id: number;
     fecha: string;
+    /** '2ª' si se revisó soldada, '3ª' si se revisó pintada. */
+    fase: string;
     obra: string | null;
     marca: string;
     total_lote: number;
@@ -191,9 +193,10 @@ export default function RegistrosCalidad({ filtros, obras, inspectores, registro
                         <Select
                             value={filtros.que}
                             onValueChange={(valor) =>
-                                // La fase y el estatus no existen en un sublote: se
-                                // limpian al cambiar para que no filtren a escondidas.
-                                filtrar({ que: valor, fase: null, estatus: null, sort_by: 'fecha', sort_dir: 'desc' })
+                                // El estatus no existe en un sublote —lo suyo es el
+                                // veredicto— y se limpia para que no filtre a
+                                // escondidas. La fase sí vale para los dos.
+                                filtrar({ que: valor, estatus: null, sort_by: 'fecha', sort_dir: 'desc' })
                             }
                             className="select-sm"
                         >
@@ -202,16 +205,15 @@ export default function RegistrosCalidad({ filtros, obras, inspectores, registro
                         </Select>
                     </Filtro>
 
-                    {esPiezas && (
-                        <FiltroSelect
-                            label="Transformación"
-                            value={filtros.fase ?? ''}
-                            onChange={(valor) => filtrar({ fase: valor })}
-                            opciones={FASES}
-                            todas="Todas"
-                            className="w-36"
-                        />
-                    )}
+                    {/* En 1ª no hay lotes de accesorios: la pieza todavía es material cortado. */}
+                    <FiltroSelect
+                        label="Transformación"
+                        value={filtros.fase ?? ''}
+                        onChange={(valor) => filtrar({ fase: valor })}
+                        opciones={esPiezas ? FASES : FASES.filter((fase) => fase !== '1ª')}
+                        todas="Todas"
+                        className="w-36"
+                    />
 
                     <FiltroSelect
                         label="Obra"
@@ -403,6 +405,9 @@ function TablaSublotes({
                     <Th campo="fecha" orden={orden} onOrdenar={onOrdenar}>
                         Fecha
                     </Th>
+                    <Th campo="fase" orden={orden} onOrdenar={onOrdenar}>
+                        Transf.
+                    </Th>
                     <Th>Marca del lote</Th>
                     <Th>Obra</Th>
                     <Th campo="unidades" orden={orden} onOrdenar={onOrdenar}>
@@ -429,6 +434,7 @@ function TablaSublotes({
                 {filas.map((fila) => (
                     <tr key={fila.id} className="hover:bg-base-200/50">
                         <td className="font-mono text-sm">{fila.fecha}</td>
+                        <td className="text-sm">{fila.fase}</td>
                         <td className="font-semibold">{fila.marca}</td>
                         <td className="text-sm">{fila.obra}</td>
                         <td className="font-mono">

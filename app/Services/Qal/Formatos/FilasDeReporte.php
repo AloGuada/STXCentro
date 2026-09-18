@@ -6,6 +6,7 @@ use App\Enums\Qal\FaseTransformacion;
 use App\Enums\Qal\Subetapa;
 use App\Models\Media;
 use App\Models\Qal\Adherencia;
+use App\Models\Qal\AdherenciaTira;
 use App\Models\Qal\Inspeccion;
 use App\Models\Qal\InspeccionDefecto;
 use App\Models\Qal\InspeccionPunto;
@@ -215,14 +216,18 @@ class FilasDeReporte
     }
 
     /**
-     * @return array{metodo: string|null, resultado: string|null, tiras: array<int, string>, fotos: list<array{path: string, nombre: string|null, imagen: bool}>}
+     * @return array{resultado: string|null, tiras: array<int, array{metodo: string, clasificacion: string}>, fotos: list<array{path: string, nombre: string|null, imagen: bool}>}
      */
     private function adherencia(Adherencia $adherencia): array
     {
         return [
-            'metodo' => $adherencia->metodo,
             'resultado' => $adherencia->resultado,
-            'tiras' => $adherencia->tiras->sortBy('orden')->pluck('clasificacion', 'orden')->all(),
+            'tiras' => $adherencia->tiras
+                ->sortBy('orden')
+                ->mapWithKeys(fn (AdherenciaTira $tira): array => [
+                    $tira->orden => ['metodo' => $tira->metodo, 'clasificacion' => $tira->clasificacion],
+                ])
+                ->all(),
             'fotos' => $adherencia->fotos->map(fn (Media $foto): array => [
                 'path' => $foto->path,
                 'nombre' => $foto->nombre_original,

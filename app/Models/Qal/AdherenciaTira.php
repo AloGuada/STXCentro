@@ -6,7 +6,11 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
- * La clasificación de una tira de la prueba de adherencia (5A…0A, 5B…0B).
+ * Una tira de la prueba de adherencia: con qué método se cortó y qué
+ * clasificación dio (5A…0A con el método A, 5B…0B con el B).
+ *
+ * El método es de la tira y no de la prueba porque en ASTM D3359 lo decide el
+ * espesor de la película, y las tres tiras no siempre caen sobre el mismo.
  */
 class AdherenciaTira extends Model
 {
@@ -20,6 +24,7 @@ class AdherenciaTira extends Model
     protected $fillable = [
         'adherencia_id',
         'orden',
+        'metodo',
         'clasificacion',
     ];
 

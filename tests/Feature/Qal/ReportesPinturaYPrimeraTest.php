@@ -92,7 +92,7 @@ test('la visual de pintura limpia la pieza liberada y la prueba de adherencia ma
 
     $rechazada = inspeccionDePintura(Pieza::factory()->create(['concepto_id' => $marca->id, 'qs' => '2']), ['estatus' => EstatusInspeccion::Rechazado]);
     contestarPunto($rechazada, 'p3_adh', 'ok');
-    Adherencia::create(['inspeccion_id' => $rechazada->id, 'metodo' => 'B', 'resultado' => 'Rechazado']);
+    Adherencia::create(['inspeccion_id' => $rechazada->id, 'resultado' => 'Rechazado']);
     defectoDePintura($rechazada, 'Falta pintura (FP)');
     defectoDePintura($rechazada, 'Burbujas');
 
@@ -117,8 +117,11 @@ test('la prueba de adherencia pagina sus evidencias de seis en seis y nombra los
     Storage::fake('public');
     $marca = Concepto::factory()->create(['marca' => 'SX-CM1-1']);
     $inspeccion = inspeccionDePintura(Pieza::factory()->create(['concepto_id' => $marca->id, 'qs' => '1']));
-    $prueba = Adherencia::create(['inspeccion_id' => $inspeccion->id, 'metodo' => 'A', 'resultado' => 'Aceptado']);
-    $prueba->tiras()->createMany([['orden' => 1, 'clasificacion' => '5A'], ['orden' => 2, 'clasificacion' => '4A']]);
+    $prueba = Adherencia::create(['inspeccion_id' => $inspeccion->id, 'resultado' => 'Aceptado']);
+    $prueba->tiras()->createMany([
+        ['orden' => 1, 'metodo' => 'A', 'clasificacion' => '5A'],
+        ['orden' => 2, 'metodo' => 'B', 'clasificacion' => '4B'],
+    ]);
 
     for ($i = 1; $i <= 6; $i++) {
         Storage::disk('public')->put("qal/adherencia/{$i}.jpg", 'jpg');
@@ -129,7 +132,12 @@ test('la prueba de adherencia pagina sus evidencias de seis en seis y nombra los
 
     $datos = app(PruebaDeAdherencia::class)->datos(new FiltrosDeReporte(obraId: $marca->obra_id, estatus: 'liberadas', vista: 'final'));
 
-    expect($datos['renglones'][0])->toMatchArray(['pieza' => 'SX-CM1-1 #1', 'metodo' => 'A (en cruz)', 'tiras' => ['5A', '4A', '']])
+    // Cada tira lleva su método: la 3 no se cortó y va en blanco.
+    expect($datos['renglones'][0])->toMatchArray(['pieza' => 'SX-CM1-1 #1', 'tiras' => [
+        ['metodo' => 'A', 'clasificacion' => '5A'],
+        ['metodo' => 'B', 'clasificacion' => '4B'],
+        ['metodo' => '', 'clasificacion' => ''],
+    ]])
         ->and($datos['renglones'][0]['resultado']['texto'])->toBe('Aceptado')
         ->and($datos['evidencias'])->toHaveCount(2)
         ->and($datos['evidencias'][0]['marcos'][0]['rotulo'])->toBe('SX-CM1-1 #1 (1/7)')

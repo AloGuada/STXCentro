@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\Qal\AmbitoDefecto;
+use App\Enums\Qal\FaseTransformacion;
 use App\Enums\Qal\VeredictoLote;
 use App\Models\Obra;
 use App\Models\Qal\Defecto;
@@ -39,6 +40,7 @@ function entregaValida(Obra $obra, array $cambios = []): array
 {
     return [
         'obra_id' => $obra->id,
+        'fase' => '2ª',
         'fecha' => now()->toDateString(),
         'marca' => ' acc-pl12 ',
         'descripcion' => 'Placa de conexión',
@@ -140,6 +142,94 @@ test('una unidad rechazada sin defecto, o con uno de pintura, no se guarda', fun
     expect(Sublote::count())->toBe(0)->and(LoteAccesorio::count())->toBe(0);
 });
 
+test('la entrega de 3ª se rechaza con defectos de pintura, y con los de 2ª no', function () {
+    $obra = Obra::factory()->create();
+    $pintura = Defecto::factory()->deAmbito(AmbitoDefecto::Pintura)->create();
+    $barrenos = Defecto::factory()->deAmbito(AmbitoDefecto::AccesorioBarrenos)->create();
+    $usuario = usuarioDeAccesorios();
+
+    // La misma marca pintada: es otra entrega, con su propia lista de defectos.
+    $this->actingAs($usuario)
+        ->post(route('admin.qal.accesorios.sublotes.store'), entregaValida($obra, [
+            'fase' => '3ª',
+            'unidades' => 20,
+            'conformes' => 3,
+            'rechazadas' => [['defectos' => [$pintura->id]], ['defectos' => [$pintura->id]]],
+            'disposicion' => 'Retrabajo completo del lote',
+        ]))
+        ->assertSessionHasNoErrors();
+
+    expect(Sublote::sole()->fase)->toBe(FaseTransformacion::Tercera)
+        ->and(Sublote::sole()->veredicto)->toBe(VeredictoLote::Rechazado);
+
+    // Un accesorio ya pintado no se rechaza por barrenos: eso se vio en 2ª.
+    $this->actingAs($usuario)
+        ->post(route('admin.qal.accesorios.sublotes.store'), entregaValida($obra, [
+            'fase' => '3ª',
+            'conformes' => 10,
+            'rechazadas' => [['defectos' => [$barrenos->id]]],
+        ]))
+        ->assertSessionHasErrors('rechazadas.0.defectos.0');
+});
+
+test('el avance no cuenta dos veces las unidades que pasan por 2ª y por 3ª', function () {
+    $lote = LoteAccesorio::factory()->create(['total_unidades' => 500]);
+    Sublote::factory()->create(['lote_id' => $lote->id, 'unidades' => 100]);
+    Sublote::factory()->pintura()->create(['lote_id' => $lote->id, 'unidades' => 100]);
+
+    $this->actingAs(usuarioDeAccesorios(['qal.dashboard.ver', 'qal.accesorios.ver']))
+        ->get(route('admin.qal.dashboard', ['tab' => 'accesorios']))
+        ->assertOk()
+        // Son las mismas 100 unidades, revisadas soldadas y luego pintadas: si se
+        // sumaran darían 200 recibidas de un lote que sólo entregó 100.
+        ->assertInertia(fn ($page) => $page
+            ->where('accesorios.lotes.0.avance.2ª.recibidas', 100)
+            ->where('accesorios.lotes.0.avance.3ª.recibidas', 100)
+            ->where('accesorios.lotes.0.avance.2ª.sublotes', 1)
+            ->where('accesorios.lotes.0.avance.3ª.sublotes', 1));
+});
+
+test('editar no cambia la transformacion de la entrega', function () {
+    $sublote = Sublote::factory()->pintura()->create();
+
+    $this->actingAs(usuarioDeAccesorios(['qal.accesorios.editar']))
+        ->put(route('admin.qal.accesorios.sublotes.update', $sublote), entregaValida($sublote->lote->obra, [
+            'fase' => '2ª',
+            'marca' => $sublote->lote->marca,
+        ]))
+        ->assertSessionHasErrors('fase');
+
+    expect($sublote->fresh()->fase)->toBe(FaseTransformacion::Tercera);
+});
+
+test('la reinspeccion es de la misma transformacion que el sublote que repite', function () {
+    $original = Sublote::factory()->pintura()->rechazado()->create();
+    $lote = $original->lote;
+
+    $this->actingAs(usuarioDeAccesorios())
+        ->post(route('admin.qal.accesorios.sublotes.store'), entregaValida($lote->obra, [
+            'fase' => '2ª',
+            'marca' => $lote->marca,
+            'unidades' => 100,
+            'conformes' => 20,
+            'sublote_origen_id' => $original->id,
+        ]))
+        ->assertSessionHasErrors('sublote_origen_id');
+});
+
+test('editar un sublote de 3ª lo reabre en su fase y con sus defectos de pintura', function () {
+    $sublote = Sublote::factory()->pintura()->rechazado()->create();
+    $pintura = Defecto::factory()->deAmbito(AmbitoDefecto::Pintura)->create(['nombre' => 'Descolgamiento']);
+    SubloteDefecto::query()->create(['sublote_id' => $sublote->id, 'unidad' => 1, 'defecto_id' => $pintura->id]);
+
+    $this->actingAs(usuarioDeAccesorios(['qal.accesorios.editar']))
+        ->get(route('admin.qal.accesorios.sublotes.edit', $sublote))
+        ->assertInertia(fn ($page) => $page
+            ->component('admin/calidad/formularios/index')
+            ->where('precarga.campos.fase', '3ª')
+            ->where('precarga.acc.rechazadas.0.pintura', ['Descolgamiento']));
+});
+
 test('la reinspeccion cuelga de la primera inspeccion y sube el numero', function () {
     $original = Sublote::factory()->rechazado()->create();
     $lote = $original->lote;
@@ -232,11 +322,11 @@ test('el avance cuenta cada sublote una vez y la concesion libera', function () 
         ->assertInertia(fn ($page) => $page
             ->component('admin/calidad/dashboard/index')
             ->where('tab', 'accesorios')
-            ->where('accesorios.lotes.0.avance.recibidas', 180)
-            ->where('accesorios.lotes.0.avance.liberadas', 150)
-            ->where('accesorios.lotes.0.avance.detenidas', 30)
-            ->where('accesorios.lotes.0.avance.sublotes', 3)
-            ->where('accesorios.lotes.0.avance.sin_disposicion', 1)
+            ->where('accesorios.lotes.0.avance.2ª.recibidas', 180)
+            ->where('accesorios.lotes.0.avance.2ª.liberadas', 150)
+            ->where('accesorios.lotes.0.avance.2ª.detenidas', 30)
+            ->where('accesorios.lotes.0.avance.2ª.sublotes', 3)
+            ->where('accesorios.lotes.0.avance.2ª.sin_disposicion', 1)
             ->has('accesorios.lotes.0.grupos', 3)
             ->has('accesorios.lotes.0.grupos.0', 2));
 });

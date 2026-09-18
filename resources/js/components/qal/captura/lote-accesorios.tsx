@@ -1,5 +1,5 @@
 /**
- * Lote de accesorios — 2ª transformación.
+ * Lote de accesorios — 2ª y 3ª transformación.
  *
  * Un lote de accesorios NO es una pieza: son cientos de unidades iguales de la
  * misma marca que llegan en entregas, a módulos y días distintos, y se
@@ -10,6 +10,10 @@
  * Los datos de la marca son del lote entero y se heredan de la entrega
  * anterior; el muestreo es de esta entrega. Las unidades rechazadas se
  * clasifican con los defectos del catálogo, por familia.
+ *
+ * La misma marca se revisa dos veces: soldada en 2ª y pintada en 3ª. Es el
+ * mismo muestreo y son dos entregas distintas, cada una con las familias de
+ * defecto de su etapa — de ahí `esPintura`.
  */
 
 import { useState } from 'react';
@@ -24,7 +28,7 @@ const NIVELES: [string, string][] = [
     ['III', 'III — severa'],
 ];
 
-const RECHAZADA_VACIA: PiezaRechazada = { soldadura: [], dimensional: [], barrenos: [], limpieza: false };
+const RECHAZADA_VACIA: PiezaRechazada = { soldadura: [], dimensional: [], barrenos: [], limpieza: false, pintura: [] };
 
 /** Un lote ya declarado en la obra: su marca hereda estos datos. */
 export type LoteDeObra = {
@@ -34,11 +38,12 @@ export type LoteDeObra = {
     total_unidades: number;
     kg_unitario: string | null;
     elementos_unitarios: number | null;
-    avance: { recibidas: number; sublotes: number };
+    /** Por fase: las mismas unidades se reciben soldadas en 2ª y vuelven pintadas en 3ª. */
+    avance: Record<string, { recibidas: number; sublotes: number }>;
 };
 
 /** Los nombres de defecto de cada familia, del catálogo. */
-export type FamiliasDeDefecto = { soldadura: string[]; dimensional: string[]; barrenos: string[] };
+export type FamiliasDeDefecto = { soldadura: string[]; dimensional: string[]; barrenos: string[]; pintura: string[] };
 
 export function LoteAccesorios({
     campos,
@@ -52,6 +57,7 @@ export function LoteAccesorios({
     lotes,
     numero,
     marcaFija,
+    esPintura = false,
     onAviso,
 }: {
     campos: Campos;
@@ -67,6 +73,8 @@ export function LoteAccesorios({
     numero: number;
     /** Al corregir o reinspeccionar, la marca no cambia: es la identidad del lote. */
     marcaFija: boolean;
+    /** La entrega se revisa ya pintada (3ª): sólo se rechaza por defectos de pintura. */
+    esPintura?: boolean;
     onAviso: (mensaje: string, tono?: 'ok' | 'error') => void;
 }) {
     const [modal, setModal] = useState(false);
@@ -82,6 +90,11 @@ export function LoteAccesorios({
 
     const marca = campos.v('ac_marca').trim().toUpperCase();
     const existente = lotes.find((lote) => lote.marca === marca);
+
+    // El avance que importa es el de la etapa que se está capturando: la misma
+    // marca puede llevar 8 entregas soldadas y ninguna pintada.
+    const faseTexto = esPintura ? '3ª (pintura)' : '2ª (soldadura)';
+    const avanceDeLaFase = existente?.avance[esPintura ? '3ª' : '2ª'] ?? { recibidas: 0, sublotes: 0 };
 
     /** Si la marca ya existe, sus datos se rellenan solos donde estén vacíos. */
     const heredar = () => {
@@ -100,7 +113,9 @@ export function LoteAccesorios({
     };
 
     const aceptarDefecto = () => {
-        const algo = borrador.soldadura.length || borrador.dimensional.length || borrador.barrenos.length || borrador.limpieza;
+        const algo = esPintura
+            ? borrador.pintura.length
+            : borrador.soldadura.length || borrador.dimensional.length || borrador.barrenos.length || borrador.limpieza;
         if (!algo) {
             onAviso('Marca al menos un defecto', 'error');
             return;
@@ -148,9 +163,10 @@ export function LoteAccesorios({
 
                 {existente && !marcaFija && (
                     <p className="mt-3 rounded-[9px] bg-warning/10 px-[11px] py-[9px] text-xs">
-                        <b>Esta marca ya existe.</b> Van <b>{existente.avance.recibidas.toLocaleString('es-MX')}</b> de{' '}
-                        {existente.total_unidades.toLocaleString('es-MX')} unidades en {existente.avance.sublotes}{' '}
-                        sublote(s). Este sería el <b>sublote #{existente.avance.sublotes + 1}</b>.
+                        <b>Esta marca ya existe.</b> En {faseTexto} van{' '}
+                        <b>{avanceDeLaFase.recibidas.toLocaleString('es-MX')}</b> de{' '}
+                        {existente.total_unidades.toLocaleString('es-MX')} unidades en {avanceDeLaFase.sublotes}{' '}
+                        sublote(s). Este sería el <b>sublote #{avanceDeLaFase.sublotes + 1}</b>.
                     </p>
                 )}
             </Tarjeta>
@@ -297,37 +313,53 @@ export function LoteAccesorios({
                 <div className="fixed inset-0 z-[400] flex items-start justify-center overflow-y-auto bg-[rgba(16,24,40,.55)] p-5">
                     <div className="w-full max-w-[620px] rounded-2xl bg-base-100 p-5">
                         <Pista className="mt-0">
-                            Marca todas las familias que apliquen. Una misma pieza puede fallar por varias a la vez.
+                            {esPintura
+                                ? 'Marca el defecto de pintura por el que se rechaza la unidad. Puede tener varios.'
+                                : 'Marca todas las familias que apliquen. Una misma pieza puede fallar por varias a la vez.'}
                         </Pista>
 
-                        <FamiliaDefecto
-                            titulo="Fallo de soldadura"
-                            opciones={familias.soldadura}
-                            valor={borrador.soldadura}
-                            onChange={(soldadura) => setBorrador({ ...borrador, soldadura })}
-                        />
-                        <FamiliaDefecto
-                            titulo="Fallo dimensional"
-                            opciones={familias.dimensional}
-                            valor={borrador.dimensional}
-                            onChange={(dimensional) => setBorrador({ ...borrador, dimensional })}
-                        />
-                        <FamiliaDefecto
-                            titulo="Fallo de barrenos habilitados"
-                            opciones={familias.barrenos}
-                            valor={borrador.barrenos}
-                            onChange={(barrenos) => setBorrador({ ...borrador, barrenos })}
-                        />
-
-                        <label className="mb-[10px] flex items-center gap-[9px] rounded-[11px] border border-base-300 p-3 font-extrabold text-primary">
-                            <input
-                                type="checkbox"
-                                checked={borrador.limpieza}
-                                onChange={(e) => setBorrador({ ...borrador, limpieza: e.target.checked })}
-                                className="size-5"
+                        {/* Pintada sólo se juzga la pintura: lo de soldadura y barrenos
+                            se revisó en 2ª, y volver a preguntarlo aquí contaría dos
+                            veces el mismo defecto. */}
+                        {esPintura ? (
+                            <FamiliaDefecto
+                                titulo="Defecto de pintura"
+                                opciones={familias.pintura}
+                                valor={borrador.pintura}
+                                onChange={(pintura) => setBorrador({ ...borrador, pintura })}
                             />
-                            Falta de limpieza
-                        </label>
+                        ) : (
+                            <>
+                                <FamiliaDefecto
+                                    titulo="Fallo de soldadura"
+                                    opciones={familias.soldadura}
+                                    valor={borrador.soldadura}
+                                    onChange={(soldadura) => setBorrador({ ...borrador, soldadura })}
+                                />
+                                <FamiliaDefecto
+                                    titulo="Fallo dimensional"
+                                    opciones={familias.dimensional}
+                                    valor={borrador.dimensional}
+                                    onChange={(dimensional) => setBorrador({ ...borrador, dimensional })}
+                                />
+                                <FamiliaDefecto
+                                    titulo="Fallo de barrenos habilitados"
+                                    opciones={familias.barrenos}
+                                    valor={borrador.barrenos}
+                                    onChange={(barrenos) => setBorrador({ ...borrador, barrenos })}
+                                />
+
+                                <label className="mb-[10px] flex items-center gap-[9px] rounded-[11px] border border-base-300 p-3 font-extrabold text-primary">
+                                    <input
+                                        type="checkbox"
+                                        checked={borrador.limpieza}
+                                        onChange={(e) => setBorrador({ ...borrador, limpieza: e.target.checked })}
+                                        className="size-5"
+                                    />
+                                    Falta de limpieza
+                                </label>
+                            </>
+                        )}
 
                         <div className="mt-[14px] flex flex-wrap gap-[9px]">
                             <Boton tono="rechazo" onClick={aceptarDefecto}>

@@ -91,7 +91,9 @@ class PantallaDeCaptura
                 'total_unidades' => $lote->total_unidades,
                 'kg_unitario' => $lote->kg_unitario,
                 'elementos_unitarios' => $lote->elementos_unitarios,
-                'avance' => $lote->avance(),
+                // La etapa se elige en la propia pantalla, así que van las dos: el
+                // aviso de «van N de M unidades» es el de la fase que se capture.
+                'avance' => $lote->avancePorFase(),
             ]);
     }
 
