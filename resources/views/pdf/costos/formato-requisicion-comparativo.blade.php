@@ -189,7 +189,7 @@
                     @php $canceladoOc = $d->cantidadCanceladaEnOc(); @endphp
                     @if($canceladoOc > 0)
                         <div style="font-size: 8px; color: #b91c1c;">
-                            &minus;{{ \App\Support\Cantidad::formatear($canceladoOc) }} cancel. en OC<br>
+                            {{ \App\Support\Cantidad::formatear($canceladoOc) }} cancel. en OC<br>
                             quedan {{ \App\Support\Cantidad::formatear($d->cantidadVigenteEnOc()) }} {{ $d->unidad }}
                         </div>
                     @endif

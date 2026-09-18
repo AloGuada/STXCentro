@@ -164,8 +164,8 @@
             @foreach($d->cancelaciones->where('estatus', \App\Enums\Costos\CancelacionUnidadesEstatus::Autorizada) as $c)
                 <div>
                     {{ \App\Support\Cantidad::formatear($c->cantidad) }} {{ $d->unidad }} de {{ $d->descripcion }}
-                    &middot; {{ $c->motivo }}
-                    @if($c->autorizador) &middot; autoriz&oacute; {{ $c->autorizador->name }} @endif
+                    - {{ $c->motivo }}
+                    @if($c->autorizador) - autorizo {{ $c->autorizador->name }} @endif
                     @if($c->autorizado_at) el {{ $c->autorizado_at->format('d/m/Y') }} @endif
                 </div>
             @endforeach
