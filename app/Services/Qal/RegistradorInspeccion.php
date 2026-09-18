@@ -485,15 +485,20 @@ class RegistradorInspeccion
         }
 
         $prueba = $inspeccion->adherencia()->updateOrCreate([], [
-            'metodo' => $adherencia['metodo'],
             'resultado' => $adherencia['resultado'] ?? null,
         ]);
 
         $tiras = [];
 
-        foreach (array_values($adherencia['tiras'] ?? []) as $indice => $clasificacion) {
-            if (filled($clasificacion)) {
-                $tiras[] = ['orden' => $indice + 1, 'clasificacion' => $clasificacion];
+        // Una tira existe si se clasificó: la que no se cortó no se guarda, y
+        // su método —que el formulario deja elegido— no significa nada.
+        foreach (array_values($adherencia['tiras'] ?? []) as $indice => $tira) {
+            if (filled($tira['clasificacion'] ?? null)) {
+                $tiras[] = [
+                    'orden' => $indice + 1,
+                    'metodo' => $tira['metodo'],
+                    'clasificacion' => $tira['clasificacion'],
+                ];
             }
         }
 

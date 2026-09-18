@@ -6,6 +6,7 @@ use App\Enums\Qal\EstatusInspeccion;
 use App\Enums\Qal\FaseTransformacion;
 use App\Enums\Qal\ResultadoPunto;
 use App\Models\Media;
+use App\Models\Qal\AdherenciaTira;
 use App\Models\Qal\Inspeccion;
 use App\Models\Qal\InspeccionPunto;
 use App\Models\Qal\Junta;
@@ -150,9 +151,13 @@ class FichaDeRegistro
                     ->all(),
             ] : null,
             'adherencia' => $adherencia ? [
-                'metodo' => $adherencia->metodo,
                 'resultado' => $adherencia->resultado,
-                'tiras' => $adherencia->tiras->pluck('clasificacion')->all(),
+                // «4A» dicho entero: la clasificación sola no dice con qué se cortó.
+                'tiras' => $adherencia->tiras
+                    ->sortBy('orden')
+                    ->map(fn (AdherenciaTira $tira): string => "{$tira->clasificacion} (método {$tira->metodo})")
+                    ->values()
+                    ->all(),
                 'fotos' => $adherencia->fotos->map(fn (Media $foto): array => [
                     'id' => $foto->id,
                     'nombre' => $foto->nombre_original,

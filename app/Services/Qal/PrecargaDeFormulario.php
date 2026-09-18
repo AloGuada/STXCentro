@@ -265,11 +265,14 @@ class PrecargaDeFormulario
         }
 
         if ($adherencia = $inspeccion->adherencia) {
-            $campos['p3_adhmet'] = $adherencia->metodo;
             $campos['p3_adhres'] = $this->texto($adherencia->resultado);
 
+            // La tira 1 no lleva sufijo: son las claves del formulario anterior
+            // y las que reconocen los inspectores.
             foreach ($adherencia->tiras as $tira) {
-                $campos[$tira->orden === 1 ? 'p3_adhclas' : "p3_adhclas{$tira->orden}"] = $tira->clasificacion;
+                $sufijo = $tira->orden === 1 ? '' : (string) $tira->orden;
+                $campos["p3_adhmet{$sufijo}"] = $tira->metodo;
+                $campos["p3_adhclas{$sufijo}"] = $tira->clasificacion;
             }
         }
 

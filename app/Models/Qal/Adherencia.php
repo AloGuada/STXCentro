@@ -21,7 +21,6 @@ class Adherencia extends Model
      */
     protected $fillable = [
         'inspeccion_id',
-        'metodo',
         'resultado',
     ];
 

@@ -116,10 +116,13 @@ class InspeccionRequest extends FormRequest
             'pintura.lecturas.*.*' => ['nullable', 'numeric', 'min:0', 'max:1000'],
 
             'adherencia' => [Rule::prohibitedIf(! $tercera), 'nullable', 'array'],
-            'adherencia.metodo' => ['required_with:adherencia', Rule::in(['A', 'B'])],
             'adherencia.resultado' => ['nullable', Rule::in(['Aceptado', 'Rechazado'])],
             'adherencia.tiras' => ['nullable', 'array', 'max:3'],
-            'adherencia.tiras.*' => ['nullable', 'string', 'regex:/^[0-5][AB]$/'],
+            'adherencia.tiras.*' => ['nullable', 'array'],
+            // El método es de cada tira: en ASTM D3359 lo decide el espesor de
+            // la película, y las tres no siempre caen sobre el mismo.
+            'adherencia.tiras.*.metodo' => ['required_with:adherencia.tiras.*.clasificacion', 'nullable', Rule::in(['A', 'B'])],
+            'adherencia.tiras.*.clasificacion' => ['nullable', 'string', 'regex:/^[0-5][AB]$/'],
             'fotos' => ['nullable', 'array', 'max:12'],
             // Fotos de la tablet, o el escaneo en PDF cuando la prueba se hizo
             // en papel.
@@ -196,7 +199,8 @@ class InspeccionRequest extends FormRequest
             'juntas.*.identificador.distinct' => 'Hay dos juntas con el mismo número.',
             'juntas.*.tipo.required' => 'Cada junta necesita su tipo: filete o ranura.',
             'pintura.mediciones_visibles.between' => 'Van de 5 a 15 mediciones de espesor.',
-            'adherencia.tiras.*.regex' => 'La clasificación de la tira va de 5A a 0A o de 5B a 0B.',
+            'adherencia.tiras.*.clasificacion.regex' => 'La clasificación de la tira va de 5A a 0A o de 5B a 0B.',
+            'adherencia.tiras.*.metodo.required_with' => 'Falta con qué método se cortó la tira.',
             'fotos.*.mimes' => 'La evidencia de adherencia va en foto (JPG, PNG, WebP) o PDF.',
             'fotos.*.max' => 'Cada archivo de evidencia puede pesar hasta 10 MB.',
         ];
@@ -423,11 +427,17 @@ class InspeccionRequest extends FormRequest
             $validator->errors()->add('fotos', 'Las fotos son evidencia de la prueba de adherencia: ábrela antes de adjuntarlas.');
         }
 
-        $metodo = (string) $this->input('adherencia.metodo');
+        // La clasificación lleva la letra del método dentro («4A», «3B»): si no
+        // casan, una de las dos se capturó mal y no se puede saber cuál.
+        foreach ((array) $this->input('adherencia.tiras', []) as $indice => $tira) {
+            $metodo = (string) ($tira['metodo'] ?? '');
+            $clasificacion = (string) ($tira['clasificacion'] ?? '');
 
-        foreach ((array) $this->input('adherencia.tiras', []) as $indice => $clasificacion) {
-            if (filled($clasificacion) && ! str_ends_with((string) $clasificacion, $metodo)) {
-                $validator->errors()->add("adherencia.tiras.{$indice}", 'La tira '.($indice + 1)." no es del método {$metodo}.");
+            if (filled($clasificacion) && filled($metodo) && ! str_ends_with($clasificacion, $metodo)) {
+                $validator->errors()->add(
+                    "adherencia.tiras.{$indice}.clasificacion",
+                    'La tira '.($indice + 1)." se cortó con el método {$metodo}, así que su clasificación no puede ser {$clasificacion}.",
+                );
             }
         }
     }

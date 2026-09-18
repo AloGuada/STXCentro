@@ -151,6 +151,8 @@ const NO_SON_PUNTOS = new Set([
     'p3_rev',
     'p3_accion',
     'p3_adhmet',
+    'p3_adhmet2',
+    'p3_adhmet3',
     'p3_adhres',
     'p3_adhclas',
     'p3_adhclas2',
@@ -542,9 +544,16 @@ export default function CapturaCalidad({ obras, obraId, marcas, lotes, avance, p
             adherencia:
                 esTercera && adherencia
                     ? {
-                          metodo: vacioANulo(campos.v('p3_adhmet')),
                           resultado: vacioANulo(campos.v('p3_adhres')),
-                          tiras: [campos.v('p3_adhclas'), campos.v('p3_adhclas2'), campos.v('p3_adhclas3')].map(vacioANulo),
+                          // El método va por tira: lo decide el espesor donde se cortó.
+                          tiras: [
+                              ['p3_adhmet', 'p3_adhclas'],
+                              ['p3_adhmet2', 'p3_adhclas2'],
+                              ['p3_adhmet3', 'p3_adhclas3'],
+                          ].map(([metodo, clasificacion]) => ({
+                              metodo: vacioANulo(campos.v(metodo)),
+                              clasificacion: vacioANulo(campos.v(clasificacion)),
+                          })),
                       }
                     : null,
             fotos: esTercera && adherencia ? fotos.map((foto) => foto.archivo) : [],

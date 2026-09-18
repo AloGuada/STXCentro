@@ -8,9 +8,13 @@
                 <tr>
                     <th>No.</th>
                     <th>Identificación de la pieza</th>
-                    <th>Método</th>
+                    {{-- El método es de cada tira: ASTM D3359 lo decide por el
+                         espesor de la película, que cambia de una a otra. --}}
+                    <th>Mét. 1</th>
                     <th>Tira 1</th>
+                    <th>Mét. 2</th>
                     <th>Tira 2</th>
+                    <th>Mét. 3</th>
                     <th>Tira 3</th>
                     <th>Insp.</th>
                     <th>Aceptado /<br>Rechazado</th>
@@ -22,9 +26,9 @@
                     <tr>
                         <td>{{ $r['no'] }}</td>
                         <td class="izq nowrap"><b>{{ $r['pieza'] }}</b></td>
-                        <td>{{ $r['metodo'] }}</td>
                         @foreach ($r['tiras'] as $tira)
-                            <td><b>{{ $tira }}</b></td>
+                            <td>{{ $tira['metodo'] }}</td>
+                            <td><b>{{ $tira['clasificacion'] }}</b></td>
                         @endforeach
                         <td class="{{ $r['inspeccion'] > 1 ? 'a-def' : '' }}">{{ $r['inspeccion'] }}</td>
                         @include('pdf.qal.partials.celda', ['c' => $r['resultado']])

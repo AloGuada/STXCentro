@@ -12,21 +12,41 @@ import { evidenciaDe, type Evidencia, type FotoGuardada } from './fotos';
 import { ESPESOR_MEDICIONES_BASE, ESPESOR_MEDICIONES_MAX, resumirEspesores } from './reglas';
 import { Boton, Campo, Chips, Pista, Rejilla, Selector, Tarjeta, Texto } from './ui';
 
-/** Clasificación de la tira según el método de la norma. */
-const CLASIFICACIONES: [string, string][] = [
-    ['5A', '5A — sin desprendimiento (método A)'],
-    ['4A', '4A — en incisiones/intersección'],
-    ['3A', '3A — > 1.6 mm'],
-    ['2A', '2A — > 3.2 mm'],
-    ['1A', '1A — mayor parte'],
-    ['0A', '0A — total'],
-    ['5B', '5B — 0% afectado (método B)'],
-    ['4B', '4B — < 5%'],
-    ['3B', '3B — 5-15%'],
-    ['2B', '2B — 15-35%'],
-    ['1B', '1B — 35-65%'],
-    ['0B', '0B — peor que 1B'],
+/**
+ * Clasificación de la tira según el método de la norma. Cada método tiene su
+ * escala y no se mezclan: con el A se clasifica de 5A a 0A y con el B de 5B a
+ * 0B, así que elegir el método de la tira decide qué lista se ofrece.
+ */
+const CLASIFICACIONES: Record<string, [string, string][]> = {
+    A: [
+        ['5A', '5A — sin desprendimiento'],
+        ['4A', '4A — en incisiones/intersección'],
+        ['3A', '3A — > 1.6 mm'],
+        ['2A', '2A — > 3.2 mm'],
+        ['1A', '1A — mayor parte'],
+        ['0A', '0A — total'],
+    ],
+    B: [
+        ['5B', '5B — 0% afectado'],
+        ['4B', '4B — < 5%'],
+        ['3B', '3B — 5-15%'],
+        ['2B', '2B — 15-35%'],
+        ['1B', '1B — 35-65%'],
+        ['0B', '0B — peor que 1B'],
+    ],
+};
+
+const METODOS: [string, string][] = [
+    ['A', 'A (en cruz, > 5 mils)'],
+    ['B', 'B (cuadrícula, < 5 mils)'],
 ];
+
+/** Las tres tiras, con la clave de sus campos. La 1 no lleva sufijo: es la del formato anterior. */
+const TIRAS = [1, 2, 3].map((numero) => ({
+    numero,
+    metodo: `p3_adhmet${numero === 1 ? '' : numero}`,
+    clasificacion: `p3_adhclas${numero === 1 ? '' : numero}`,
+}));
 
 export function FaseTercera({
     campos,
@@ -67,7 +87,6 @@ export function FaseTercera({
 }) {
     const resumen = resumirEspesores(lecturas, mediciones, campos.v('p3_req'));
     const requerido = parseFloat(campos.v('p3_req'));
-
     const escribir = (medicion: number, lectura: number, valor: string) => {
         const copia = lecturas.map((fila) => [...fila]);
         copia[medicion][lectura] = valor;
@@ -251,36 +270,49 @@ export function FaseTercera({
 
                 {adherenciaAbierta && (
                     <div className="mt-[14px]">
-                        <Rejilla>
-                            <Campo label="Método">
-                                <Selector
-                                    value={campos.v('p3_adhmet')}
-                                    onChange={(valor) => campos.set('p3_adhmet', valor)}
-                                    opciones={[
-                                        ['A', 'A (en cruz, > 5 mils)'],
-                                        ['B', 'B (cuadrícula, < 5 mils)'],
-                                    ]}
-                                />
-                            </Campo>
-                            <Campo label="Resultado">
-                                <Selector
-                                    value={campos.v('p3_adhres')}
-                                    onChange={(valor) => campos.set('p3_adhres', valor)}
-                                    opciones={['Aceptado', 'Rechazado']}
-                                />
-                            </Campo>
-                        </Rejilla>
+                        <Campo label="Resultado">
+                            <Selector
+                                value={campos.v('p3_adhres')}
+                                onChange={(valor) => campos.set('p3_adhres', valor)}
+                                opciones={['Aceptado', 'Rechazado']}
+                            />
+                        </Campo>
 
                         <div className="mt-3">
                             <label className="mb-[5px] block text-[13px] font-semibold text-base-content">
-                                Clasificación por tira (se usan 3 tiras; cada una puede dar distinta)
+                                Método y clasificación por tira (se usan 3 tiras; cada una puede dar distinta)
                             </label>
+                            <Pista>
+                                El método lo decide el espesor de la película donde se cortó, así que puede cambiar de
+                                una tira a otra. La clasificación se ofrece según el método elegido.
+                            </Pista>
                             <Rejilla cols={3}>
-                                {['p3_adhclas', 'p3_adhclas2', 'p3_adhclas3'].map((id, indice) => (
-                                    <Campo key={id} label={`Tira ${indice + 1}`}>
-                                        <Selector value={campos.v(id)} onChange={(valor) => campos.set(id, valor)} opciones={CLASIFICACIONES} />
-                                    </Campo>
-                                ))}
+                                {TIRAS.map((tira) => {
+                                    const metodo = campos.v(tira.metodo);
+
+                                    return (
+                                        <Campo key={tira.numero} label={`Tira ${tira.numero}`}>
+                                            <Selector
+                                                value={metodo}
+                                                onChange={(valor) => {
+                                                    campos.set(tira.metodo, valor);
+                                                    // La clasificación es de la escala del método: al
+                                                    // cambiarlo, la que había deja de existir.
+                                                    campos.set(tira.clasificacion, '');
+                                                }}
+                                                opciones={METODOS}
+                                            />
+                                            <div className="mt-[6px]">
+                                                <Selector
+                                                    value={campos.v(tira.clasificacion)}
+                                                    onChange={(valor) => campos.set(tira.clasificacion, valor)}
+                                                    opciones={CLASIFICACIONES[metodo] ?? []}
+                                                    vacio={metodo ? undefined : 'Elige primero el método'}
+                                                />
+                                            </div>
+                                        </Campo>
+                                    );
+                                })}
                             </Rejilla>
                         </div>
 

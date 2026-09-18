@@ -72,12 +72,12 @@ class PruebaDeAdherencia extends Formato
         $renglones = $filas->map(fn (array $fila, int $i): array => [
             'no' => $i + 1,
             'pieza' => $this->pieza($fila),
-            'metodo' => match ($fila['adherencia']['metodo']) {
-                'A' => 'A (en cruz)',
-                'B' => 'B (cuadrícula)',
-                default => (string) $fila['adherencia']['metodo'],
-            },
-            'tiras' => array_map(fn (int $orden): string => (string) ($fila['adherencia']['tiras'][$orden] ?? ''), [1, 2, 3]),
+            // Cada tira lleva su método: en ASTM D3359 lo decide el espesor de
+            // la película y las tres no siempre caen sobre el mismo.
+            'tiras' => array_map(fn (int $orden): array => [
+                'metodo' => (string) ($fila['adherencia']['tiras'][$orden]['metodo'] ?? ''),
+                'clasificacion' => (string) ($fila['adherencia']['tiras'][$orden]['clasificacion'] ?? ''),
+            ], [1, 2, 3]),
             'inspeccion' => $fila['inspeccion'],
             'resultado' => match ($fila['adherencia']['resultado']) {
                 'Aceptado' => ['texto' => 'Aceptado', 'clase' => 'a-ok'],
