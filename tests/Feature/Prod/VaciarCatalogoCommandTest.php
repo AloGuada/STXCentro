@@ -6,6 +6,9 @@ use App\Models\Prod\GrupoPrecio;
 use App\Models\Prod\GrupoPrecioConcepto;
 use App\Models\Prod\Pieza;
 use App\Models\Prod\Registro;
+use App\Models\Qal\Inspeccion;
+use App\Models\Qal\Obra as ObraDeCalidad;
+use App\Models\Qal\ObraIncidencia;
 use App\Models\User;
 use Illuminate\Http\UploadedFile;
 
@@ -115,4 +118,120 @@ test('avisa cuando el catalogo ya esta vacio', function () {
 test('falla con un catalogo inexistente', function () {
     $this->artisan('prod:vaciar-catalogo', ['catalogo' => 999999])
         ->assertFailed();
+});
+
+test('sin --eliminar el catalogo y la obra en calidad siguen ahi', function () {
+    $catalogo = catalogoConMarcas();
+
+    $this->artisan('prod:vaciar-catalogo', ['catalogo' => $catalogo->id, '--force' => true])
+        ->assertSuccessful();
+
+    expect(Catalogo::whereKey($catalogo->id)->exists())->toBeTrue()
+        ->and(ObraDeCalidad::where('obra_id', $catalogo->obra_id)->exists())->toBeTrue();
+});
+
+test('con --eliminar borra el catalogo y saca la obra de calidad', function () {
+    $catalogo = catalogoConMarcas();
+
+    expect(ObraDeCalidad::where('obra_id', $catalogo->obra_id)->exists())->toBeTrue();
+
+    $this->artisan('prod:vaciar-catalogo', [
+        'catalogo' => $catalogo->id,
+        '--eliminar' => true,
+        '--force' => true,
+    ])->expectsOutputToContain('salió de Calidad')->assertSuccessful();
+
+    expect(Catalogo::whereKey($catalogo->id)->exists())->toBeFalse()
+        ->and(ObraDeCalidad::where('obra_id', $catalogo->obra_id)->exists())->toBeFalse()
+        ->and(Concepto::where('catalogo_id', $catalogo->id)->count())->toBe(0)
+        ->and(Pieza::where('catalogo_id', $catalogo->id)->count())->toBe(0);
+});
+
+test('con --eliminar borra un catalogo que ya estaba vacio', function () {
+    $catalogo = Catalogo::factory()->create();
+
+    $this->artisan('prod:vaciar-catalogo', [
+        'catalogo' => $catalogo->id,
+        '--eliminar' => true,
+        '--force' => true,
+    ])->assertSuccessful();
+
+    expect(Catalogo::whereKey($catalogo->id)->exists())->toBeFalse();
+});
+
+test('el dry-run con --eliminar no borra el catalogo', function () {
+    $catalogo = catalogoConMarcas();
+
+    $this->artisan('prod:vaciar-catalogo', ['catalogo' => $catalogo->id, '--eliminar' => true])
+        ->expectsOutputToContain('DRY-RUN')
+        ->assertSuccessful();
+
+    expect(Catalogo::whereKey($catalogo->id)->exists())->toBeTrue()
+        ->and(ObraDeCalidad::where('obra_id', $catalogo->obra_id)->exists())->toBeTrue();
+});
+
+test('se cancela entero si calidad ya inspecciono la obra', function () {
+    $catalogo = catalogoConMarcas();
+    Inspeccion::factory()->create(['obra_id' => $catalogo->obra_id]);
+
+    $this->artisan('prod:vaciar-catalogo', [
+        'catalogo' => $catalogo->id,
+        '--eliminar' => true,
+        '--force' => true,
+    ])->expectsOutputToContain('Calidad ya trabajó esta obra')->assertFailed();
+
+    expect(Catalogo::whereKey($catalogo->id)->exists())->toBeTrue()
+        ->and(Concepto::where('catalogo_id', $catalogo->id)->count())->toBe(1)
+        ->and(Pieza::where('catalogo_id', $catalogo->id)->count())->toBe(2);
+});
+
+test('se cancela si calidad tiene incidencias de la obra aunque no haya inspecciones', function () {
+    $catalogo = catalogoConMarcas();
+    ObraIncidencia::factory()->create([
+        'qal_obra_id' => ObraDeCalidad::where('obra_id', $catalogo->obra_id)->value('id'),
+    ]);
+
+    $this->artisan('prod:vaciar-catalogo', [
+        'catalogo' => $catalogo->id,
+        '--eliminar' => true,
+        '--force' => true,
+    ])->expectsOutputToContain('Calidad ya trabajó esta obra')->assertFailed();
+
+    expect(Catalogo::whereKey($catalogo->id)->exists())->toBeTrue();
+});
+
+test('con otra version viva solo estorban las inspecciones de esa version', function () {
+    $catalogo = catalogoConMarcas();
+    $v2 = Catalogo::factory()->create([
+        'obra_id' => $catalogo->obra_id,
+        'catalogo_origen_id' => $catalogo->id,
+        'version' => 2,
+    ]);
+    // La inspección cuelga de la v2: la v1 se puede ir.
+    Inspeccion::factory()->create(['obra_id' => $catalogo->obra_id, 'catalogo_id' => $v2->id]);
+
+    $this->artisan('prod:vaciar-catalogo', [
+        'catalogo' => $catalogo->id,
+        '--eliminar' => true,
+        '--force' => true,
+    ])->expectsOutputToContain('sin origen')->assertSuccessful();
+
+    expect(Catalogo::whereKey($catalogo->id)->exists())->toBeFalse()
+        // La obra sigue en Calidad: le queda catálogo.
+        ->and(ObraDeCalidad::where('obra_id', $catalogo->obra_id)->exists())->toBeTrue()
+        ->and(Catalogo::whereKey($v2->id)->value('catalogo_origen_id'))->toBeNull();
+});
+
+test('se cancela si la version que se borra tiene inspecciones propias', function () {
+    $catalogo = catalogoConMarcas();
+    Catalogo::factory()->create(['obra_id' => $catalogo->obra_id, 'version' => 2]);
+    Inspeccion::factory()->create(['obra_id' => $catalogo->obra_id, 'catalogo_id' => $catalogo->id]);
+
+    $this->artisan('prod:vaciar-catalogo', [
+        'catalogo' => $catalogo->id,
+        '--eliminar' => true,
+        '--force' => true,
+    ])->expectsOutputToContain('Calidad ya trabajó esta obra')->assertFailed();
+
+    expect(Catalogo::whereKey($catalogo->id)->exists())->toBeTrue();
 });
