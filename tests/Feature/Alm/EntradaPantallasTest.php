@@ -2,6 +2,7 @@
 
 use App\Models\Alm\Almacen;
 use App\Models\Costos\Entrega;
+use App\Models\Costos\Factura;
 use App\Models\Costos\OrdenCompra;
 use App\Models\Costos\OrdenCompraDetalle;
 use App\Models\Proveedor;
@@ -79,4 +80,82 @@ test('la orden totalmente recibida deja de aparecer como abierta', function () {
         ->get('/admin/almacen/entradas')
         ->assertOk()
         ->assertInertia(fn ($page) => $page->where('ordenesAbiertasCount', 0));
+});
+
+describe('la columna de factura', function () {
+    beforeEach(function () {
+        $this->factura = Factura::factory()->create([
+            'orden_compra_id' => $this->orden->id,
+            'folio' => 'FA-2609-0007',
+            'folio_fiscal' => 'A-4521',
+            'uuid_fiscal' => '11111111-2222-3333-4444-555555555555',
+        ]);
+        // Las fechas van a mano: el listado ordena por ellas y si no, el orden
+        // de los renglones depende de lo que invente el factory.
+        $this->entrada->update(['factura_id' => $this->factura->id, 'fecha_entrega' => '2026-09-10']);
+
+        // Una segunda entrada, del mismo almacén, que llegó sin factura.
+        $this->sinFactura = Entrega::factory()->create([
+            'orden_compra_id' => $this->orden->id,
+            'almacen_id' => $this->almacen->id,
+            'recibido_por' => $this->almacenista->id,
+            'factura_id' => null,
+            'fecha_entrega' => '2026-09-11',
+        ]);
+    });
+
+    test('el listado trae el folio de la factura, y el fiscal manda', function () {
+        // El fiscal es el que trae el proveedor en la hoja: es el que se busca.
+        $this->actingAs($this->almacenista)
+            ->get('/admin/almacen/entradas')
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->where('entradas.data.1.factura_id', $this->factura->id)
+                ->where('entradas.data.1.factura_folio', 'A-4521')
+                ->where('entradas.data.0.factura_id', null)
+                ->where('entradas.data.0.factura_folio', null));
+    });
+
+    test('se busca la entrada por el folio de su factura', function () {
+        $this->actingAs($this->almacenista)
+            ->get('/admin/almacen/entradas?search=FA-2609-0007')
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->has('entradas.data', 1)
+                ->where('entradas.data.0.id', $this->entrada->id));
+    });
+
+    test('también por el uuid fiscal, que es lo que trae el XML', function () {
+        $this->actingAs($this->almacenista)
+            ->get('/admin/almacen/entradas?search='.$this->factura->uuid_fiscal)
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page->has('entradas.data', 1));
+    });
+
+    test('buscar por folio de entrada sigue funcionando', function () {
+        $this->actingAs($this->almacenista)
+            ->get('/admin/almacen/entradas?search='.$this->entrada->folio)
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->has('entradas.data', 1)
+                ->where('entradas.data.0.id', $this->entrada->id));
+    });
+
+    test('el filtro deja ver sólo las que ya tienen factura', function () {
+        $this->actingAs($this->almacenista)
+            ->get('/admin/almacen/entradas?factura=con')
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->has('entradas.data', 1)
+                ->where('entradas.data.0.id', $this->entrada->id));
+    });
+
+    test('y sólo las que llegaron sin ella', function () {
+        $this->actingAs($this->almacenista)
+            ->get('/admin/almacen/entradas?factura=sin')
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->has('entradas.data', 1)
+                ->where('entradas.data.0.id', $this->sinFactura->id));
+    });
 });

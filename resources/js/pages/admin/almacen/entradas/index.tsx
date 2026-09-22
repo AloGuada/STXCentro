@@ -1,11 +1,11 @@
+import { Head, Link, router } from '@inertiajs/react';
+import { PackageCheckIcon } from 'lucide-react';
 import { DataTable, type Column } from '@/components/data-table';
 import { SearchSelect } from '@/components/ui/search-select';
 import AppLayout from '@/layouts/app-layout';
 import { etiquetaDeAlmacen } from '@/lib/alm/almacenes';
 import type { BreadcrumbItem } from '@/types';
 import type { AlmAlmacenOpcion, PaginatedData } from '@/types/models';
-import { Head, Link, router } from '@inertiajs/react';
-import { PackageCheckIcon } from 'lucide-react';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
@@ -26,12 +26,15 @@ type EntradaFila = {
     renglones: number;
     importe: number;
     recibio: string | null;
+    factura_id: number | null;
+    /** El fiscal si lo hay, porque es el que trae el proveedor; si no, el interno. */
+    factura_folio: string | null;
     cancelada: boolean;
 };
 
 type Props = {
     entradas: PaginatedData<EntradaFila>;
-    filters: { almacen_id?: string; search?: string; ver_canceladas?: boolean };
+    filters: { almacen_id?: string; search?: string; ver_canceladas?: boolean; factura?: string };
     almacenes: AlmAlmacenOpcion[];
     /** Lo que el almacén todavía debe recibir contra una orden. */
     /** Cuántas órdenes siguen esperando material. Elegir una es de la captura. */
@@ -71,6 +74,24 @@ const columns: Column<EntradaFila>[] = [
             ),
     },
     { key: 'proveedor', label: 'Proveedor' },
+    {
+        key: 'factura_folio',
+        label: 'Factura',
+        render: (e) =>
+            e.factura_id ? (
+                <Link
+                    href={`/admin/costos/facturas/${e.factura_id}`}
+                    className="link link-hover font-mono text-xs"
+                    onClick={(ev) => ev.stopPropagation()}
+                >
+                    {e.factura_folio ?? `#${e.factura_id}`}
+                </Link>
+            ) : (
+                <span className="text-base-content/50 text-sm" title="El material llegó sin factura">
+                    Sin factura
+                </span>
+            ),
+    },
     { key: 'renglones', label: 'Renglones', className: 'text-right font-mono' },
     {
         key: 'importe',
@@ -127,7 +148,7 @@ export default function EntradasIndex({ entradas, filters, almacenes, ordenesAbi
                     data={entradas}
                     searchable
                     searchValue={filters.search}
-                    searchPlaceholder="Buscar por folio..."
+                    searchPlaceholder="Buscar por folio de entrada o de factura..."
                     createHref="/admin/almacen/entradas/create"
                     createLabel="Nueva entrada"
                     emptyMessage="No hay entradas con esos filtros."
@@ -141,6 +162,19 @@ export default function EntradasIndex({ entradas, filters, almacenes, ordenesAbi
                             options={[
                                 { value: '', label: 'Todos los almacenes' },
                                 ...almacenes.map((a) => ({ value: String(a.id), label: etiquetaDeAlmacen(a) })),
+                            ]}
+                        />
+                    </div>
+
+                    <div className="w-44">
+                        <SearchSelect
+                            value={filters.factura ?? ''}
+                            onValueChange={(v) => filtrar({ factura: v || undefined })}
+                            placeholder="Con y sin factura"
+                            options={[
+                                { value: '', label: 'Con y sin factura' },
+                                { value: 'con', label: 'Con factura' },
+                                { value: 'sin', label: 'Sin factura' },
                             ]}
                         />
                     </div>
