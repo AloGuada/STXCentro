@@ -1,75 +1,29 @@
 /**
  * Una obra, una semana, una transformación.
  *
- * Cinco bloques en el orden en que se usan en la reunión: se pega el plan, se
- * mira cómo va la semana, se abre por tipo de pieza, se baja a marca por marca y
- * se termina con la carga de reparación.
+ * El plan de la semana tiene dos momentos. Abierto es un borrador: Producción
+ * agrega piezas —con su grupo de trabajo y su módulo— y las quita con libertad;
+ * no cuenta en ningún número y Calidad no lo ve. Cerrado es el compromiso: ya
+ * no se toca, empieza a contar, y lo que no se fabrique se arrastra.
  *
- * Lo que se escribe es sólo lo que no se puede deducir —qué se piensa hacer, qué
- * se da de baja y por qué—. Lo que sí se puede deducir —qué se hizo, qué pasó el
- * filtro, qué está a medias— no se pregunta: lo calcula el servidor al guardar.
+ * Después viene lo que se mira en la reunión: cómo va la semana, el corte por
+ * tipo de pieza y la carga de reparación. Eso no se escribe: lo calcula el
+ * servidor con las inspecciones.
  */
 
-import { useForm, usePage } from '@inertiajs/react';
-import { ArrowLeftIcon, ClipboardCopyIcon, SaveIcon } from 'lucide-react';
-import { useMemo, type FormEvent } from 'react';
+import { router, useForm, usePage } from '@inertiajs/react';
+import { ArrowLeftIcon, LockIcon, SaveIcon, Trash2Icon } from 'lucide-react';
+import type { FormEvent } from 'react';
 import { Kpi, Leyenda, Nota, Pastilla, Tarjeta, tonoDeAvance } from '@/components/qal/ui';
 import { cn } from '@/lib/utils';
 import type { SharedData } from '@/types';
 import { AgregarAlPlan } from './agregar-al-plan';
 import { estadoDeFila, porcentaje } from './calculo';
-import { leerMarcas, textoDeMarcas, tipoDeMarca } from './marcas';
 import { Reparaciones } from './reparaciones';
 import { numeroSemana, rangoSemana, semanaMas } from './semanas';
-import { faseDe, FASES, type Fase, type ObraOpcion, type VistaAvance } from './tipos';
+import { faseDe, FASES, type Fase, type GrupoOpcion, type ObraOpcion, type PiezaDelBorrador, type VistaAvance } from './tipos';
 
-/**
- * El contador en vivo debajo del área de texto.
- *
- * Sin esto, pegar sesenta marcas es un acto de fe hasta que se guarda. Además es
- * donde se avisa de lo que el parseo hizo por su cuenta: marcas repetidas que se
- * sumaron y marcas sin tipo reconocible.
- */
-function ResumenPegado({ texto }: { texto: string }) {
-    const marcas = useMemo(() => leerMarcas(texto), [texto]);
-
-    if (!marcas.length) {
-        return <p className="text-base-content/50 mt-2 text-xs">Nada pegado todavía.</p>;
-    }
-
-    const total = marcas.reduce((a, x) => a + x.cantidad, 0);
-    const porTipo = new Map<string, number>();
-    marcas.forEach((x) => {
-        const tipo = tipoDeMarca(x.marca) || '—';
-        porTipo.set(tipo, (porTipo.get(tipo) ?? 0) + x.cantidad);
-    });
-
-    const repetidas = marcas.filter((x) => x.repetida);
-    const raras = marcas.filter((x) => !tipoDeMarca(x.marca));
-
-    return (
-        <div className="text-base-content/60 mt-2 space-y-1 text-xs">
-            <div>
-                <b>{total} pieza(s)</b> en {marcas.length} marca(s) ·{' '}
-                {[...porTipo.entries()]
-                    .sort(([a], [b]) => a.localeCompare(b, 'es'))
-                    .map(([tipo, cuantas]) => `${tipo}: ${cuantas}`)
-                    .join(' · ')}
-            </div>
-            {repetidas.length > 0 && (
-                <div className="text-warning">
-                    {repetidas.length} marca(s) repetidas, se han sumado:{' '}
-                    {repetidas.slice(0, 5).map((x) => x.marca).join(', ')}
-                </div>
-            )}
-            {raras.length > 0 && (
-                <div className="text-warning">
-                    {raras.length} sin tipo reconocible: {raras.slice(0, 5).map((x) => x.marca).join(', ')}
-                </div>
-            )}
-        </div>
-    );
-}
+const piezaDe = (l: { qr: string; qs: string | null }) => `QR ${l.qr}${l.qs ? ` · QS ${l.qs}` : ''}`;
 
 export function VistaObra({
     obraId,
@@ -78,7 +32,9 @@ export function VistaObra({
     semana,
     fase,
     vista,
+    grupos,
     puedeCapturar,
+    puedeCerrar,
     onFase,
     onVolver,
     onAbrirObra,
@@ -89,66 +45,41 @@ export function VistaObra({
     semana: string;
     fase: Fase;
     vista: VistaAvance;
+    grupos: GrupoOpcion[];
     puedeCapturar: boolean;
+    puedeCerrar: boolean;
     onFase: (fase: Fase) => void;
     onVolver: () => void;
     onAbrirObra: (obraId: number) => void;
 }) {
     const F = faseDe(fase);
-    const { props } = usePage<SharedData & { flash?: { success?: string | null } }>();
-    const { lineas, total, tipos } = vista;
+    const { props } = usePage<SharedData & { flash?: { success?: string | null }; errors?: Record<string, string> }>();
+    const { plan, lineas, total, tipos } = vista;
+    const borrador = vista.borrador ?? [];
+    const cerrado = plan.estado === 'cerrado';
+    /** El plan sigue siendo de Producción: se le agregan y se le quitan piezas. */
+    const armando = puedeCapturar && !cerrado;
 
-    const form = useForm({
-        obra_id: obraId,
-        fase,
-        semana,
-        marcas: vista.plan?.marcas ?? '',
-        bajas: vista.plan?.bajas ?? '',
-        notas: vista.plan?.notas ?? '',
-    });
+    const notas = useForm({ obra_id: obraId, fase, semana, notas: plan.notas ?? '' });
 
-    const guardar = (evento: FormEvent) => {
+    const guardarNotas = (evento: FormEvent) => {
         evento.preventDefault();
-        form.post('/admin/calidad/avance/programaciones', { preserveScroll: true });
+        notas.post('/admin/calidad/avance/programaciones', { preserveScroll: true, onSuccess: () => notas.setDefaults() });
     };
 
-    /**
-     * Una pieza más de la marca en la caja del plan: si la marca ya está, sube
-     * su cantidad; si no, entra al final. El texto queda normalizado, igual que
-     * lo lee el servidor al guardar.
-     */
-    const agregarMarca = (marca: string) => {
-        const lista = leerMarcas(form.data.marcas);
-        const clave = marca.toUpperCase().replace(/\s+/g, '');
-        const previa = lista.find((m) => m.marca === clave);
+    const quitar = (pieza: PiezaDelBorrador) => router.delete(`/admin/calidad/avance/plan/${pieza.id}`, { preserveScroll: true });
 
-        if (previa) {
-            previa.cantidad += 1;
-        } else {
-            lista.push({ marca: clave, cantidad: 1, repetida: false });
+    const cerrar = () => {
+        if (
+            confirm(
+                `¿Cerrar el plan de la semana ${numeroSemana(semana)} con ${borrador.length} pieza(s)?\n\nA partir de ahora cuenta, Calidad lo ve y ya no se le agregan ni se le quitan piezas.`,
+            )
+        ) {
+            router.post('/admin/calidad/avance/programaciones/cerrar', { obra_id: obraId, fase, semana }, { preserveScroll: true });
         }
-
-        form.setData('marcas', textoDeMarcas(lista));
     };
 
-    const abrirOtraObra = (otra: number) => {
-        if (form.isDirty && !confirm('El plan tiene cambios sin guardar. ¿Abrir la otra obra de todos modos?')) {
-            return;
-        }
-
-        onAbrirObra(otra);
-    };
-
-    /** Copiar las pendientes para pegarlas en la semana siguiente a mano. */
-    const copiarPendientes = () => {
-        const texto = lineas
-            .filter((l) => l.pendientes > 0)
-            .map((l) => (l.pendientes > 1 ? `${l.marca} x${l.pendientes}` : l.marca))
-            .join('\n');
-        navigator.clipboard?.writeText(texto);
-    };
-
-    const errores = [form.errors.marcas, form.errors.bajas, form.errors.notas, form.errors.semana, form.errors.obra_id].filter(Boolean);
+    const errores = Object.values({ ...(props.errors ?? {}), ...notas.errors }).filter(Boolean);
 
     return (
         <div className="space-y-4">
@@ -170,6 +101,14 @@ export function VistaObra({
                         </button>
                     ))}
                 </div>
+                {cerrado ? (
+                    <Pastilla tono="ok">
+                        Plan cerrado{plan.cerradoEl ? ` el ${plan.cerradoEl}` : ''}
+                        {plan.cerradoPor ? ` · ${plan.cerradoPor}` : ''}
+                    </Pastilla>
+                ) : (
+                    plan.estado === 'abierto' && <Pastilla tono="warn">Plan abierto: todavía no cuenta</Pastilla>
+                )}
             </div>
 
             {props.flash?.success && <div className="alert alert-success text-sm">{props.flash.success}</div>}
@@ -181,95 +120,165 @@ export function VistaObra({
                 </div>
             )}
 
-            {/* 1 · la caja donde se pega la lista */}
-            <form onSubmit={guardar}>
-                <Tarjeta
-                    titulo={`Piezas a ${F.gerundio} en la semana ${numeroSemana(semana)}`}
-                    nota={`${rangoSemana(semana)} · ${F.nombre}`}
-                    acciones={
-                        <>
-                            <button type="button" onClick={copiarPendientes} className="btn btn-sm btn-ghost">
-                                <ClipboardCopyIcon className="size-4" />
-                                Copiar pendientes
-                            </button>
-                            {puedeCapturar && (
-                                <button type="submit" disabled={form.processing} className="btn btn-sm btn-primary">
-                                    <SaveIcon className="size-4" />
-                                    {form.processing ? 'Guardando…' : 'Guardar'}
+            {/* Quien sólo consulta no ve el borrador: sabe que existe y nada más. */}
+            {!puedeCapturar && plan.estado === 'abierto' && (
+                <Nota>
+                    Producción aún no cierra el plan de esta semana. Mientras esté abierto no cuenta ni se muestra; lo de abajo es lo que
+                    viene arrastrado de semanas ya cerradas.
+                </Nota>
+            )}
+
+            {/* 1 · armar el plan: agregar piezas y ver el borrador */}
+            {armando && (
+                <>
+                    <Tarjeta titulo={`Agregar piezas a ${F.gerundio} en la semana ${numeroSemana(semana)}`} nota={`${rangoSemana(semana)} · ${F.nombre}`}>
+                        <AgregarAlPlan
+                            obras={obras}
+                            obraId={obraId}
+                            fase={fase}
+                            semana={semana}
+                            grupos={grupos}
+                            version={borrador.map((x) => x.id).join(',')}
+                            onAbrirObra={onAbrirObra}
+                        />
+                    </Tarjeta>
+
+                    <Tarjeta
+                        titulo="Borrador del plan"
+                        nota={`${borrador.length} pieza(s) · no cuenta ni lo ve Calidad hasta cerrarlo`}
+                        acciones={
+                            puedeCerrar && (
+                                <button type="button" className="btn btn-sm btn-primary" disabled={borrador.length === 0} onClick={cerrar}>
+                                    <LockIcon className="size-4" />
+                                    Cerrar plan de la semana
                                 </button>
-                            )}
-                        </>
-                    }
-                >
-                    <div className="grid gap-4 p-4 lg:grid-cols-2">
-                        <div>
-                            {puedeCapturar && (
-                                <AgregarAlPlan obras={obras} obraId={obraId} onAgregar={agregarMarca} onAbrirObra={abrirOtraObra} />
-                            )}
-                            <textarea
-                                value={form.data.marcas}
-                                onChange={(e) => form.setData('marcas', e.target.value)}
-                                readOnly={!puedeCapturar}
-                                spellCheck={false}
-                                className="textarea textarea-bordered h-48 w-full font-mono text-sm"
-                                placeholder={
-                                    'Pega aquí la lista de marcas, una por línea:\n\nPIP-CM1-1\nPIP-CM1-2\nPIP-TP2-7\n\nSi de una marca van varias piezas:  PIP-CM1-5 x3'
-                                }
-                            />
-                            <ResumenPegado texto={form.data.marcas} />
-                        </div>
+                            )
+                        }
+                    >
+                        {borrador.length === 0 ? (
+                            <p className="text-base-content/60 px-4 py-8 text-center text-sm">
+                                Todavía no hay nada en el plan.
+                                <br />
+                                Elige arriba las piezas, su grupo y su módulo, y pulsa Agregar.
+                            </p>
+                        ) : (
+                            <div className="overflow-x-auto">
+                                <table className="table-sm table w-full whitespace-nowrap">
+                                    <thead>
+                                        <tr>
+                                            <th className="bg-base-200">Marca</th>
+                                            <th className="bg-base-200">Lote</th>
+                                            <th className="bg-base-200">Pieza</th>
+                                            <th className="bg-base-200">Grupo</th>
+                                            <th className="bg-base-200">Módulo</th>
+                                            <th className="bg-base-200" />
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {borrador.map((x) => (
+                                            <tr key={x.id} className="hover:bg-base-200/50">
+                                                <td className="font-semibold">{x.marca}</td>
+                                                <td>{x.lote || '—'}</td>
+                                                <td className="font-mono text-sm">{piezaDe(x)}</td>
+                                                <td>{x.grupo || '—'}</td>
+                                                <td className="font-mono text-sm">{x.modulo || '—'}</td>
+                                                <td className="text-right">
+                                                    <button type="button" className="btn btn-xs btn-ghost text-error" onClick={() => quitar(x)}>
+                                                        <Trash2Icon className="size-3.5" />
+                                                        Eliminar del plan
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
+                    </Tarjeta>
+                </>
+            )}
 
-                        <div className="space-y-3">
-                            <Nota>
-                                Una línea = una pieza. Pega la columna tal cual salga de tu hoja: da igual si vienen con
-                                tabulaciones o comas. El tipo se saca solo de la marca.
-                                {fase === '3' && (
-                                    <>
-                                        <br />
-                                        <br />
-                                        <b>Pintura lleva su propio plan.</b> Una pieza que se termina de fabricar el
-                                        viernes no da tiempo a pintarse esa semana: aquí se programa lo que pintura cree
-                                        que va a pintar, que puede incluir piezas fabricadas la semana pasada.
-                                    </>
-                                )}
-                            </Nota>
+            {/* 2 · lo que ya cuenta: el plan cerrado y lo arrastrado */}
+            <Tarjeta
+                titulo={cerrado ? 'Plan de la semana' : 'Arrastradas de semanas cerradas'}
+                nota={`${lineas.length} pieza(s)${cerrado && total.arrastre ? ` · ${total.arrastre} arrastradas` : ''}`}
+            >
+                {lineas.length === 0 ? (
+                    <p className="text-base-content/60 px-4 py-8 text-center text-sm">
+                        {cerrado ? 'El plan se cerró sin piezas pendientes.' : 'No viene nada arrastrado de semanas anteriores.'}
+                    </p>
+                ) : (
+                    <div className="overflow-x-auto">
+                        <table className="table-sm table w-full whitespace-nowrap">
+                            <thead>
+                                <tr>
+                                    <th className="bg-base-200">Marca</th>
+                                    <th className="bg-base-200">Lote</th>
+                                    <th className="bg-base-200">Pieza</th>
+                                    <th className="bg-base-200">Grupo</th>
+                                    <th className="bg-base-200">Módulo</th>
+                                    <th className="bg-base-200">Estado</th>
+                                    <th className="bg-base-200">Presentada</th>
+                                    <th className="bg-base-200">Liberada</th>
+                                    <th className="bg-base-200 text-right">Insp.</th>
+                                    <th className="bg-base-200">Origen</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {lineas.map((l) => {
+                                    const estado = estadoDeFila(l, fase);
 
-                            <label className="block">
-                                <span className="text-base-content/70 mb-1 block text-xs font-semibold">
-                                    Notas de la semana
-                                </span>
-                                <textarea
-                                    value={form.data.notas}
-                                    onChange={(e) => form.setData('notas', e.target.value)}
-                                    readOnly={!puedeCapturar}
-                                    className="textarea textarea-bordered h-16 w-full text-sm"
-                                    placeholder="ej. falta material para las TS"
-                                />
-                            </label>
-
-                            <label className="block">
-                                <span className="text-base-content/70 mb-1 block text-xs font-semibold">
-                                    Piezas dadas de baja
-                                </span>
-                                <span className="text-base-content/50 mb-1 block text-xs">
-                                    Ya no se van a fabricar. Dejan de arrastrarse — es la única forma de que una marca
-                                    salga del plan para siempre. Cada una lleva su motivo: sin él, la semana se lee como
-                                    incumplimiento del taller.
-                                </span>
-                                <textarea
-                                    value={form.data.bajas}
-                                    onChange={(e) => form.setData('bajas', e.target.value)}
-                                    readOnly={!puedeCapturar}
-                                    className="textarea textarea-bordered h-16 w-full font-mono text-sm"
-                                    placeholder="una por línea, con su motivo:  PIP-CM1-5: cambio de ingeniería"
-                                />
-                            </label>
-                        </div>
+                                    return (
+                                        <tr key={l.id} className="hover:bg-base-200/50">
+                                            <td className="font-semibold">{l.marca}</td>
+                                            <td>{l.lote || '—'}</td>
+                                            <td className="font-mono text-sm">{piezaDe(l)}</td>
+                                            <td>{l.grupo || '—'}</td>
+                                            <td className="font-mono text-sm">{l.modulo || '—'}</td>
+                                            <td>
+                                                <Pastilla tono={estado.tono}>{estado.texto}</Pastilla>
+                                            </td>
+                                            <td className="font-mono text-sm">{l.primera?.semanaFabricada || '—'}</td>
+                                            <td className="font-mono text-sm">{l.primera?.semanaLiberada || '—'}</td>
+                                            <td className="text-right font-mono">{l.primera ? l.primera.inspecciones : '—'}</td>
+                                            <td>
+                                                {l.arrastrada ? (
+                                                    <Pastilla tono="info">arrastrada de {l.desde}</Pastilla>
+                                                ) : (
+                                                    <span className="text-base-content/50 text-xs">esta semana</span>
+                                                )}
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
                     </div>
-                </Tarjeta>
-            </form>
+                )}
 
-            {/* 2 · cómo va la semana */}
+                {(puedeCapturar || cerrado) && (
+                    <form onSubmit={guardarNotas} className="border-base-300 flex flex-wrap items-end gap-2 border-t px-4 py-3">
+                        <label className="min-w-0 flex-1 text-xs">
+                            <span className="text-base-content/70 mb-1 block font-semibold">Notas de la semana</span>
+                            <input
+                                value={notas.data.notas}
+                                onChange={(e) => notas.setData('notas', e.target.value)}
+                                readOnly={!puedeCapturar}
+                                className="input input-sm input-bordered w-full"
+                                placeholder="ej. falta material para las TS"
+                            />
+                        </label>
+                        {puedeCapturar && (
+                            <button type="submit" disabled={notas.processing || !notas.isDirty} className="btn btn-sm">
+                                <SaveIcon className="size-4" />
+                                Guardar notas
+                            </button>
+                        )}
+                    </form>
+                )}
+            </Tarjeta>
+
+            {/* 3 · cómo va la semana */}
             <Tarjeta titulo="Cómo va la semana" nota={rangoSemana(semana)}>
                 <div className="grid grid-cols-2 gap-3 p-4 lg:grid-cols-4">
                     <Kpi
@@ -347,7 +356,7 @@ export function VistaObra({
                 </Leyenda>
             </Tarjeta>
 
-            {/* 3 · por tipo de pieza, como la pizarra del taller */}
+            {/* 4 · por tipo de pieza, como la pizarra del taller */}
             <Tarjeta titulo="Por tipo de pieza">
                 <div className="overflow-x-auto">
                     <table className="table-sm table w-full whitespace-nowrap">
@@ -417,64 +426,6 @@ export function VistaObra({
                     <b>% Fabric.</b> = fabricadas ÷ programadas · <b>% Rechazo</b> = rechazadas ÷ fabricadas ·{' '}
                     <b>% Salieron</b> = liberadas ÷ programadas, que es lo que de verdad llegó al final.
                 </Leyenda>
-            </Tarjeta>
-
-            {/* 4 · marca por marca */}
-            <Tarjeta titulo="Pieza por pieza" nota={`${lineas.length} marca(s) en el plan`}>
-                {lineas.length === 0 ? (
-                    <p className="text-base-content/60 px-4 py-10 text-center text-sm">
-                        Todavía no hay nada programado.
-                        {puedeCapturar && (
-                            <>
-                                <br />
-                                Pega arriba la lista de marcas y pulsa Guardar.
-                            </>
-                        )}
-                    </p>
-                ) : (
-                    <div className="overflow-x-auto">
-                        <table className="table-sm table w-full whitespace-nowrap">
-                            <thead>
-                                <tr>
-                                    <th className="bg-base-200">Marca</th>
-                                    <th className="bg-base-200">Tipo</th>
-                                    <th className="bg-base-200 text-right">Piezas</th>
-                                    <th className="bg-base-200">Estado</th>
-                                    <th className="bg-base-200">Presentada</th>
-                                    <th className="bg-base-200">Liberada</th>
-                                    <th className="bg-base-200 text-right">Insp.</th>
-                                    <th className="bg-base-200">Origen</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {lineas.map((l) => {
-                                    const estado = estadoDeFila(l, fase);
-
-                                    return (
-                                        <tr key={`${l.marca}|${l.desde}`} className="hover:bg-base-200/50">
-                                            <td className="font-semibold">{l.marca}</td>
-                                            <td>{l.tipo || '—'}</td>
-                                            <td className="text-right font-mono">{l.cantidad}</td>
-                                            <td>
-                                                <Pastilla tono={estado.tono}>{estado.texto}</Pastilla>
-                                            </td>
-                                            <td className="font-mono text-sm">{l.primera?.semanaFabricada || '—'}</td>
-                                            <td className="font-mono text-sm">{l.primera?.semanaLiberada || '—'}</td>
-                                            <td className="text-right font-mono">{l.primera ? l.primera.inspecciones : '—'}</td>
-                                            <td>
-                                                {l.arrastrada ? (
-                                                    <Pastilla tono="info">arrastrada de {l.desde}</Pastilla>
-                                                ) : (
-                                                    <span className="text-base-content/50 text-xs">esta semana</span>
-                                                )}
-                                            </td>
-                                        </tr>
-                                    );
-                                })}
-                            </tbody>
-                        </table>
-                    </div>
-                )}
             </Tarjeta>
 
             {/* 5 · la cola de reparación */}

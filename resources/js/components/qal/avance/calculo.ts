@@ -2,7 +2,7 @@
  * Lo que queda del cálculo en el front: presentación.
  *
  * El cruce entre lo que producción programó y lo que calidad vio —el arrastre,
- * las bajas, los rechazos hasta la semana— se hace en el servidor
+ * los rechazos hasta la semana— se hace en el servidor
  * (`app/Services/Qal/AvanceProduccion.php`). Aquí sólo el porcentaje con su
  * «—» y el estado con que se pinta una línea.
  */
@@ -19,7 +19,7 @@ export function estadoDeFila(
     linea: EstadoLinea,
     fase: Fase,
 ): { texto: string; tono: 'ok' | 'warn' | 'error' | 'info' | 'neutro' } {
-    if (linea.pendientes >= linea.cantidad) {
+    if (linea.pendientes > 0) {
         return linea.empezadas > 0
             ? { texto: fase === '3' ? 'Lista para pintar' : 'Empezada, sin terminar', tono: 'info' }
             : { texto: 'Sin empezar', tono: 'neutro' };
@@ -27,11 +27,8 @@ export function estadoDeFila(
     if (linea.enReparacion) {
         return { texto: 'En reparación', tono: 'error' };
     }
-    if (linea.liberadas >= linea.cantidad) {
+    if (linea.liberadas > 0) {
         return { texto: 'Liberada', tono: 'ok' };
     }
-    if (linea.fabricadas >= linea.cantidad) {
-        return { texto: 'Fabricada, sin liberar', tono: 'warn' };
-    }
-    return { texto: `${linea.fabricadas} de ${linea.cantidad} fabricadas`, tono: 'warn' };
+    return { texto: fase === '3' ? 'Pintada, sin liberar' : 'Fabricada, sin liberar', tono: 'warn' };
 }

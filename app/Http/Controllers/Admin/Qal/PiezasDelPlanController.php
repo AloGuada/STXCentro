@@ -5,16 +5,17 @@ namespace App\Http\Controllers\Admin\Qal;
 use App\Http\Controllers\Controller;
 use App\Models\Concepto;
 use App\Models\Prod\Pieza;
+use App\Services\Qal\AvanceProduccion;
 use App\Services\Qal\ResolutorDePiezas;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 /**
- * El formulario «agregar al plan» del avance de producción: obra, marca y QR.
+ * El formulario «agregar al plan» del avance de producción: lote, marca y
+ * piezas.
  *
  * Responde JSON y no una página porque lo pide el formulario mientras se
- * escribe el plan de la semana: recargar la pantalla perdería lo que no se ha
- * guardado. Sólo del catálogo vigente, que es el que está en la nave.
+ * eligen las piezas. Sólo del catálogo vigente, que es el que está en la nave.
  */
 class PiezasDelPlanController extends Controller
 {
@@ -37,16 +38,33 @@ class PiezasDelPlanController extends Controller
             ]));
     }
 
-    /** Las piezas físicas de una marca, por su QS. */
-    public function piezas(Request $request): JsonResponse
+    /**
+     * Las piezas físicas de una marca, por su QS, y cómo está cada una frente
+     * al plan de esa semana: libre, ya en el plan, pendiente de otra semana,
+     * fabricada o dada de baja.
+     */
+    public function piezas(Request $request, AvanceProduccion $avance): JsonResponse
     {
+        $marca = Concepto::query()->find($request->integer('marca'));
+        $pedida = (string) $request->query('semana', '');
+        $estados = $marca === null ? [] : $avance->estadosPorQr(
+            (int) $marca->obra_id,
+            $request->query('fase') === '3' ? '3' : '2',
+            preg_match('/^\d{4}-S\d{2}$/', $pedida) === 1 ? $pedida : $avance->semanaActual(),
+        );
+
         return response()->json(Pieza::query()
             ->where('concepto_id', $request->integer('marca'))
             ->where('activo', true)
             ->orderBy('qs')
             ->orderBy('qr')
             ->get(['id', 'qr', 'qs'])
-            ->map(fn (Pieza $pieza): array => ['id' => $pieza->id, 'qr' => $pieza->qr, 'qs' => $pieza->qs]));
+            ->map(fn (Pieza $pieza): array => [
+                'id' => $pieza->id,
+                'qr' => $pieza->qr,
+                'qs' => $pieza->qs,
+                'estado' => $estados[$pieza->qr] ?? 'libre',
+            ]));
     }
 
     /**
@@ -75,6 +93,7 @@ class PiezasDelPlanController extends Controller
             'obra_id' => $pieza->catalogo->obra_id,
             'marca_id' => $pieza->concepto_id,
             'marca' => $pieza->marca?->marca,
+            'lote' => $pieza->marca?->lote,
             'pieza_id' => $pieza->id,
             'qr' => $pieza->qr,
             'qs' => $pieza->qs,
