@@ -211,3 +211,56 @@ describe('lo que sale en la hoja', function () {
             ->and($html)->not->toContain('Recibió de conformidad');
     });
 });
+
+describe('el almacen configurado sin rayas', function () {
+    test('guardar un documento vacio lo deja sin firmas, no en la plantilla', function () {
+        $salida = Salida::factory()->create(['almacen_id' => Almacen::factory()]);
+
+        $this->actingAs(usuarioDeFirmas(['alm.aprobaciones.ver', 'alm.aprobaciones.configurar']))
+            ->put(route('admin.alm.aprobaciones.update', $salida->almacen_id), [
+                'documentos' => [['documento' => 'salida', 'firmas' => []]],
+            ])
+            ->assertRedirect();
+
+        expect(app(FirmasDelFormato::class)->para(DocumentoAlm::Salida, $salida->almacen_id))->toBe([]);
+    });
+
+    test('la pantalla manda los ocho documentos del almacen configurado, vacios incluidos', function () {
+        $almacen = Almacen::factory()->create();
+
+        $this->actingAs(usuarioDeFirmas(['alm.aprobaciones.ver', 'alm.aprobaciones.configurar']))
+            ->put(route('admin.alm.aprobaciones.update', $almacen), [
+                'documentos' => [['documento' => 'ajuste', 'firmas' => [
+                    ['rotulo' => 'Jefe de almacén', 'nombre' => null, 'usuarios' => []],
+                ]]],
+            ]);
+
+        $this->actingAs(usuarioDeFirmas())
+            ->get(route('admin.alm.aprobaciones.index'))
+            ->assertInertia(fn ($page) => $page
+                ->has("configuradas.{$almacen->id}", 8)
+                ->has("configuradas.{$almacen->id}.ajuste", 1)
+                ->has("configuradas.{$almacen->id}.salida", 0));
+    });
+
+    test('el almacen que nadie ha guardado no aparece entre los configurados', function () {
+        $almacen = Almacen::factory()->create();
+
+        $this->actingAs(usuarioDeFirmas())
+            ->get(route('admin.alm.aprobaciones.index'))
+            ->assertInertia(fn ($page) => $page->missing("configuradas.{$almacen->id}"));
+    });
+
+    test('el formato sin firmas sale sin la tabla de rayas', function () {
+        $salida = Salida::factory()->create(['almacen_id' => Almacen::factory()]);
+        $salida->almacen->update(['firmas_configuradas_at' => now()]);
+
+        $html = view('pdf.alm.formato-salida', [
+            'salida' => $salida->load('detalles'),
+            'firmas' => app(FirmasDelFormato::class)->para(DocumentoAlm::Salida, $salida->almacen_id),
+        ])->render();
+
+        expect($html)->not->toContain('<table class="firmas-table">')
+            ->and($html)->not->toContain('Recibió de conformidad');
+    });
+});

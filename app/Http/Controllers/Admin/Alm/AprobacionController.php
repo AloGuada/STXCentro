@@ -47,11 +47,15 @@ class AprobacionController extends Controller
 
     /**
      * Se reemplazan las firmas del almacén entero, porque la pantalla se
-     * guarda entera. Un documento sin renglones vuelve a la plantilla.
+     * guarda entera. Un documento sin renglones queda sin rayas: la plantilla
+     * es sólo para el almacén que nunca se ha guardado.
      */
     public function update(FirmasDocumentoRequest $request, Almacen $almacen): RedirectResponse
     {
         DB::transaction(function () use ($request, $almacen): void {
+            // Desde aquí el almacén imprime lo suyo, no la plantilla: incluso
+            // un documento que se guardó sin rayas sale sin rayas.
+            $almacen->update(['firmas_configuradas_at' => now()]);
             FirmaDocumento::query()->where('almacen_id', $almacen->id)->delete();
 
             foreach ($request->array('documentos') as $documento) {
@@ -74,28 +78,42 @@ class AprobacionController extends Controller
 
     /**
      * Lo configurado, agrupado como lo pide la pantalla: almacén → documento →
-     * sus renglones en orden.
+     * sus renglones en orden. Un almacén ya configurado trae sus ocho
+     * documentos aunque alguno esté vacío: así la pantalla sabe que ese vacío
+     * es a propósito y no lo rellena con la plantilla.
      *
      * @return array<int, array<string, list<array{rotulo: string, nombre: string|null, usuarios: list<string>}>>>
      */
     private function configuradas(): array
     {
-        return FirmaDocumento::query()
+        $firmas = FirmaDocumento::query()
             ->with('usuarios:id')
             ->orderBy('orden')
             ->get()
-            ->groupBy('almacen_id')
-            ->map(fn ($delAlmacen) => $delAlmacen
-                ->groupBy(fn (FirmaDocumento $firma): string => $firma->documento->value)
-                ->map(fn ($delDocumento) => $delDocumento
-                    ->map(fn (FirmaDocumento $firma): array => [
-                        'rotulo' => $firma->rotulo,
-                        'nombre' => $firma->nombre,
-                        'usuarios' => $firma->usuarios->pluck('id')->all(),
-                    ])
-                    ->values()
-                    ->all())
-                ->all())
+            ->groupBy('almacen_id');
+
+        return Almacen::query()
+            ->whereNotNull('firmas_configuradas_at')
+            ->pluck('id')
+            ->mapWithKeys(function (int $almacenId) use ($firmas): array {
+                $porDocumento = $firmas->get($almacenId, collect())
+                    ->groupBy(fn (FirmaDocumento $firma): string => $firma->documento->value);
+
+                $documentos = [];
+
+                foreach (DocumentoAlm::cases() as $tipo) {
+                    $documentos[$tipo->value] = $porDocumento->get($tipo->value, collect())
+                        ->map(fn (FirmaDocumento $firma): array => [
+                            'rotulo' => $firma->rotulo,
+                            'nombre' => $firma->nombre,
+                            'usuarios' => $firma->usuarios->pluck('id')->all(),
+                        ])
+                        ->values()
+                        ->all();
+                }
+
+                return [$almacenId => $documentos];
+            })
             ->all();
     }
 }

@@ -83,7 +83,7 @@ export default function AprobacionesIndex({ almacenes, documentos, configuradas,
                     key={almacenId}
                     almacen={almacenes.find((a) => String(a.id) === almacenId)!}
                     documentos={documentos}
-                    guardadas={configuradas[almacenId] ?? {}}
+                    guardadas={configuradas[almacenId]}
                     usuarios={usuarios}
                     puedeConfigurar={puedeConfigurar}
                 />
@@ -105,18 +105,22 @@ function FormularioDelAlmacen({
 }: {
     almacen: Almacen;
     documentos: AlmDocumentoFirmable[];
-    guardadas: Record<string, AlmFirmaDocumento[]>;
+    /** Lo guardado del almacén; sin nada, nadie lo ha configurado todavía. */
+    guardadas?: Record<string, AlmFirmaDocumento[]>;
     usuarios: AlmUsuarioOpcion[];
     puedeConfigurar: boolean;
 }) {
-    // Un documento sin nada guardado arranca de la plantilla, que es lo que ya
-    // venía impreso: así la pantalla enseña lo mismo que sale hoy en el PDF.
+    // El almacén que nadie ha configurado arranca de la plantilla, que es lo
+    // que imprime hoy: la pantalla enseña lo mismo que sale en el PDF. El ya
+    // configurado enseña lo suyo, y un documento vacío es vacío a propósito.
+    const configurado = guardadas !== undefined;
     const form = useForm({
         documentos: documentos.map((doc) => ({
             documento: doc.valor,
-            firmas: (guardadas[doc.valor] ?? doc.porDefecto.map((f) => ({ ...f, usuarios: [] }))).map((f) => ({
-                ...f,
-            })),
+            firmas: (configurado
+                ? (guardadas[doc.valor] ?? [])
+                : doc.porDefecto.map((f) => ({ ...f, usuarios: [] }))
+            ).map((f) => ({ ...f })),
         })),
     });
 
@@ -155,10 +159,20 @@ function FormularioDelAlmacen({
                 <InfoIcon className="size-5 shrink-0" />
                 <span>
                     Si eliges usuarios, su nombre se imprime sobre la raya —varios salen separados por «/», porque basta
-                    con que firme uno—. Si no, se imprime el nombre que el propio documento ya sabe. Y si tampoco hay,
-                    la raya va en blanco para llenarse a mano.
+                    con que firme uno—. Si no eliges a nadie, se imprime el nombre que escribas. Y si dejas los dos
+                    vacíos, la raya va en blanco para llenarse a mano.
                 </span>
             </div>
+
+            {!configurado && (
+                <div className="alert alert-warning mb-4">
+                    <span>
+                        <strong>{almacen.clave}</strong> todavía no se ha configurado: lo que ves es la plantilla, y es
+                        lo que hoy se imprime. Al guardar, el almacén pasa a imprimir exactamente lo que dejes aquí
+                        —también si a un documento le quitas todas las firmas.
+                    </span>
+                </div>
+            )}
 
             <div className="space-y-4">
                 {documentos.map((doc) => {

@@ -38,6 +38,7 @@ class Almacen extends Model
         'responsable_id',
         'observaciones',
         'activo',
+        'firmas_configuradas_at',
     ];
 
     /**
@@ -48,6 +49,7 @@ class Almacen extends Model
         return [
             'tipo' => AlmacenTipo::class,
             'activo' => 'boolean',
+            'firmas_configuradas_at' => 'datetime',
         ];
     }
 

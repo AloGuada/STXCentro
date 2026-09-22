@@ -28,6 +28,17 @@ class FirmaDocumentoFactory extends Factory
         ];
     }
 
+    /**
+     * Una raya guardada sólo existe en un almacén ya configurado: si no se
+     * marca, el servicio lo trata como nuevo y le imprime la plantilla.
+     */
+    public function configure(): static
+    {
+        return $this->afterCreating(function (FirmaDocumento $firma): void {
+            $firma->almacen()->whereNull('firmas_configuradas_at')->update(['firmas_configuradas_at' => now()]);
+        });
+    }
+
     /** Un renglón que ya trae escrito el nombre que va sobre la raya. */
     public function conNombre(string $nombre): static
     {
