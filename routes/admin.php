@@ -561,6 +561,10 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
             ->whereNumber('conteo')
             ->middleware('permission:alm.conteos.ver')
             ->name('conteos.pdf');
+        Route::get('conteos/{conteo}/reporte', [AlmConteoController::class, 'reporte'])
+            ->whereNumber('conteo')
+            ->middleware('permission:alm.conteos.ver')
+            ->name('conteos.reporte');
         Route::get('conteos/{conteo}', [AlmConteoController::class, 'show'])
             ->whereNumber('conteo')
             ->middleware('permission:alm.conteos.ver')

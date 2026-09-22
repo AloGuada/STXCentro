@@ -291,6 +291,70 @@ class ConteoController extends Controller
     }
 
     /**
+     * El reporte de la hoja cerrada: qué decía el sistema, qué se encontró y
+     * cuánto vale la diferencia. Las cantidades salen del ajuste —el saldo
+     * contra el que se midió al cerrar, no el sellado al capturar— y el valor
+     * del kardex que ese ajuste movió, que es con el que quedó la existencia.
+     */
+    public function reporte(Request $request, Conteo $conteo, FirmasDelFormato $firmas): HttpResponse
+    {
+        abort_unless($conteo->almacen->esVisiblePara($request->user()), 403);
+        abort_unless($conteo->estatus === ConteoEstatus::Cerrado && $conteo->ajuste_id !== null, 404);
+
+        $conteo->load([
+            'almacen:id,clave,nombre',
+            'responsable:id,name',
+            'ajuste.detalles',
+            'ajuste.movimientos:id,documento_type,documento_id,articulo_id,cantidad,costo_unitario',
+            'detalles.articulo:id,codigo,descripcion,unidad',
+            'detalles.existencia:id,ubicacion_id',
+            'detalles.existencia.ubicacion',
+        ]);
+
+        $delAjuste = $conteo->ajuste->detalles->keyBy('articulo_id');
+        $valorPorArticulo = $conteo->ajuste->movimientos
+            ->groupBy('articulo_id')
+            ->map(fn (Collection $movs): float => $movs->sum(fn ($m): float => (float) $m->cantidad * (float) $m->costo_unitario));
+
+        $renglones = $conteo->detalles->map(function (ConteoDetalle $d) use ($delAjuste, $valorPorArticulo): array {
+            $ajustado = $delAjuste->get($d->articulo_id);
+            $sistema = (float) ($ajustado?->cantidad_sistema ?? $d->cantidad_sistema);
+            $contado = (float) ($ajustado?->cantidad_contada ?? $d->cantidad_contada);
+
+            return [
+                'orden' => $d->orden,
+                'codigo' => $d->articulo?->codigo,
+                'descripcion' => $d->articulo?->descripcion,
+                'unidad' => $d->articulo?->unidad,
+                'ubicacion' => $d->existencia?->ubicacion?->ruta(),
+                'sistema' => $sistema,
+                'contado' => $contado,
+                'diferencia' => (float) ($ajustado?->diferencia ?? $contado - $sistema),
+                'valor' => (float) ($valorPorArticulo->get($d->articulo_id) ?? 0),
+                'observaciones' => $d->observaciones,
+            ];
+        });
+
+        $epsilon = (float) config('costos.epsilon_cantidad');
+
+        $resumen = [
+            'renglones' => $renglones->count(),
+            'con_diferencia' => $renglones->filter(fn (array $r): bool => abs($r['diferencia']) > $epsilon)->count(),
+            'valor_neto' => $renglones->sum('valor'),
+        ];
+
+        $pdf = Pdf::loadView('pdf.alm.reporte-conteo', [
+            'conteo' => $conteo,
+            'renglones' => $renglones,
+            'resumen' => $resumen,
+            'firmas' => $firmas->para(DocumentoAlm::Conteo, $conteo->almacen_id),
+        ])
+            ->setPaper('letter', 'landscape');
+
+        return $pdf->stream("reporte-conteo-{$conteo->folio}.pdf");
+    }
+
+    /**
      * @return Collection<int, int>
      */
     private function almacenesVisibles(Request $request): Collection

@@ -1,5 +1,5 @@
 import { Head, Link, useForm } from '@inertiajs/react';
-import { ArrowLeftIcon, CheckIcon, LockIcon, PrinterIcon, SaveIcon, TriangleAlertIcon } from 'lucide-react';
+import { ArrowLeftIcon, CheckIcon, FileTextIcon, LockIcon, PrinterIcon, SaveIcon, TriangleAlertIcon } from 'lucide-react';
 import { useState } from 'react';
 import { ButtonLink } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -167,15 +167,27 @@ export default function ConteoShow({ conteo }: Props) {
                             <ArrowLeftIcon className="size-4" />
                             Volver
                         </ButtonLink>
-                        <a
-                            href={`/admin/almacen/conteos/${conteo.id}/pdf`}
-                            target="_blank"
-                            rel="noopener"
-                            className={`btn ${capturando ? 'btn-outline' : 'btn-primary'}`}
-                        >
-                            <PrinterIcon className="size-4" />
-                            Imprimir hoja
-                        </a>
+                        {conteo.estatus === 'cerrado' ? (
+                            <a
+                                href={`/admin/almacen/conteos/${conteo.id}/reporte`}
+                                target="_blank"
+                                rel="noopener"
+                                className="btn btn-primary"
+                            >
+                                <FileTextIcon className="size-4" />
+                                Reporte
+                            </a>
+                        ) : (
+                            <a
+                                href={`/admin/almacen/conteos/${conteo.id}/pdf`}
+                                target="_blank"
+                                rel="noopener"
+                                className={`btn ${capturando ? 'btn-outline' : 'btn-primary'}`}
+                            >
+                                <PrinterIcon className="size-4" />
+                                Imprimir hoja
+                            </a>
+                        )}
                     </div>
                 </div>
 
