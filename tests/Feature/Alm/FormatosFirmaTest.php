@@ -1,10 +1,12 @@
 <?php
 
+use App\Enums\Alm\DocumentoAlm;
 use App\Models\Alm\Ajuste;
 use App\Models\Alm\Almacen;
 use App\Models\Alm\Pedido;
 use App\Models\Alm\Transferencia;
 use App\Models\User;
+use App\Services\Alm\FirmasDelFormato;
 use Spatie\Permission\Models\Permission;
 
 /**
@@ -17,7 +19,17 @@ use Spatie\Permission\Models\Permission;
  *
  * Las firmas se comprueban sobre la vista y no sobre el PDF: dompdf comprime la
  * salida, así que buscar un texto en el binario no probaría nada.
+ *
+ * Los rótulos ya no viven en el blade: salen de lo configurado en Almacén >
+ * Aprobaciones, y un almacén sin configurar cae en la plantilla del enum. Estos
+ * tests pasan por el mismo servicio que usa el controlador, así que también
+ * comprueban que esa plantilla siga diciendo lo que la hoja necesita.
  */
+function firmasDe(DocumentoAlm $tipo, ?int $almacenId, $documento): array
+{
+    return app(FirmasDelFormato::class)->para($tipo, $almacenId, $documento);
+}
+
 function usuarioQuePuede(string $permiso): User
 {
     $usuario = User::factory()->create();
@@ -47,7 +59,10 @@ describe('el pedido', function () {
         // medio es la que sustituye al flujo de aprobación que no existe.
         $pedido = Pedido::factory()->create(['almacen_id' => Almacen::factory()]);
 
-        $html = view('pdf.alm.formato-pedido', ['pedido' => $pedido->load('detalles')])->render();
+        $html = view('pdf.alm.formato-pedido', [
+            'pedido' => $pedido->load('detalles'),
+            'firmas' => firmasDe(DocumentoAlm::Pedido, $pedido->almacen_id, $pedido),
+        ])->render();
 
         expect($html)
             ->toContain('Solicitó')
@@ -80,7 +95,10 @@ describe('el ajuste', function () {
         // responder por esa diferencia.
         $ajuste = Ajuste::factory()->create(['almacen_id' => Almacen::factory()]);
 
-        $html = view('pdf.alm.formato-ajuste', ['ajuste' => $ajuste->load('detalles')])->render();
+        $html = view('pdf.alm.formato-ajuste', [
+            'ajuste' => $ajuste->load('detalles'),
+            'firmas' => firmasDe(DocumentoAlm::Ajuste, $ajuste->almacen_id, $ajuste),
+        ])->render();
 
         expect($html)
             ->toContain('Contó')
@@ -112,6 +130,7 @@ describe('la transferencia', function () {
 
         $html = view('pdf.alm.formato-transferencia', [
             'transferencia' => $transferencia->load('detalles'),
+            'firmas' => firmasDe(DocumentoAlm::Transferencia, $transferencia->almacen_origen_id, $transferencia),
         ])->render();
 
         expect($html)

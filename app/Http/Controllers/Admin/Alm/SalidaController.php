@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin\Alm;
 
+use App\Enums\Alm\DocumentoAlm;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\Alm\SalidaStoreRequest;
 use App\Models\Alm\Almacen;
@@ -13,6 +14,7 @@ use App\Models\Costos\Producto;
 use App\Models\Departamento;
 use App\Models\Obra;
 use App\Models\Prod\GrupoTrabajo;
+use App\Services\Alm\FirmasDelFormato;
 use App\Services\Alm\RegistradorSalida;
 use App\Support\HoraLocal;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -180,7 +182,7 @@ class SalidaController extends Controller
      * Una salida cancelada también imprime —su folio existe y alguien puede
      * traer la hoja de vuelta—, pero el formato lo dice de frente.
      */
-    public function pdf(Request $request, Salida $salida): HttpResponse
+    public function pdf(Request $request, Salida $salida, FirmasDelFormato $firmas): HttpResponse
     {
         abort_unless($salida->almacen->esVisiblePara($request->user()), 403);
 
@@ -193,7 +195,10 @@ class SalidaController extends Controller
             'detalles.articulo:id,codigo,descripcion,unidad',
         ]);
 
-        $pdf = Pdf::loadView('pdf.alm.formato-salida', ['salida' => $salida])
+        $pdf = Pdf::loadView('pdf.alm.formato-salida', [
+            'salida' => $salida,
+            'firmas' => $firmas->para(DocumentoAlm::Salida, $salida->almacen_id, $salida),
+        ])
             ->setPaper('letter', 'portrait');
 
         return $pdf->stream("vale-{$salida->folio}.pdf");

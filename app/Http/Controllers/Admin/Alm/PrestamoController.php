@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin\Alm;
 
+use App\Enums\Alm\DocumentoAlm;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\Alm\PrestamoStoreRequest;
 use App\Models\Alm\Almacen;
@@ -12,6 +13,7 @@ use App\Models\Alm\PrestamoDetalle;
 use App\Models\Obra;
 use App\Models\Prod\GrupoTrabajo;
 use App\Models\Usuario;
+use App\Services\Alm\FirmasDelFormato;
 use App\Services\Alm\RegistradorPrestamos;
 use App\Support\HoraLocal;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -201,7 +203,7 @@ class PrestamoController extends Controller
      * El resguardo para firmar: quien se lo lleva responde con su firma por
      * cada renglón.
      */
-    public function pdf(Request $request, Prestamo $prestamo): HttpResponse
+    public function pdf(Request $request, Prestamo $prestamo, FirmasDelFormato $firmas): HttpResponse
     {
         abort_unless($prestamo->almacen->esVisiblePara($request->user()), 403);
 
@@ -216,7 +218,10 @@ class PrestamoController extends Controller
             'detalles.activo:id,no_serie,marca,modelo',
         ]);
 
-        $pdf = Pdf::loadView('pdf.alm.formato-prestamo', ['prestamo' => $prestamo])
+        $pdf = Pdf::loadView('pdf.alm.formato-prestamo', [
+            'prestamo' => $prestamo,
+            'firmas' => $firmas->para(DocumentoAlm::Prestamo, $prestamo->almacen_id, $prestamo),
+        ])
             ->setPaper('letter', 'portrait');
 
         return $pdf->stream("resguardo-{$prestamo->folio}.pdf");

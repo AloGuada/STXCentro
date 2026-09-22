@@ -75,11 +75,7 @@
         </tfoot>
     </table>
 
-    @include('pdf.partials.firmas', ['firmas' => [
-        ['nombre' => null, 'rol' => 'Contó'],
-        ['nombre' => $ajuste->autorizador?->name, 'rol' => 'Autorizó'],
-        ['nombre' => null, 'rol' => 'Jefe de almacén'],
-    ]])
+    @include('pdf.partials.firmas', ['firmas' => $firmas])
 
     <div class="aviso">
         Las cantidades asentadas ya se aplicaron al kardex: este documento es el respaldo de esa aplicación, no una propuesta.

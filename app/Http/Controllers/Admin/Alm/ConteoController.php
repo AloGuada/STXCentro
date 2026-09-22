@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin\Alm;
 
 use App\Enums\Alm\ConteoEstatus;
+use App\Enums\Alm\DocumentoAlm;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\Alm\ConteoCapturaRequest;
 use App\Http\Requests\Admin\Alm\ConteoCierreRequest;
@@ -11,6 +12,7 @@ use App\Models\Alm\Almacen;
 use App\Models\Alm\Conteo;
 use App\Models\Alm\ConteoDetalle;
 use App\Models\Alm\ConteoPrograma;
+use App\Services\Alm\FirmasDelFormato;
 use App\Services\Alm\GeneradorProgramaConteo;
 use App\Services\Alm\RegistradorConteo;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -267,7 +269,7 @@ class ConteoController extends Controller
      * sirve como control justamente porque quien cuenta no sabe cuánto debería
      * haber.
      */
-    public function pdf(Request $request, Conteo $conteo): HttpResponse
+    public function pdf(Request $request, Conteo $conteo, FirmasDelFormato $firmas): HttpResponse
     {
         abort_unless($conteo->almacen->esVisiblePara($request->user()), 403);
 
@@ -279,7 +281,10 @@ class ConteoController extends Controller
             'detalles.existencia.ubicacion',
         ]);
 
-        $pdf = Pdf::loadView('pdf.alm.formato-conteo', ['conteo' => $conteo])
+        $pdf = Pdf::loadView('pdf.alm.formato-conteo', [
+            'conteo' => $conteo,
+            'firmas' => $firmas->para(DocumentoAlm::Conteo, $conteo->almacen_id, $conteo),
+        ])
             ->setPaper('letter', 'portrait');
 
         return $pdf->stream("conteo-{$conteo->folio}.pdf");

@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\Alm\DocumentoAlm;
 use App\Enums\Alm\MovimientoTipo;
 use App\Models\Alm\Almacen;
 use App\Models\Alm\Salida;
@@ -7,6 +8,7 @@ use App\Models\Alm\SalidaDetalle;
 use App\Models\Costos\Producto;
 use App\Models\User;
 use App\Services\Alm\AlmacenLedger;
+use App\Services\Alm\FirmasDelFormato;
 use Spatie\Permission\Models\Permission;
 
 /**
@@ -67,7 +69,10 @@ describe('el vale impreso', function () {
         $salida = salidaImprimible();
         $salida->load(['almacen', 'grupoTrabajo', 'pedido', 'entregador', 'detalles.producto']);
 
-        $html = view('pdf.alm.formato-salida', ['salida' => $salida])->render();
+        $html = view('pdf.alm.formato-salida', [
+            'salida' => $salida,
+            'firmas' => app(FirmasDelFormato::class)->para(DocumentoAlm::Salida, $salida->almacen_id, $salida),
+        ])->render();
         $esperadas = App\Support\Code39::dibujo($salida->folio)['barras'];
 
         expect(substr_count($html, 'background-color: #000000;'))->toBe(count($esperadas));
@@ -77,7 +82,10 @@ describe('el vale impreso', function () {
         $salida = salidaImprimible();
         $salida->load(['almacen', 'grupoTrabajo', 'pedido', 'entregador', 'detalles.producto']);
 
-        $html = view('pdf.alm.formato-salida', ['salida' => $salida])->render();
+        $html = view('pdf.alm.formato-salida', [
+            'salida' => $salida,
+            'firmas' => app(FirmasDelFormato::class)->para(DocumentoAlm::Salida, $salida->almacen_id, $salida),
+        ])->render();
 
         expect($html)
             ->toContain('ART-00013')
@@ -97,7 +105,10 @@ describe('el vale impreso', function () {
         $salida->update(['cancelada_at' => now(), 'motivo_cancelacion' => 'Error de captura']);
         $salida->load(['almacen', 'grupoTrabajo', 'pedido', 'entregador', 'detalles.producto']);
 
-        $html = view('pdf.alm.formato-salida', ['salida' => $salida])->render();
+        $html = view('pdf.alm.formato-salida', [
+            'salida' => $salida,
+            'firmas' => app(FirmasDelFormato::class)->para(DocumentoAlm::Salida, $salida->almacen_id, $salida),
+        ])->render();
 
         expect($html)->toContain('CANCELADA')->toContain('Error de captura');
 
