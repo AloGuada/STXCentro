@@ -16,8 +16,10 @@
             ['nombre' => null, 'rol' => 'Autorizó'],
         ]])
 
-    `nombre` puede venir vacío; `rol` no.
+    `nombre` puede venir vacío; `rol` no. Sin firmas no se pinta nada: un
+    almacén puede haber decidido que ese formato no lleva rayas.
 --}}
+@if ($firmas !== [])
 <table class="firmas-table">
     <tr>
         @foreach ($firmas as $firma)
@@ -30,3 +32,4 @@
         @endforeach
     </tr>
 </table>
+@endif

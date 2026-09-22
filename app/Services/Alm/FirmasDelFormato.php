@@ -3,6 +3,7 @@
 namespace App\Services\Alm;
 
 use App\Enums\Alm\DocumentoAlm;
+use App\Models\Alm\Almacen;
 use App\Models\Alm\FirmaDocumento;
 use Illuminate\Support\Collection;
 
@@ -11,7 +12,8 @@ use Illuminate\Support\Collection;
  *
  * Hasta hoy cada blade traía su lista escrita a mano; ahora sale de lo que se
  * configuró en Almacén > Aprobaciones. El almacén que nadie tocó cae en la
- * plantilla del enum, que dice los mismos rótulos que decían esos blades.
+ * plantilla del enum, que dice los mismos rótulos que decían esos blades; el
+ * que ya se configuró imprime lo suyo, aunque haya dejado un documento sin rayas.
  *
  * Sobre la raya va lo que se haya elegido: los usuarios, o el nombre escrito a
  * mano. Nada se adivina del documento: si no se configuró, la raya va vacía y
@@ -26,16 +28,18 @@ class FirmasDelFormato
      */
     public function para(DocumentoAlm $tipo, ?int $almacenId): array
     {
-        $configuradas = $almacenId === null ? collect() : $this->configuradas($tipo, $almacenId);
+        // La plantilla es sólo para el almacén que nadie ha configurado. El
+        // configurado imprime lo suyo, aunque lo suyo sea ninguna raya.
+        $almacen = $almacenId === null ? null : Almacen::query()->find($almacenId, ['id', 'firmas_configuradas_at']);
 
-        if ($configuradas->isEmpty()) {
+        if ($almacen?->firmas_configuradas_at === null) {
             return array_map(fn (array $firma): array => [
                 'nombre' => $firma['nombre'],
                 'rol' => $firma['rotulo'],
             ], $tipo->firmasPorDefecto());
         }
 
-        return $configuradas
+        return $this->configuradas($tipo, $almacen->id)
             ->map(fn (FirmaDocumento $firma): array => [
                 'nombre' => $this->deLosUsuarios($firma) ?? $firma->nombre,
                 'rol' => $firma->rotulo,
