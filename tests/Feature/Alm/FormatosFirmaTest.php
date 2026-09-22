@@ -25,9 +25,9 @@ use Spatie\Permission\Models\Permission;
  * tests pasan por el mismo servicio que usa el controlador, así que también
  * comprueban que esa plantilla siga diciendo lo que la hoja necesita.
  */
-function firmasDe(DocumentoAlm $tipo, ?int $almacenId, $documento): array
+function firmasDe(DocumentoAlm $tipo, ?int $almacenId): array
 {
-    return app(FirmasDelFormato::class)->para($tipo, $almacenId, $documento);
+    return app(FirmasDelFormato::class)->para($tipo, $almacenId);
 }
 
 function usuarioQuePuede(string $permiso): User
@@ -61,7 +61,7 @@ describe('el pedido', function () {
 
         $html = view('pdf.alm.formato-pedido', [
             'pedido' => $pedido->load('detalles'),
-            'firmas' => firmasDe(DocumentoAlm::Pedido, $pedido->almacen_id, $pedido),
+            'firmas' => firmasDe(DocumentoAlm::Pedido, $pedido->almacen_id),
         ])->render();
 
         expect($html)
@@ -97,7 +97,7 @@ describe('el ajuste', function () {
 
         $html = view('pdf.alm.formato-ajuste', [
             'ajuste' => $ajuste->load('detalles'),
-            'firmas' => firmasDe(DocumentoAlm::Ajuste, $ajuste->almacen_id, $ajuste),
+            'firmas' => firmasDe(DocumentoAlm::Ajuste, $ajuste->almacen_id),
         ])->render();
 
         expect($html)
@@ -130,7 +130,7 @@ describe('la transferencia', function () {
 
         $html = view('pdf.alm.formato-transferencia', [
             'transferencia' => $transferencia->load('detalles'),
-            'firmas' => firmasDe(DocumentoAlm::Transferencia, $transferencia->almacen_origen_id, $transferencia),
+            'firmas' => firmasDe(DocumentoAlm::Transferencia, $transferencia->almacen_origen_id),
         ])->render();
 
         expect($html)

@@ -71,7 +71,7 @@ describe('el vale impreso', function () {
 
         $html = view('pdf.alm.formato-salida', [
             'salida' => $salida,
-            'firmas' => app(FirmasDelFormato::class)->para(DocumentoAlm::Salida, $salida->almacen_id, $salida),
+            'firmas' => app(FirmasDelFormato::class)->para(DocumentoAlm::Salida, $salida->almacen_id),
         ])->render();
         $esperadas = App\Support\Code39::dibujo($salida->folio)['barras'];
 
@@ -84,7 +84,7 @@ describe('el vale impreso', function () {
 
         $html = view('pdf.alm.formato-salida', [
             'salida' => $salida,
-            'firmas' => app(FirmasDelFormato::class)->para(DocumentoAlm::Salida, $salida->almacen_id, $salida),
+            'firmas' => app(FirmasDelFormato::class)->para(DocumentoAlm::Salida, $salida->almacen_id),
         ])->render();
 
         expect($html)
@@ -107,7 +107,7 @@ describe('el vale impreso', function () {
 
         $html = view('pdf.alm.formato-salida', [
             'salida' => $salida,
-            'firmas' => app(FirmasDelFormato::class)->para(DocumentoAlm::Salida, $salida->almacen_id, $salida),
+            'firmas' => app(FirmasDelFormato::class)->para(DocumentoAlm::Salida, $salida->almacen_id),
         ])->render();
 
         expect($html)->toContain('CANCELADA')->toContain('Error de captura');

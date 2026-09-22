@@ -262,7 +262,7 @@ class AjusteController extends Controller
 
         $pdf = Pdf::loadView('pdf.alm.formato-ajuste', [
             'ajuste' => $ajuste,
-            'firmas' => $firmas->para(DocumentoAlm::Ajuste, $ajuste->almacen_id, $ajuste),
+            'firmas' => $firmas->para(DocumentoAlm::Ajuste, $ajuste->almacen_id),
         ])
             ->setPaper('letter', 'portrait');
 

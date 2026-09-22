@@ -367,7 +367,7 @@ class TransferenciaController extends Controller
 
         $pdf = Pdf::loadView('pdf.alm.formato-transferencia', [
             'transferencia' => $transferencia,
-            'firmas' => $firmas->para(DocumentoAlm::Transferencia, $transferencia->almacen_origen_id, $transferencia),
+            'firmas' => $firmas->para(DocumentoAlm::Transferencia, $transferencia->almacen_origen_id),
         ])
             ->setPaper('letter', 'portrait');
 

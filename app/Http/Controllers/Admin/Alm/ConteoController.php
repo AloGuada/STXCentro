@@ -283,7 +283,7 @@ class ConteoController extends Controller
 
         $pdf = Pdf::loadView('pdf.alm.formato-conteo', [
             'conteo' => $conteo,
-            'firmas' => $firmas->para(DocumentoAlm::Conteo, $conteo->almacen_id, $conteo),
+            'firmas' => $firmas->para(DocumentoAlm::Conteo, $conteo->almacen_id),
         ])
             ->setPaper('letter', 'portrait');
 

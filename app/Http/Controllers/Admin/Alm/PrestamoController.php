@@ -220,7 +220,7 @@ class PrestamoController extends Controller
 
         $pdf = Pdf::loadView('pdf.alm.formato-prestamo', [
             'prestamo' => $prestamo,
-            'firmas' => $firmas->para(DocumentoAlm::Prestamo, $prestamo->almacen_id, $prestamo),
+            'firmas' => $firmas->para(DocumentoAlm::Prestamo, $prestamo->almacen_id),
         ])
             ->setPaper('letter', 'portrait');
 

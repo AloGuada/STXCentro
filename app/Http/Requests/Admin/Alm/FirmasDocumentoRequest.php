@@ -23,7 +23,7 @@ class FirmasDocumentoRequest extends FormRequest
             'documentos.*.documento' => ['required', Rule::enum(DocumentoAlm::class)],
             'documentos.*.firmas' => ['present', 'array', 'max:6'],
             'documentos.*.firmas.*.rotulo' => ['required', 'string', 'max:60'],
-            'documentos.*.firmas.*.fuente' => ['nullable', 'string', 'max:30'],
+            'documentos.*.firmas.*.nombre' => ['nullable', 'string', 'max:60'],
             'documentos.*.firmas.*.usuarios' => ['present', 'array', 'max:5'],
             'documentos.*.firmas.*.usuarios.*' => ['uuid', Rule::exists('usuarios', 'id')],
         ];
@@ -39,34 +39,7 @@ class FirmasDocumentoRequest extends FormRequest
             'documentos.*.firmas.*.rotulo.required' => 'Cada raya necesita decir de qué es la firma.',
             'documentos.*.firmas.*.rotulo.max' => 'El rótulo de la firma no puede pasar de 60 caracteres.',
             'documentos.*.firmas.*.usuarios.max' => 'Máximo 5 usuarios por firma: más no caben sobre la raya.',
+            'documentos.*.firmas.*.nombre.max' => 'El nombre sobre la raya no puede pasar de 60 caracteres.',
         ];
-    }
-
-    /**
-     * La fuente tiene que ser una de las que ese documento sabe dar. Se valida
-     * aquí y no con una regla suelta porque depende del documento del renglón.
-     */
-    public function withValidator(\Illuminate\Validation\Validator $validator): void
-    {
-        $validator->after(function (\Illuminate\Validation\Validator $validator): void {
-            foreach ((array) $this->input('documentos', []) as $i => $documento) {
-                $tipo = DocumentoAlm::tryFrom((string) ($documento['documento'] ?? ''));
-
-                if ($tipo === null) {
-                    continue;
-                }
-
-                foreach ((array) ($documento['firmas'] ?? []) as $j => $firma) {
-                    $fuente = $firma['fuente'] ?? null;
-
-                    if ($fuente !== null && ! array_key_exists($fuente, $tipo->fuentes())) {
-                        $validator->errors()->add(
-                            "documentos.{$i}.firmas.{$j}.fuente",
-                            "El {$tipo->etiqueta()} no sabe quién es «{$fuente}».",
-                        );
-                    }
-                }
-            }
-        });
     }
 }

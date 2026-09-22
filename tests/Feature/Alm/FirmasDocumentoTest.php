@@ -44,7 +44,7 @@ describe('la pantalla', function () {
                 ->has('documentos', 8)
                 ->where('documentos.0.valor', 'pedido')
                 ->where('documentos.0.porDefecto.0.rotulo', 'Solicitó')
-                ->where('documentos.0.porDefecto.0.fuente', 'solicitante'));
+                ->where('documentos.0.porDefecto.0.nombre', null));
     });
 
     test('quien solo puede ver no recibe el permiso de configurar', function () {
@@ -74,8 +74,8 @@ describe('guardar', function () {
                 'documentos' => [[
                     'documento' => 'salida',
                     'firmas' => [
-                        ['rotulo' => 'Entregó', 'fuente' => 'entregador', 'usuarios' => []],
-                        ['rotulo' => 'Visto bueno', 'fuente' => null, 'usuarios' => [$usuario->id]],
+                        ['rotulo' => 'Entregó', 'nombre' => 'J. Briones', 'usuarios' => []],
+                        ['rotulo' => 'Visto bueno', 'nombre' => null, 'usuarios' => [$usuario->id]],
                     ],
                 ]],
             ])
@@ -86,7 +86,7 @@ describe('guardar', function () {
         expect($firmas)->toHaveCount(2)
             ->and($firmas[0]->rotulo)->toBe('Entregó')
             ->and($firmas[0]->orden)->toBe(1)
-            ->and($firmas[0]->fuente)->toBe('entregador')
+            ->and($firmas[0]->nombre)->toBe('J. Briones')
             ->and($firmas[1]->orden)->toBe(2)
             ->and($firmas[1]->usuarios->pluck('id')->all())->toBe([$usuario->id]);
     });
@@ -104,22 +104,6 @@ describe('guardar', function () {
         expect(FirmaDocumento::query()->where('almacen_id', $almacen->id)->count())->toBe(0);
     });
 
-    test('no guarda una fuente que ese documento no sabe dar', function () {
-        $almacen = Almacen::factory()->create();
-
-        $this->actingAs(usuarioDeFirmas(['alm.aprobaciones.ver', 'alm.aprobaciones.configurar']))
-            ->put(route('admin.alm.aprobaciones.update', $almacen), [
-                'documentos' => [[
-                    'documento' => 'ajuste',
-                    // `enviador` es de la transferencia, no del ajuste.
-                    'firmas' => [['rotulo' => 'Despachó', 'fuente' => 'enviador', 'usuarios' => []]],
-                ]],
-            ])
-            ->assertSessionHasErrors('documentos.0.firmas.0.fuente');
-
-        expect(FirmaDocumento::query()->count())->toBe(0);
-    });
-
     test('un formato no lleva mas de seis firmas', function () {
         $almacen = Almacen::factory()->create();
 
@@ -127,7 +111,7 @@ describe('guardar', function () {
             ->put(route('admin.alm.aprobaciones.update', $almacen), [
                 'documentos' => [[
                     'documento' => 'salida',
-                    'firmas' => array_fill(0, 7, ['rotulo' => 'Firma', 'fuente' => null, 'usuarios' => []]),
+                    'firmas' => array_fill(0, 7, ['rotulo' => 'Firma', 'nombre' => null, 'usuarios' => []]),
                 ]],
             ])
             ->assertSessionHasErrors('documentos.0.firmas');
@@ -141,7 +125,7 @@ describe('guardar', function () {
         $this->actingAs(usuarioDeFirmas(['alm.aprobaciones.ver', 'alm.aprobaciones.configurar']))
             ->put(route('admin.alm.aprobaciones.update', $general), [
                 'documentos' => [['documento' => 'salida', 'firmas' => [
-                    ['rotulo' => 'Jefe de almacén', 'fuente' => null, 'usuarios' => []],
+                    ['rotulo' => 'Jefe de almacén', 'nombre' => null, 'usuarios' => []],
                 ]]],
             ]);
 
@@ -153,14 +137,14 @@ describe('lo que sale en la hoja', function () {
     test('un almacen sin configurar imprime la plantilla de siempre', function () {
         $salida = Salida::factory()->create(['almacen_id' => Almacen::factory()]);
 
-        $firmas = app(FirmasDelFormato::class)->para(DocumentoAlm::Salida, $salida->almacen_id, $salida);
+        $firmas = app(FirmasDelFormato::class)->para(DocumentoAlm::Salida, $salida->almacen_id);
 
         expect($firmas)->toHaveCount(2)
             ->and($firmas[0]['rol'])->toBe('Entregó - Almacén')
             ->and($firmas[1]['rol'])->toBe('Recibió de conformidad');
     });
 
-    test('la raya sin usuarios ni fuente va en blanco', function () {
+    test('la raya sin usuarios ni nombre va en blanco', function () {
         $salida = Salida::factory()->create(['almacen_id' => Almacen::factory()]);
         FirmaDocumento::factory()->create([
             'almacen_id' => $salida->almacen_id,
@@ -169,35 +153,28 @@ describe('lo que sale en la hoja', function () {
             'rotulo' => 'Jefe de almacén',
         ]);
 
-        $firmas = app(FirmasDelFormato::class)->para(DocumentoAlm::Salida, $salida->almacen_id, $salida);
+        $firmas = app(FirmasDelFormato::class)->para(DocumentoAlm::Salida, $salida->almacen_id);
 
         expect($firmas)->toBe([['nombre' => null, 'rol' => 'Jefe de almacén']]);
     });
 
-    test('la fuente imprime el nombre que el documento ya sabe', function () {
-        $entregador = User::factory()->create(['name' => 'M. Rangel']);
-        $salida = Salida::factory()->create([
-            'almacen_id' => Almacen::factory(),
-            'entregado_por' => $entregador->id,
-        ]);
-        FirmaDocumento::factory()->deFuente('entregador')->create([
+    test('el nombre escrito se imprime sobre la raya', function () {
+        $salida = Salida::factory()->create(['almacen_id' => Almacen::factory()]);
+        FirmaDocumento::factory()->conNombre('M. Rangel')->create([
             'almacen_id' => $salida->almacen_id,
             'documento' => DocumentoAlm::Salida,
             'orden' => 1,
             'rotulo' => 'Entregó',
         ]);
 
-        $firmas = app(FirmasDelFormato::class)->para(DocumentoAlm::Salida, $salida->almacen_id, $salida);
+        $firmas = app(FirmasDelFormato::class)->para(DocumentoAlm::Salida, $salida->almacen_id);
 
         expect($firmas[0]['nombre'])->toBe('M. Rangel');
     });
 
-    test('los usuarios elegidos ganan sobre la fuente y se imprimen juntos', function () {
-        $salida = Salida::factory()->create([
-            'almacen_id' => Almacen::factory(),
-            'entregado_por' => User::factory()->create(['name' => 'M. Rangel'])->id,
-        ]);
-        $firma = FirmaDocumento::factory()->deFuente('entregador')->create([
+    test('los usuarios elegidos ganan sobre el nombre escrito y se imprimen juntos', function () {
+        $salida = Salida::factory()->create(['almacen_id' => Almacen::factory()]);
+        $firma = FirmaDocumento::factory()->conNombre('M. Rangel')->create([
             'almacen_id' => $salida->almacen_id,
             'documento' => DocumentoAlm::Salida,
             'orden' => 1,
@@ -208,7 +185,7 @@ describe('lo que sale en la hoja', function () {
             User::factory()->create(['name' => 'L. Ortega'])->id,
         ]);
 
-        $firmas = app(FirmasDelFormato::class)->para(DocumentoAlm::Salida, $salida->almacen_id, $salida);
+        $firmas = app(FirmasDelFormato::class)->para(DocumentoAlm::Salida, $salida->almacen_id);
 
         expect($firmas[0]['nombre'])->toContain('J. Briones')
             ->and($firmas[0]['nombre'])->toContain('L. Ortega')
@@ -227,7 +204,7 @@ describe('lo que sale en la hoja', function () {
 
         $html = view('pdf.alm.formato-salida', [
             'salida' => $salida->load('detalles'),
-            'firmas' => app(FirmasDelFormato::class)->para(DocumentoAlm::Salida, $salida->almacen_id, $salida),
+            'firmas' => app(FirmasDelFormato::class)->para(DocumentoAlm::Salida, $salida->almacen_id),
         ])->render();
 
         expect($html)->toContain('Residente de obra')

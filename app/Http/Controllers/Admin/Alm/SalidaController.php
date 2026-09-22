@@ -197,7 +197,7 @@ class SalidaController extends Controller
 
         $pdf = Pdf::loadView('pdf.alm.formato-salida', [
             'salida' => $salida,
-            'firmas' => $firmas->para(DocumentoAlm::Salida, $salida->almacen_id, $salida),
+            'firmas' => $firmas->para(DocumentoAlm::Salida, $salida->almacen_id),
         ])
             ->setPaper('letter', 'portrait');
 

@@ -24,14 +24,14 @@ class FirmaDocumentoFactory extends Factory
             'documento' => DocumentoAlm::Salida,
             'orden' => 1,
             'rotulo' => fake()->randomElement(['Entregó', 'Recibió', 'Autorizó', 'Revisó']),
-            'fuente' => null,
+            'nombre' => null,
         ];
     }
 
-    /** Un renglón que imprime el nombre que el documento ya sabe. */
-    public function deFuente(string $fuente): static
+    /** Un renglón que ya trae escrito el nombre que va sobre la raya. */
+    public function conNombre(string $nombre): static
     {
-        return $this->state(fn (): array => ['fuente' => $fuente]);
+        return $this->state(fn (): array => ['nombre' => $nombre]);
     }
 
     public function deDocumento(DocumentoAlm $documento, int $orden = 1): static

@@ -4,7 +4,6 @@ namespace App\Services\Alm;
 
 use App\Enums\Alm\DocumentoAlm;
 use App\Models\Alm\FirmaDocumento;
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
 
 /**
@@ -12,8 +11,11 @@ use Illuminate\Support\Collection;
  *
  * Hasta hoy cada blade traía su lista escrita a mano; ahora sale de lo que se
  * configuró en Almacén > Aprobaciones. El almacén que nadie tocó cae en la
- * plantilla del enum, que es exactamente lo que decían esos blades, así que un
- * módulo sin configurar imprime igual que antes.
+ * plantilla del enum, que dice los mismos rótulos que decían esos blades.
+ *
+ * Sobre la raya va lo que se haya elegido: los usuarios, o el nombre escrito a
+ * mano. Nada se adivina del documento: si no se configuró, la raya va vacía y
+ * se llena al firmar.
  */
 class FirmasDelFormato
 {
@@ -22,20 +24,20 @@ class FirmasDelFormato
      *
      * @return list<array{nombre: string|null, rol: string}>
      */
-    public function para(DocumentoAlm $tipo, ?int $almacenId, ?Model $documento = null): array
+    public function para(DocumentoAlm $tipo, ?int $almacenId): array
     {
         $configuradas = $almacenId === null ? collect() : $this->configuradas($tipo, $almacenId);
 
         if ($configuradas->isEmpty()) {
             return array_map(fn (array $firma): array => [
-                'nombre' => $this->nombreConocido($documento, $firma['fuente']),
+                'nombre' => $firma['nombre'],
                 'rol' => $firma['rotulo'],
             ], $tipo->firmasPorDefecto());
         }
 
         return $configuradas
             ->map(fn (FirmaDocumento $firma): array => [
-                'nombre' => $this->deLosUsuarios($firma) ?? $this->nombreConocido($documento, $firma->fuente),
+                'nombre' => $this->deLosUsuarios($firma) ?? $firma->nombre,
                 'rol' => $firma->rotulo,
             ])
             ->values()
@@ -64,25 +66,5 @@ class FirmasDelFormato
         $nombres = $firma->usuarios->pluck('name')->filter();
 
         return $nombres->isEmpty() ? null : $nombres->implode(' / ');
-    }
-
-    /**
-     * El nombre que el documento ya sabe. La fuente puede ser una relación
-     * —`$salida->entregador`— o una columna suelta —`$salida->recibe_nombre`—,
-     * así que se resuelve por lo que devuelva.
-     */
-    private function nombreConocido(?Model $documento, ?string $fuente): ?string
-    {
-        if ($documento === null || $fuente === null) {
-            return null;
-        }
-
-        $valor = $documento->{$fuente} ?? null;
-
-        if ($valor instanceof Model) {
-            return $valor->name;
-        }
-
-        return is_string($valor) && trim($valor) !== '' ? $valor : null;
     }
 }

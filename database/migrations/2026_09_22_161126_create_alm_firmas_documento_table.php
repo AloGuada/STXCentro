@@ -21,9 +21,9 @@ return new class extends Migration
             $table->string('documento', 20);
             $table->unsignedTinyInteger('orden');
             $table->string('rotulo', 60);
-            // Atributo o relación del documento de donde sale el nombre que se
-            // imprime arriba de la raya. Nulo = la raya va siempre en blanco.
-            $table->string('fuente', 30)->nullable();
+            // El nombre que se imprime arriba de la raya cuando no hay usuarios
+            // elegidos. Nulo = la raya va en blanco para llenarse a mano.
+            $table->string('nombre', 60)->nullable();
             $table->timestamps();
 
             $table->unique(['almacen_id', 'documento', 'orden']);

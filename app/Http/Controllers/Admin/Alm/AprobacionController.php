@@ -37,7 +37,6 @@ class AprobacionController extends Controller
                 'etiqueta' => $tipo->etiqueta(),
                 'ayuda' => $tipo->ayuda(),
                 'tieneFormato' => $tipo->tieneFormato(),
-                'fuentes' => $tipo->fuentes(),
                 'porDefecto' => $tipo->firmasPorDefecto(),
             ], DocumentoAlm::cases()),
             'configuradas' => $this->configuradas(),
@@ -62,7 +61,7 @@ class AprobacionController extends Controller
                         'documento' => $documento['documento'],
                         'orden' => $orden + 1,
                         'rotulo' => trim((string) $firma['rotulo']),
-                        'fuente' => $firma['fuente'] ?? null,
+                        'nombre' => trim((string) ($firma['nombre'] ?? '')) ?: null,
                     ]);
 
                     $renglon->usuarios()->sync($firma['usuarios'] ?? []);
@@ -77,7 +76,7 @@ class AprobacionController extends Controller
      * Lo configurado, agrupado como lo pide la pantalla: almacén → documento →
      * sus renglones en orden.
      *
-     * @return array<int, array<string, list<array{rotulo: string, fuente: string|null, usuarios: list<string>}>>>
+     * @return array<int, array<string, list<array{rotulo: string, nombre: string|null, usuarios: list<string>}>>>
      */
     private function configuradas(): array
     {
@@ -91,7 +90,7 @@ class AprobacionController extends Controller
                 ->map(fn ($delDocumento) => $delDocumento
                     ->map(fn (FirmaDocumento $firma): array => [
                         'rotulo' => $firma->rotulo,
-                        'fuente' => $firma->fuente,
+                        'nombre' => $firma->nombre,
                         'usuarios' => $firma->usuarios->pluck('id')->all(),
                     ])
                     ->values()

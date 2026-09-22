@@ -288,7 +288,7 @@ class PedidoController extends Controller
 
         $pdf = Pdf::loadView('pdf.alm.formato-pedido', [
             'pedido' => $pedido,
-            'firmas' => $firmas->para(DocumentoAlm::Pedido, $pedido->almacen_id, $pedido),
+            'firmas' => $firmas->para(DocumentoAlm::Pedido, $pedido->almacen_id),
         ])
             ->setPaper('letter', 'portrait');
 

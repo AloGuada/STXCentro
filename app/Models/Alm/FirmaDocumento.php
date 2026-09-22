@@ -13,9 +13,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
  * Una raya de firma del formato impreso de un documento de Almacén.
  *
  * El renglón siempre tiene rótulo. Arriba de la raya se imprime, en este
- * orden: los usuarios elegidos a mano, si los hay; si no, el nombre que el
- * propio documento ya sabe (`fuente`); y si tampoco, nada, para firmarse a
- * mano.
+ * orden: los usuarios elegidos, si los hay; si no, el `nombre` escrito a mano;
+ * y si tampoco, nada, para firmarse sobre la hoja.
  *
  * @use HasFactory<\Database\Factories\Alm\FirmaDocumentoFactory>
  */
@@ -33,7 +32,7 @@ class FirmaDocumento extends Model
         'documento',
         'orden',
         'rotulo',
-        'fuente',
+        'nombre',
     ];
 
     /**
@@ -56,8 +55,8 @@ class FirmaDocumento extends Model
     }
 
     /**
-     * Los usuarios que pueden firmar este renglón. Sin ninguno, la raya se
-     * resuelve por `fuente` o se queda en blanco.
+     * Los usuarios que pueden firmar este renglón. Sin ninguno, la raya cae
+     * en el `nombre` escrito, o se queda en blanco.
      *
      * @return BelongsToMany<Usuario, $this>
      */

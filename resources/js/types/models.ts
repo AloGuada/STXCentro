@@ -3951,13 +3951,13 @@ export type AlmGrupoTrabajoDemo = {
 };
 
 /**
- * Una raya de firma del formato impreso. El nombre que va arriba sale de los
- * usuarios elegidos; si no hay, del dato que el documento ya sabe (`fuente`);
- * y si tampoco, la raya va en blanco para llenarse a mano.
+ * Una raya de firma del formato impreso. Arriba se imprime el nombre de los
+ * usuarios elegidos; si no hay ninguno, el `nombre` escrito a mano; y si
+ * tampoco, la raya va en blanco para llenarse al firmar.
  */
 export type AlmFirmaDocumento = {
     rotulo: string;
-    fuente: string | null;
+    nombre: string | null;
     /** Basta con que firme uno de ellos. */
     usuarios: string[];
 };
@@ -3969,9 +3969,7 @@ export type AlmDocumentoFirmable = {
     ayuda: string | null;
     /** Entrada y devolución todavía no imprimen nada. */
     tieneFormato: boolean;
-    /** Nombres que el documento ya sabe: llave del dato → cómo se lee. */
-    fuentes: Record<string, string>;
-    porDefecto: { rotulo: string; fuente: string | null }[];
+    porDefecto: { rotulo: string; nombre: string | null }[];
 };
 
 /**

@@ -54,69 +54,49 @@ enum DocumentoAlm: string
     }
 
     /**
-     * Los nombres que el documento ya sabe, para imprimirlos arriba de la raya
-     * en vez de dejarla en blanco. La llave es el atributo o la relación del
-     * modelo; el valor, cómo se lee en la pantalla.
+     * Con qué arranca un almacén que nunca se configuró: los rótulos que hasta
+     * hoy venían escritos a mano en cada formato, con la raya en blanco.
      *
-     * @return array<string, string>
-     */
-    public function fuentes(): array
-    {
-        return match ($this) {
-            self::Pedido => ['solicitante' => 'Quien lo pidió', 'aprobador' => 'Quien lo autorizó'],
-            self::Salida => ['entregador' => 'Quien entregó', 'recibe_nombre' => 'Quien recibió'],
-            self::Transferencia => ['autorizador' => 'Quien autorizó', 'enviador' => 'Quien despachó', 'receptor' => 'Quien recibió'],
-            self::Ajuste => ['autorizador' => 'Quien autorizó'],
-            self::Prestamo => ['creador' => 'Quien entregó', 'responsable' => 'Quien lo resguarda', 'autorizador' => 'Quien autorizó'],
-            self::Conteo => ['responsable' => 'Quien contó'],
-            self::Entrada, self::Devolucion => [],
-        };
-    }
-
-    /**
-     * Con qué arranca un almacén que nunca se configuró. Es lo que hasta hoy
-     * venía escrito a mano en cada formato.
-     *
-     * @return list<array{rotulo: string, fuente: string|null}>
+     * @return list<array{rotulo: string, nombre: string|null}>
      */
     public function firmasPorDefecto(): array
     {
         return match ($this) {
             self::Pedido => [
-                ['rotulo' => 'Solicitó', 'fuente' => 'solicitante'],
-                ['rotulo' => 'Autorizó', 'fuente' => 'aprobador'],
-                ['rotulo' => 'Surtió - Almacén', 'fuente' => null],
+                ['rotulo' => 'Solicitó', 'nombre' => null],
+                ['rotulo' => 'Autorizó', 'nombre' => null],
+                ['rotulo' => 'Surtió - Almacén', 'nombre' => null],
             ],
             self::Salida => [
-                ['rotulo' => 'Entregó - Almacén', 'fuente' => 'entregador'],
-                ['rotulo' => 'Recibió de conformidad', 'fuente' => 'recibe_nombre'],
+                ['rotulo' => 'Entregó - Almacén', 'nombre' => null],
+                ['rotulo' => 'Recibió de conformidad', 'nombre' => null],
             ],
             self::Transferencia => [
-                ['rotulo' => 'Autorizó', 'fuente' => 'autorizador'],
-                ['rotulo' => 'Despachó - Origen', 'fuente' => 'enviador'],
-                ['rotulo' => 'Recibió - Destino', 'fuente' => 'receptor'],
+                ['rotulo' => 'Autorizó', 'nombre' => null],
+                ['rotulo' => 'Despachó - Origen', 'nombre' => null],
+                ['rotulo' => 'Recibió - Destino', 'nombre' => null],
             ],
             self::Ajuste => [
-                ['rotulo' => 'Contó', 'fuente' => null],
-                ['rotulo' => 'Autorizó', 'fuente' => 'autorizador'],
-                ['rotulo' => 'Jefe de almacén', 'fuente' => null],
+                ['rotulo' => 'Contó', 'nombre' => null],
+                ['rotulo' => 'Autorizó', 'nombre' => null],
+                ['rotulo' => 'Jefe de almacén', 'nombre' => null],
             ],
             self::Prestamo => [
-                ['rotulo' => 'Entregó - Almacén', 'fuente' => 'creador'],
-                ['rotulo' => 'Recibió en resguardo', 'fuente' => 'responsable'],
-                ['rotulo' => 'Autorizó', 'fuente' => 'autorizador'],
+                ['rotulo' => 'Entregó - Almacén', 'nombre' => null],
+                ['rotulo' => 'Recibió en resguardo', 'nombre' => null],
+                ['rotulo' => 'Autorizó', 'nombre' => null],
             ],
             self::Conteo => [
-                ['rotulo' => 'Contó', 'fuente' => 'responsable'],
-                ['rotulo' => 'Revisó', 'fuente' => null],
+                ['rotulo' => 'Contó', 'nombre' => null],
+                ['rotulo' => 'Revisó', 'nombre' => null],
             ],
             self::Entrada => [
-                ['rotulo' => 'Recibió - Almacén', 'fuente' => null],
-                ['rotulo' => 'Revisó', 'fuente' => null],
+                ['rotulo' => 'Recibió - Almacén', 'nombre' => null],
+                ['rotulo' => 'Revisó', 'nombre' => null],
             ],
             self::Devolucion => [
-                ['rotulo' => 'Devolvió', 'fuente' => null],
-                ['rotulo' => 'Recibió - Almacén', 'fuente' => null],
+                ['rotulo' => 'Devolvió', 'nombre' => null],
+                ['rotulo' => 'Recibió - Almacén', 'nombre' => null],
             ],
         };
     }

@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { UsuariosMultiselect } from '@/components/alm/usuarios-multiselect';
 import { FormField } from '@/components/form';
 import { Button } from '@/components/ui/button';
-import { Select, SelectItem } from '@/components/ui/select';
+import { SearchSelect } from '@/components/ui/search-select';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import type { AlmDocumentoFirmable, AlmDocumentoTipo, AlmFirmaDocumento, AlmUsuarioOpcion } from '@/types/models';
@@ -64,13 +64,15 @@ export default function AprobacionesIndex({ almacenes, documentos, configuradas,
 
                 <div className="mb-4 w-full max-w-sm">
                     <FormField label="Almacén" htmlFor="almacen">
-                        <Select id="almacen" value={almacenId} onValueChange={setAlmacenId}>
-                            {almacenes.map((a) => (
-                                <SelectItem key={a.id} value={String(a.id)}>
-                                    {a.clave} — {a.nombre}
-                                </SelectItem>
-                            ))}
-                        </Select>
+                        <SearchSelect
+                            value={almacenId}
+                            onValueChange={(v) => v && setAlmacenId(v)}
+                            placeholder="Busca el almacén..."
+                            options={almacenes.map((a) => ({
+                                value: String(a.id),
+                                label: `${a.clave} — ${a.nombre}`,
+                            }))}
+                        />
                     </FormField>
                     <p className="text-base-content/50 mt-1 text-xs">
                         Las firmas son de cada almacén: quien firma en el general no es quien firma en obra.
@@ -134,7 +136,7 @@ function FormularioDelAlmacen({
         );
 
     const agregar = (documento: AlmDocumentoTipo) =>
-        escribir(documento, [...firmasDe(documento), { rotulo: '', fuente: null, usuarios: [] }]);
+        escribir(documento, [...firmasDe(documento), { rotulo: '', nombre: null, usuarios: [] }]);
 
     const quitar = (documento: AlmDocumentoTipo, indice: number) =>
         escribir(
@@ -194,7 +196,7 @@ function FormularioDelAlmacen({
                                             <tr>
                                                 <th className="w-10">#</th>
                                                 <th className="w-64">Dice</th>
-                                                <th className="w-56">Nombre que ya se sabe</th>
+                                                <th className="w-56">Nombre sobre la raya</th>
                                                 <th>Usuarios fijos</th>
                                                 {puedeConfigurar && <th className="w-12"></th>}
                                             </tr>
@@ -227,28 +229,24 @@ function FormularioDelAlmacen({
                                                         />
                                                     </td>
                                                     <td className="align-top">
-                                                        {Object.keys(doc.fuentes).length === 0 ? (
-                                                            <p className="text-base-content/40 pt-3 text-xs">
-                                                                Este documento no sabe ningún nombre.
-                                                            </p>
-                                                        ) : (
-                                                            <Select
-                                                                className="select-sm"
-                                                                value={firma.fuente ?? ''}
-                                                                disabled={!puedeConfigurar}
-                                                                aria-label={`Nombre conocido de la firma ${i + 1} de ${doc.etiqueta}`}
-                                                                onValueChange={(v) =>
-                                                                    editar(doc.valor, i, { fuente: v === '' ? null : v })
-                                                                }
-                                                            >
-                                                                <SelectItem value="">Ninguno (en blanco)</SelectItem>
-                                                                {Object.entries(doc.fuentes).map(([clave, como]) => (
-                                                                    <SelectItem key={clave} value={clave}>
-                                                                        {como}
-                                                                    </SelectItem>
-                                                                ))}
-                                                            </Select>
-                                                        )}
+                                                        <input
+                                                            type="text"
+                                                            className="input input-sm input-bordered w-full"
+                                                            value={firma.nombre ?? ''}
+                                                            maxLength={60}
+                                                            disabled={!puedeConfigurar || firma.usuarios.length > 0}
+                                                            placeholder={
+                                                                firma.usuarios.length > 0
+                                                                    ? 'Mandan los usuarios elegidos'
+                                                                    : 'En blanco para firmar a mano'
+                                                            }
+                                                            aria-label={`Nombre sobre la raya ${i + 1} de ${doc.etiqueta}`}
+                                                            onChange={(e) =>
+                                                                editar(doc.valor, i, {
+                                                                    nombre: e.target.value || null,
+                                                                })
+                                                            }
+                                                        />
                                                     </td>
                                                     <td className="align-top">
                                                         <UsuariosMultiselect
