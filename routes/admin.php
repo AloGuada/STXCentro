@@ -142,6 +142,7 @@ use App\Http\Controllers\Admin\Qal\DossierArchivoController as QalDossierArchivo
 use App\Http\Controllers\Admin\Qal\DossierDescargaController as QalDossierDescargaController;
 use App\Http\Controllers\Admin\Qal\DossierPlantillaController as QalDossierPlantillaController;
 use App\Http\Controllers\Admin\Qal\EquipoController as QalEquipoController;
+use App\Http\Controllers\Admin\Qal\EspesorOcrController as QalEspesorOcrController;
 use App\Http\Controllers\Admin\Qal\FirmanteController as QalFirmanteController;
 use App\Http\Controllers\Admin\Qal\IncidenciasController as QalIncidenciasController;
 use App\Http\Controllers\Admin\Qal\InspeccionController as QalInspeccionController;
@@ -1193,6 +1194,10 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
                 ->name('inspecciones.reinspeccionar');
             Route::get('piezas/resolver', [QalPiezaController::class, 'resolver'])
                 ->name('piezas.resolver');
+            // Ayuda de captura: lee los espesores de una foto de la pantalla
+            // del calibre. No guarda nada, sólo devuelve los números.
+            Route::post('espesores/ocr', QalEspesorOcrController::class)
+                ->name('espesores.ocr');
         });
         Route::middleware('permission:qal.inspecciones.editar')->group(function () {
             Route::get('inspecciones/{inspeccion}/edit', [QalInspeccionController::class, 'edit'])
