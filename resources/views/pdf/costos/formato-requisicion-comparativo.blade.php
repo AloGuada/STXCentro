@@ -34,6 +34,7 @@
         .legend .swatch.sel { background-color: #cfe2ff; }
         .signatures-table { width: 100%; margin-top: 40px; }
         .signatures-table td { text-align: center; vertical-align: bottom; padding: 0 10px; }
+        .sig-img { height: 50px; margin-bottom: 5px; }
         .sig-placeholder { height: 50px; }
         .sig-name { font-weight: bold; font-size: 10px; border-top: 1px solid #000; padding-top: 5px; }
         .sig-role { font-size: 9px; color: #555; }
@@ -320,8 +321,15 @@
         <tr>
             @foreach($firmas as $firma)
             <td>
-                <div class="sig-placeholder"></div>
-                <div class="sig-name">{{ $firma->aprobada ? $firma->aprobador?->name : 'Pendiente' }}</div>
+                {{-- La firma guardada del aprobador, igual que en la solicitud de
+                     pago. Sin archivo se deja el espacio para firmar a mano. --}}
+                @if($firma->aprobada && $firma->aprobador?->firma_path && file_exists(storage_path('app/public/'.$firma->aprobador->firma_path)))
+                    <img class="sig-img" src="{{ storage_path('app/public/'.$firma->aprobador->firma_path) }}" alt="Firma">
+                @else
+                    <div class="sig-placeholder"></div>
+                @endif
+                {{-- Pendiente: quien puede firmar ese nivel, no un "Pendiente" mudo. --}}
+                <div class="sig-name">{{ $firma->aprobada ? $firma->aprobador?->name : ($firma->candidatos->isNotEmpty() ? $firma->candidatos->implode(' / ') : 'Pendiente') }}</div>
                 <div class="sig-role">{{ $firma->permiso->descripcion }} (Nivel {{ $firma->permiso->nivel }})</div>
                 @if($firma->aprobada && $firma->fecha)
                 <div class="sig-date">{{ $firma->fecha }}</div>
