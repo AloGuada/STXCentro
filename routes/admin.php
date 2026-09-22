@@ -3,6 +3,7 @@
 use App\Http\Controllers\Admin\Alm\ActivoController as AlmActivoController;
 use App\Http\Controllers\Admin\Alm\AjusteController as AlmAjusteController;
 use App\Http\Controllers\Admin\Alm\AlmacenController as AlmAlmacenController;
+use App\Http\Controllers\Admin\Alm\AprobacionController as AlmAprobacionController;
 use App\Http\Controllers\Admin\Alm\AreaController as AlmAreaController;
 use App\Http\Controllers\Admin\Alm\ArticuloController as AlmArticuloController;
 use App\Http\Controllers\Admin\Alm\AsignacionController as AlmAsignacionController;
@@ -575,9 +576,15 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::get('etiquetas', [AlmVistasController::class, 'etiquetas'])
             ->middleware('permission:alm.etiquetas.ver')
             ->name('etiquetas.index');
-        Route::get('aprobaciones', [AlmVistasController::class, 'aprobaciones'])
+        // Qué firmas lleva al pie el formato impreso de cada documento. No es
+        // un flujo de aprobación: nada queda detenido esperando a nadie.
+        Route::get('aprobaciones', [AlmAprobacionController::class, 'index'])
             ->middleware('permission:alm.aprobaciones.ver')
             ->name('aprobaciones.index');
+        Route::put('aprobaciones/{almacen}', [AlmAprobacionController::class, 'update'])
+            ->whereNumber('almacen')
+            ->middleware('permission:alm.aprobaciones.configurar')
+            ->name('aprobaciones.update');
     });
 
     // Infraestructura admin routes

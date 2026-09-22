@@ -15,7 +15,6 @@ import type {
     AlmConteoDemo,
     AlmConteoEstatus,
     AlmDevolucionDemo,
-    AlmDocumentoTipo,
     AlmEntradaDemo,
     AlmExistenciaDemo,
     AlmFacturaDemo,
@@ -34,13 +33,11 @@ import type {
     AlmProveedorDemo,
     AlmRecepcionEstatus,
     AlmReglaAbc,
-    AlmReglaAprobacion,
     AlmSalidaDemo,
     AlmTransferenciaDemo,
     AlmTransferenciaEstatus,
     AlmUbicacionDemo,
     AlmUbicacionTipo,
-    AlmUsuarioDemo,
 } from '@/types/models';
 
 export const ALMACENES_DEMO = [
@@ -731,25 +728,6 @@ export function responsablesConPrestamos(): string[] {
     );
 }
 
-export const USUARIOS_DEMO: AlmUsuarioDemo[] = [
-    { id: 1, nombre: 'J. Briones', puesto: 'Jefe de almacén' },
-    { id: 2, nombre: 'M. Rangel', puesto: 'Almacenista AG' },
-    { id: 3, nombre: 'L. Ortega', puesto: 'Almacenista de obra' },
-    { id: 4, nombre: 'R. Salas', puesto: 'Superintendente' },
-    { id: 5, nombre: 'C. Nava', puesto: 'Gerente de operaciones' },
-    { id: 6, nombre: 'P. Duarte', puesto: 'Contralor' },
-];
-
-export const APROBACIONES_DEMO: AlmReglaAprobacion[] = [
-    { documento: 'pedido', requiere: true, usuarios: [4, 5] },
-    { documento: 'entrada', requiere: false, usuarios: [] },
-    { documento: 'salida', requiere: true, usuarios: [1, 3] },
-    { documento: 'transferencia', requiere: true, usuarios: [1] },
-    { documento: 'devolucion', requiere: false, usuarios: [] },
-    { documento: 'ajuste', requiere: true, usuarios: [1, 5, 6] },
-    { documento: 'prestamo', requiere: true, usuarios: [1] },
-];
-
 export const PEDIDOS_DEMO: AlmPedidoDemo[] = [
     { id: 23, folio: 'PED-2608-0023', fecha: '2026-08-06', solicitante: 'M. Rangel', departamento: 'Montaje', obra: 'T4 — Torre 4', recibe: null, grupo_trabajo: null, almacen: 'AG', fecha_requerida: '2026-08-08', estatus: 'aprobado', detalle: [
         // Surtido a medias: la salida nueva debe traer sólo lo que falta.
@@ -878,28 +856,6 @@ export const UNIDADES_ARTICULO = ['PZA', 'KG', 'LTS', 'MTS', 'PAR', 'CTO', 'SRV'
 export const TIPOS_ARTICULO: Record<AlmProductoTipo, string> = {
     insumo: 'Insumo',
     activo: 'Activo',
-};
-
-/** Cómo se nombra cada documento en la pantalla de aprobaciones. */
-export const DOCUMENTOS_ALM: Record<AlmDocumentoTipo, string> = {
-    pedido: 'Pedido',
-    entrada: 'Entrada',
-    salida: 'Salida',
-    transferencia: 'Transferencia',
-    devolucion: 'Devolución',
-    ajuste: 'Ajuste',
-    prestamo: 'Préstamo',
-};
-
-/**
- * Qué se está pidiendo con la firma de cada documento. El préstamo es el caso
- * raro: quien se lleva la pieza siempre firma el resguardo (eso es el impreso),
- * y esta firma es aparte — la de alguien que autoriza que salga.
- */
-export const AYUDA_DOCUMENTO: Partial<Record<AlmDocumentoTipo, string>> = {
-    ajuste: 'El único movimiento que cambia la existencia sin un documento que lo respalde.',
-    prestamo: 'Aparte del resguardo que firma quien se la lleva: esto es quién autoriza que salga del almacén.',
-    devolucion: 'Cierra el resguardo de una pieza. No mueve existencia, pero deja constancia de cómo volvió.',
 };
 
 /** Color del badge de estatus de pedido. */

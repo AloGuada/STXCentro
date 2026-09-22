@@ -74,11 +74,7 @@
         </tfoot>
     </table>
 
-    @include('pdf.partials.firmas', ['firmas' => [
-        ['nombre' => $prestamo->creador?->name, 'rol' => 'Entregó - Almacén'],
-        ['nombre' => $prestamo->responsable?->name, 'rol' => 'Recibió en resguardo'],
-        ['nombre' => $prestamo->autorizador?->name, 'rol' => 'Autorizó'],
-    ]])
+    @include('pdf.partials.firmas', ['firmas' => $firmas])
 
     <div class="aviso">
         Lo aquí listado sigue siendo del almacén y queda bajo resguardo de quien firma como responsable, quien responde por su

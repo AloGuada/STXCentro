@@ -68,10 +68,7 @@
         </tfoot>
     </table>
 
-    @include('pdf.partials.firmas', ['firmas' => [
-        ['nombre' => $conteo->responsable?->name, 'rol' => 'Contó'],
-        ['nombre' => null, 'rol' => 'Revisó'],
-    ]])
+    @include('pdf.partials.firmas', ['firmas' => $firmas])
 
     <div class="aviso">
         Anota lo que encontraste, no lo que debería haber. La hoja no trae el saldo del sistema a propósito:

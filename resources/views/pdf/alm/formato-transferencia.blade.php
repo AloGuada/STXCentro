@@ -84,11 +84,7 @@
         </tfoot>
     </table>
 
-    @include('pdf.partials.firmas', ['firmas' => [
-        ['nombre' => $transferencia->autorizador?->name, 'rol' => 'Autorizó'],
-        ['nombre' => $transferencia->enviador?->name, 'rol' => 'Despachó - Origen'],
-        ['nombre' => $transferencia->receptor?->name, 'rol' => 'Recibió - Destino'],
-    ]])
+    @include('pdf.partials.firmas', ['firmas' => $firmas])
 
     <div class="aviso">
         Quien firma de recibido responde por el material a partir de ese momento. Las diferencias contra lo enviado deben

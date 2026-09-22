@@ -51,11 +51,27 @@ class EntradaController extends Controller
 
         $entradas = Entrega::query()
             ->whereIn('almacen_id', $visibles)
-            ->with(['almacen:id,clave', 'ordenCompra:id,folio,proveedor_id', 'ordenCompra.proveedor:id,razon_social,nombre_comercial', 'recibidor:id,name'])
+            ->with([
+                'almacen:id,clave',
+                'ordenCompra:id,folio,proveedor_id',
+                'ordenCompra.proveedor:id,razon_social,nombre_comercial',
+                'recibidor:id,name',
+                'factura:id,folio,folio_fiscal',
+            ])
             ->withCount('detalles')
             ->when(! $request->boolean('ver_canceladas'), fn ($q) => $q->activa())
             ->when($request->integer('almacen_id') ?: null, fn ($q, int $id) => $q->where('almacen_id', $id))
-            ->when($request->string('search')->trim()->value(), fn ($q, string $s) => $q->whereLike('folio', "%{$s}%"))
+            // La factura llega con el material, así que buscarla por su folio
+            // es buscar la entrada: el mismo cuadro sirve para las dos.
+            ->when($request->string('search')->trim()->value(), fn ($q, string $s) => $q->where(
+                fn ($q) => $q->whereLike('folio', "%{$s}%")
+                    ->orWhereHas('factura', fn ($f) => $f->whereLike('folio', "%{$s}%")
+                        ->orWhereLike('folio_fiscal', "%{$s}%")
+                        ->orWhereLike('uuid_fiscal', "%{$s}%")),
+            ))
+            ->when($request->string('factura')->value(), fn ($q, string $con) => $con === 'sin'
+                ? $q->whereNull('factura_id')
+                : $q->whereNotNull('factura_id'))
             ->latest('fecha_entrega')
             ->latest('id')
             ->paginate(20)
@@ -71,12 +87,14 @@ class EntradaController extends Controller
                 'renglones' => $e->detalles_count,
                 'importe' => $e->importeRecibido(),
                 'recibio' => $e->recibidor?->name,
+                'factura_id' => $e->factura_id,
+                'factura_folio' => $e->factura?->folio_fiscal ?: $e->factura?->folio,
                 'cancelada' => $e->estaCancelada(),
             ]);
 
         return Inertia::render('admin/almacen/entradas/index', [
             'entradas' => $entradas,
-            'filters' => $request->only(['almacen_id', 'search', 'ver_canceladas']),
+            'filters' => $request->only(['almacen_id', 'search', 'ver_canceladas', 'factura']),
             'almacenes' => $this->almacenes($request),
             // El listado sólo anuncia cuántas órdenes esperan material; elegir
             // una es cosa de la pantalla de captura, así que aquí basta el

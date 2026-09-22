@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin\Alm;
 
+use App\Enums\Alm\DocumentoAlm;
 use App\Enums\Alm\PedidoEstatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\Alm\PedidoStoreRequest;
@@ -13,6 +14,7 @@ use App\Models\Departamento;
 use App\Models\Obra;
 use App\Models\Prod\GrupoTrabajo;
 use App\Models\Usuario;
+use App\Services\Alm\FirmasDelFormato;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -270,7 +272,7 @@ class PedidoController extends Controller
      * El formato impreso, que es donde el pedido se autoriza: el módulo no
      * tiene flujo de aprobación y la firma va en la hoja.
      */
-    public function pdf(Request $request, Pedido $pedido): HttpResponse
+    public function pdf(Request $request, Pedido $pedido, FirmasDelFormato $firmas): HttpResponse
     {
         abort_unless($pedido->almacen->esVisiblePara($request->user()), 403);
 
@@ -284,7 +286,10 @@ class PedidoController extends Controller
             'detalles.articulo:id,codigo,descripcion,unidad,tipo',
         ]);
 
-        $pdf = Pdf::loadView('pdf.alm.formato-pedido', ['pedido' => $pedido])
+        $pdf = Pdf::loadView('pdf.alm.formato-pedido', [
+            'pedido' => $pedido,
+            'firmas' => $firmas->para(DocumentoAlm::Pedido, $pedido->almacen_id),
+        ])
             ->setPaper('letter', 'portrait');
 
         return $pdf->stream("pedido-{$pedido->folio}.pdf");

@@ -3920,7 +3920,7 @@ export type AlmArticuloDemo = {
     existencia_total: number;
 };
 
-/** Los documentos de almacén que pueden pedir firma. */
+/** Los documentos de almacén cuyo formato impreso lleva firmas al pie. */
 export type AlmDocumentoTipo =
     | 'pedido'
     | 'entrada'
@@ -3928,12 +3928,13 @@ export type AlmDocumentoTipo =
     | 'transferencia'
     | 'devolucion'
     | 'ajuste'
-    | 'prestamo';
+    | 'prestamo'
+    | 'conteo';
 
-export type AlmUsuarioDemo = {
-    id: number;
-    nombre: string;
-    puesto: string;
+/** Un usuario del sistema, como lo lista la pantalla de firmas. */
+export type AlmUsuarioOpcion = {
+    id: string;
+    name: string;
 };
 
 /**
@@ -3949,12 +3950,26 @@ export type AlmGrupoTrabajoDemo = {
     empleados: number;
 };
 
-/** Quién puede firmar un tipo de documento en un almacén. */
-export type AlmReglaAprobacion = {
-    documento: AlmDocumentoTipo;
-    requiere: boolean;
+/**
+ * Una raya de firma del formato impreso. Arriba se imprime el nombre de los
+ * usuarios elegidos; si no hay ninguno, el `nombre` escrito a mano; y si
+ * tampoco, la raya va en blanco para llenarse al firmar.
+ */
+export type AlmFirmaDocumento = {
+    rotulo: string;
+    nombre: string | null;
     /** Basta con que firme uno de ellos. */
-    usuarios: number[];
+    usuarios: string[];
+};
+
+/** Lo que la pantalla de firmas necesita saber de cada documento. */
+export type AlmDocumentoFirmable = {
+    valor: AlmDocumentoTipo;
+    etiqueta: string;
+    ayuda: string | null;
+    /** Entrada y devolución todavía no imprimen nada. */
+    tieneFormato: boolean;
+    porDefecto: { rotulo: string; nombre: string | null }[];
 };
 
 /**

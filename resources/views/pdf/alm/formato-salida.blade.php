@@ -97,10 +97,7 @@
         </tfoot>
     </table>
 
-    @include('pdf.partials.firmas', ['firmas' => [
-        ['nombre' => $salida->entregador?->name, 'rol' => 'Entregó - Almacén'],
-        ['nombre' => $salida->recibe_nombre, 'rol' => 'Recibió de conformidad'],
-    ]])
+    @include('pdf.partials.firmas', ['firmas' => $firmas])
 
     <div class="aviso">
         Quien firma de recibido responde por el material amparado en este vale hasta su consumo o devolución.
