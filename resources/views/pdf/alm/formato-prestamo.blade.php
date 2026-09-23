@@ -69,7 +69,7 @@
         <tfoot>
             <tr class="total-row">
                 <td colspan="3" class="text-right">TOTAL</td>
-                <td colspan="2">{{ $prestamo->detalles->count() }} renglón(es) · {{ number_format((float) $prestamo->detalles->sum('cantidad'), 0) }} unidad(es)</td>
+                <td colspan="2">{{ $prestamo->detalles->count() }} renglón(es) · {{ rtrim(rtrim(number_format((float) $prestamo->detalles->sum('cantidad'), 2), '0'), '.') }} unidad(es)</td>
             </tr>
         </tfoot>
     </table>

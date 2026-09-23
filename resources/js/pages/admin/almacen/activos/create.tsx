@@ -226,7 +226,7 @@ export default function ActivoCreate({ almacenes, articulos, ubicacionesPorAlmac
                                             id="cantidad"
                                             type="number"
                                             min="0"
-                                            step="1"
+                                            step="0.0001"
                                             value={form.data.cantidad}
                                             onChange={(e) => form.setData('cantidad', e.target.value)}
                                             placeholder="12"

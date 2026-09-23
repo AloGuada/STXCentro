@@ -257,7 +257,7 @@ export default function DevolucionCreate({ responsables, usuarios, prestamoId }:
                                                                         type="number"
                                                                         min="0"
                                                                         max={d.pendiente}
-                                                                        step="1"
+                                                                        step="0.0001"
                                                                         className="input-sm w-24 text-right"
                                                                         value={retorno?.cantidad ?? String(d.pendiente)}
                                                                         onChange={(e) => editar(d, { cantidad: e.target.value })}

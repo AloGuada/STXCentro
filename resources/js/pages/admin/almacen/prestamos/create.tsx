@@ -635,7 +635,7 @@ export default function PrestamoCreate({
                                                                 type="number"
                                                                 min="0"
                                                                 max={porCantidad.disponible}
-                                                                step="1"
+                                                                step="0.0001"
                                                                 className="input-sm text-right"
                                                                 value={r.cantidad}
                                                                 onChange={(e) => editar(i, { cantidad: e.target.value })}
