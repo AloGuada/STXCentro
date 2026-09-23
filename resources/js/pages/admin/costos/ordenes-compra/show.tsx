@@ -48,8 +48,9 @@ type CancelarUnidadesTarget = {
     partidaDescripcion: string;
     unidad: string;
     cantidadCancelable: number;
-    /** Lo que falta por llegar; si es más que lo cancelable, la diferencia ya está facturada. */
+    /** Lo que falta por llegar; si es más que lo cancelable, la diferencia ya está facturada o pagada. */
     sinRecibir: number;
+    amparadoPor: 'factura' | 'pago' | null;
 };
 
 type DevolverTarget = {
@@ -127,13 +128,13 @@ export default function OrdenesCompraShow({ ordenCompra, retenciones, usuarios }
 
     // Lo que todavía se puede dar por cancelado lo mide el servidor: lo que no
     // ha llegado, menos lo que otra cancelación ya tomó esperando firma y menos
-    // lo que una factura adelantada ya ampare. Ese último tope es de la orden
-    // entera y la pantalla no tiene con qué calcularlo.
+    // lo que una factura adelantada o un pago de contado ya ampare. Ese último
+    // tope es de la orden entera y la pantalla no tiene con qué calcularlo.
     const cancelablePorPartida = (d: CostosOrdenCompraDetalle): number => Number(d.cancelacion?.cancelable ?? 0);
 
-    // Hay algo sin recibir, pero una factura ya lo cobró: no se cancela sin
-    // cancelar la factura o registrar su nota de crédito.
-    const amparadoPorFactura = (d: CostosOrdenCompraDetalle): boolean =>
+    // Hay algo sin recibir, pero una factura ya lo cobró o una solicitud de
+    // pago ya lo pagó: no se cancela desde aquí.
+    const estaAmparado = (d: CostosOrdenCompraDetalle): boolean =>
         Number(d.cancelacion?.sin_recibir ?? 0) > 0 && cancelablePorPartida(d) <= 0;
 
     const puedeCancelarUnidades = can('costos.ordenes-compra.cancelar') && ordenCompra.estatus !== 'cancelada';
@@ -410,14 +411,23 @@ export default function OrdenesCompraShow({ ordenCompra, retenciones, usuarios }
                                                             const cancelable = cancelablePorPartida(d);
 
                                                             if (cancelable <= 0) {
-                                                                return amparadoPorFactura(d) ? (
+                                                                if (!estaAmparado(d)) return null;
+
+                                                                return d.cancelacion?.amparado_por === 'pago' ? (
+                                                                    <span
+                                                                        className="text-[11px] text-base-content/50"
+                                                                        title="Lo que falta ya está pagado: para cancelarlo hay que resolver con el proveedor la devolución de lo pagado."
+                                                                    >
+                                                                        Amparado por pago
+                                                                    </span>
+                                                                ) : (
                                                                     <span
                                                                         className="text-[11px] text-base-content/50"
                                                                         title="Lo que falta ya está facturado: para cancelarlo hay que cancelar la factura o registrar su nota de crédito."
                                                                     >
                                                                         Amparado por factura
                                                                     </span>
-                                                                ) : null;
+                                                                );
                                                             }
 
                                                             return (
@@ -431,6 +441,7 @@ export default function OrdenesCompraShow({ ordenCompra, retenciones, usuarios }
                                                                             unidad: d.unidad,
                                                                             cantidadCancelable: cancelable,
                                                                             sinRecibir: Number(d.cancelacion?.sin_recibir ?? cancelable),
+                                                                            amparadoPor: d.cancelacion?.amparado_por ?? null,
                                                                         })
                                                                     }
                                                                 >
@@ -862,6 +873,7 @@ export default function OrdenesCompraShow({ ordenCompra, retenciones, usuarios }
                         unidad={cancelarUnidadesTarget.unidad}
                         cantidadCancelable={cancelarUnidadesTarget.cantidadCancelable}
                         sinRecibir={cancelarUnidadesTarget.sinRecibir}
+                        amparadoPor={cancelarUnidadesTarget.amparadoPor}
                         open={true}
                         onClose={() => setCancelarUnidadesTarget(null)}
                     />

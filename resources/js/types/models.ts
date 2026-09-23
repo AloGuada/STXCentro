@@ -2572,7 +2572,7 @@ export type CostosOrdenCompraDetalle = {
 /**
  * Qué se puede cancelar de una partida: lo recibido ya entró con su factura y
  * no se toca; lo que sigue sin recibir sí, salvo lo que una factura adelantada
- * ya ampare.
+ * o un pago de contado ya ampare.
  */
 export type CostosOcDesgloseCancelacion = {
     /** Unidades que ya entraron en recepciones vigentes. */
@@ -2581,11 +2581,13 @@ export type CostosOcDesgloseCancelacion = {
     recibido_facturado: number;
     /** Pedido − cancelado − recibido − lo que otra cancelación pendiente ya tomó. */
     sin_recibir: number;
-    /** Unidades que caben en el importe de la orden que ninguna factura ampara. Nulo si la orden no tiene facturas. */
-    tope_facturas: number | null;
-    /** El menor de `sin_recibir` y `tope_facturas`. */
+    /** Unidades que caben en el importe que no amparan ni facturas ni solicitudes de pago con dinero en juego. Nulo si no hay ninguna. */
+    tope_amparado: number | null;
+    /** El menor de `sin_recibir` y `tope_amparado`. */
     cancelable: number;
-    importe_sin_facturar: number | null;
+    importe_libre: number | null;
+    /** Lo que más ampara de la orden: sus facturas o lo pagado por sus solicitudes de pago. */
+    amparado_por: 'factura' | 'pago' | null;
 };
 
 export type CostosOcCancelacionUnidadesEstatus = 'pendiente' | 'autorizada' | 'rechazada';

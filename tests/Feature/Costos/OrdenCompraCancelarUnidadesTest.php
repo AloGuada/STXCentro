@@ -3,6 +3,7 @@
 use App\Enums\Costos\CancelacionUnidadesEstatus;
 use App\Enums\Costos\FacturaEstatus;
 use App\Enums\Costos\OrdenCompraEstatus;
+use App\Enums\Costos\SolicitudPagoEstatus;
 use App\Models\Costos\Entrega;
 use App\Models\Costos\Factura;
 use App\Models\Costos\NotaCredito;
@@ -10,6 +11,8 @@ use App\Models\Costos\ObraRubro;
 use App\Models\Costos\OrdenCompra;
 use App\Models\Costos\OrdenCompraDetalle;
 use App\Models\Costos\OrdenCompraDetalleCancelacion;
+use App\Models\Costos\Pago;
+use App\Models\Costos\SolicitudPago;
 use App\Models\User;
 use App\Services\Costos\CanceladorDeUnidades;
 use App\Services\Costos\RegistradorRecepcion;
@@ -208,7 +211,7 @@ test('lo recibido con factura queda amparado y el resto se puede cancelar', func
     expect($desglose['recibido'])->toBe(60.0)
         ->and($desglose['recibido_facturado'])->toBe(60.0)
         ->and($desglose['sin_recibir'])->toBe(40.0)
-        ->and($desglose['tope_facturas'])->toBe(40.0)
+        ->and($desglose['tope_amparado'])->toBe(40.0)
         ->and($desglose['cancelable'])->toBe(40.0);
 
     $cancelacion = app(CanceladorDeUnidades::class)->solicitar($partida->fresh(), 40, 'El proveedor ya no surte el resto');
@@ -235,7 +238,7 @@ test('una factura adelantada ampara unidades que no han llegado y las saca del c
     $desglose = app(CanceladorDeUnidades::class)->desglose($partida->fresh());
 
     expect($desglose['sin_recibir'])->toBe(40.0)
-        ->and($desglose['tope_facturas'])->toBe(20.0)
+        ->and($desglose['tope_amparado'])->toBe(20.0)
         ->and($desglose['cancelable'])->toBe(20.0);
 
     app(CanceladorDeUnidades::class)->solicitar($partida->fresh(), 40, 'El proveedor ya no surte el resto');
@@ -269,7 +272,7 @@ test('una factura cancelada no ampara nada', function () {
     $desglose = app(CanceladorDeUnidades::class)->desglose($partida->fresh());
 
     expect($desglose['recibido_facturado'])->toBe(0.0)
-        ->and($desglose['tope_facturas'])->toBeNull()
+        ->and($desglose['tope_amparado'])->toBeNull()
         ->and($desglose['cancelable'])->toBe(40.0);
 });
 
@@ -448,4 +451,124 @@ test('sin permiso de cancelar no se solicita', function () {
             'motivo' => 'Intento sin permiso ninguno',
         ])
         ->assertForbidden();
+});
+
+/**
+ * Una orden de contado se paga con su solicitud de pago, que nace por el total
+ * de la orden. Cancelar unidades no puede dejarla pidiendo más de lo que la
+ * orden ahora vale.
+ */
+function solicitudDeContado(OrdenCompra $oc, float $monto, string $estatus = 'aprobada'): SolicitudPago
+{
+    $solicitud = SolicitudPago::factory()->create([
+        'orden_compra_id' => $oc->id,
+        'proveedor_id' => $oc->proveedor_id,
+        'monto_total' => $monto,
+        'estatus' => $estatus,
+    ]);
+    $solicitud->detalles()->create([
+        'concepto' => 'Pago de contado',
+        'cantidad' => 1,
+        'precio_unitario' => $monto,
+        'subtotal' => $monto,
+    ]);
+
+    return $solicitud;
+}
+
+test('una solicitud de pago sin dinero en juego no frena y al autorizar baja su monto', function () {
+    [$oc, $partida] = ordenConPresupuesto(100, 10);
+    recibirUnidades($oc, $partida, 60);
+    $solicitud = solicitudDeContado($oc, 1000);
+    $pago = Pago::factory()->contado()->programado()->create([
+        'pagable_type' => SolicitudPago::class,
+        'pagable_id' => $solicitud->id,
+        'monto_pago' => 1000,
+    ]);
+
+    $desglose = app(CanceladorDeUnidades::class)->desglose($partida->fresh());
+
+    expect($desglose['tope_amparado'])->toBeNull()
+        ->and($desglose['cancelable'])->toBe(40.0);
+
+    $cancelacion = app(CanceladorDeUnidades::class)->solicitar($partida->fresh(), 40, 'El proveedor ya no surte el resto');
+    $jefe = usuarioDeCompras(['costos.ordenes-compra.autorizar-cancelacion']);
+
+    $this->actingAs($jefe)
+        ->post(route('admin.costos.ordenes-compra.cancelaciones.autorizar', $cancelacion))
+        ->assertSessionHas('success', fn (string $mensaje) => str_contains($mensaje, "{$solicitud->fresh()->folio} (\$600.00)"));
+
+    expect((float) $oc->fresh()->total)->toBe(600.0)
+        ->and((float) $solicitud->fresh()->monto_total)->toBe(600.0)
+        ->and((float) $solicitud->detalles()->first()->subtotal)->toBe(600.0)
+        ->and((float) $pago->fresh()->monto_pago)->toBe(600.0);
+});
+
+test('lo pagado por la solicitud ampara las unidades y la parcialidad sin pagar se cancela', function () {
+    [$oc, $partida] = ordenConPresupuesto(100, 10);
+    $pagada = solicitudDeContado($oc, 500, 'pagada');
+    $pendiente = solicitudDeContado($oc, 500, 'pendiente_firma');
+
+    $desglose = app(CanceladorDeUnidades::class)->desglose($partida->fresh());
+
+    expect($desglose['sin_recibir'])->toBe(100.0)
+        ->and($desglose['tope_amparado'])->toBe(50.0)
+        ->and($desglose['cancelable'])->toBe(50.0)
+        ->and($desglose['amparado_por'])->toBe('pago');
+
+    $cancelacion = app(CanceladorDeUnidades::class)->solicitar($partida->fresh(), 50, 'El proveedor ya no surte la mitad');
+    $ajustadas = app(CanceladorDeUnidades::class)->autorizar($cancelacion, usuarioDeCompras()->id);
+
+    expect($ajustadas->pluck('id')->all())->toBe([$pendiente->id])
+        ->and($pendiente->fresh()->estatus)->toBe(SolicitudPagoEstatus::Cancelada)
+        ->and($pendiente->fresh()->cancelacion)->not->toBeNull()
+        ->and((float) $pagada->fresh()->monto_total)->toBe(500.0)
+        ->and($oc->fresh()->estatus)->not->toBe(OrdenCompraEstatus::Cancelada);
+});
+
+test('no se cancela lo que la solicitud ya pagó', function () {
+    [$oc, $partida] = ordenConPresupuesto(100, 10);
+    solicitudDeContado($oc, 500, 'pagada');
+    solicitudDeContado($oc, 500, 'pendiente_firma');
+
+    app(CanceladorDeUnidades::class)->solicitar($partida->fresh(), 60, 'El proveedor ya no surte casi nada');
+})->throws(ValidationException::class, 'ya tiene dinero pagado o en parcialidades');
+
+test('una solicitud con su pago en parcialidades cuenta como pagada', function () {
+    [$oc, $partida] = ordenConPresupuesto(100, 10);
+    $solicitud = solicitudDeContado($oc, 1000);
+    $raiz = Pago::factory()->contado()->create([
+        'pagable_type' => SolicitudPago::class,
+        'pagable_id' => $solicitud->id,
+        'monto_pago' => 1000,
+        'estatus' => 'parcial',
+    ]);
+    Pago::factory()->hijo($raiz, 1)->create(['monto_pago' => 300]);
+
+    expect(app(CanceladorDeUnidades::class)->solicitudAjustable($solicitud))->toBeFalse()
+        ->and(app(CanceladorDeUnidades::class)->cancelable($partida->fresh()))->toBe(0.0);
+});
+
+test('un anticipo por menos del nuevo total no se toca', function () {
+    [$oc, $partida] = ordenConPresupuesto(100, 10);
+    $anticipo = solicitudDeContado($oc, 300);
+
+    $cancelacion = app(CanceladorDeUnidades::class)->solicitar($partida->fresh(), 40, 'El proveedor ya no surte el resto');
+    $ajustadas = app(CanceladorDeUnidades::class)->autorizar($cancelacion);
+
+    expect($ajustadas)->toBeEmpty()
+        ->and((float) $anticipo->fresh()->monto_total)->toBe(300.0)
+        ->and((float) $oc->fresh()->total)->toBe(600.0);
+});
+
+test('factura y pago de contado del mismo importe no se cuentan doble', function () {
+    [$oc, $partida] = ordenConPresupuesto(100, 10);
+    solicitudDeContado($oc, 600, 'pagada');
+    Factura::factory()->create([
+        'orden_compra_id' => $oc->id,
+        'total' => 600,
+        'estatus' => FacturaEstatus::PendienteAprobacion->value,
+    ]);
+
+    expect(app(CanceladorDeUnidades::class)->cancelable($partida->fresh()))->toBe(40.0);
 });
