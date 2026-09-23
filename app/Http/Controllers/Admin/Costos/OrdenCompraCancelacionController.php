@@ -2,10 +2,12 @@
 
 namespace App\Http\Controllers\Admin\Costos;
 
+use App\Enums\Costos\SolicitudPagoEstatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\Costos\CancelarUnidadesRequest;
 use App\Models\Costos\OrdenCompraDetalle;
 use App\Models\Costos\OrdenCompraDetalleCancelacion;
+use App\Models\Costos\SolicitudPago;
 use App\Services\Costos\CanceladorDeUnidades;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -41,9 +43,19 @@ class OrdenCompraCancelacionController extends Controller
     {
         Gate::authorize('costos.ordenes-compra.autorizar-cancelacion');
 
-        $this->cancelador->autorizar($cancelacion, auth()->id());
+        $ajustadas = $this->cancelador->autorizar($cancelacion, auth()->id());
 
-        return back()->with('success', 'Cancelación autorizada: las unidades salieron de la orden.');
+        $mensaje = 'Cancelación autorizada: las unidades salieron de la orden.';
+
+        if ($ajustadas->isNotEmpty()) {
+            $mensaje .= ' Se ajustó la solicitud de pago: '.$ajustadas
+                ->map(fn (SolicitudPago $s): string => $s->estatus === SolicitudPagoEstatus::Cancelada
+                    ? "{$s->folio} (cancelada)"
+                    : sprintf('%s ($%s)', $s->folio, number_format((float) $s->monto_total, 2)))
+                ->join(', ').'.';
+        }
+
+        return back()->with('success', $mensaje);
     }
 
     public function rechazar(Request $request, OrdenCompraDetalleCancelacion $cancelacion): RedirectResponse
