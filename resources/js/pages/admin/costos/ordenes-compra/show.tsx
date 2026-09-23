@@ -15,7 +15,6 @@ import { useCan } from '@/hooks/use-can';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import type {
-    CostosOcCancelacionUnidades,
     CostosOrdenCompra,
     CostosOrdenCompraDetalle,
     CostosOrdenCompraEstatus,
