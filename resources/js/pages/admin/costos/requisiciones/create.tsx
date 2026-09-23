@@ -652,18 +652,6 @@ export default function RequisicionesCreate({
                                                         }
                                                     }}
                                                 />
-                                                <p className="mt-1 text-[10px] text-base-content/50">
-                                                    ¿No está?{' '}
-                                                    <a
-                                                        href="/admin/almacen/articulos/create"
-                                                        target="_blank"
-                                                        rel="noopener noreferrer"
-                                                        className="link"
-                                                    >
-                                                        Dalo de alta en Artículos
-                                                    </a>{' '}
-                                                    y vuelve a buscarlo.
-                                                </p>
                                             </div>
                                         )}
                                         {errors[
