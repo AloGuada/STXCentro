@@ -18,7 +18,8 @@ class ReasignarRequisicionCommand extends Command
 {
     protected $signature = 'costos:reasignar-requisicion
         {folio : Folio de la requisición}
-        {--mapa=* : Centro de costos viejo:nuevo por id de obra_rubro (ej. --mapa=12:34); se puede repetir}
+        {--mapa=* : Centro de costos viejo:nuevo por id de obra_rubro (ej. --mapa=12:34); se puede repetir. Sin él, lista los centros de costos}
+        {--presupuesto=* : Sin --mapa, lista también los centros de costos de este presupuesto (id) como destinos posibles}
         {--motivo= : Por qué se reasigna; queda en la bitácora y en cada cargo movido}
         {--force : Ejecuta la reasignación; sin esta bandera sólo muestra el plan}';
 
@@ -41,10 +42,14 @@ class ReasignarRequisicionCommand extends Command
             return self::INVALID;
         }
 
-        $plan = $reasignacion->planear($requisicion, $mapa);
-
         $estatus = $requisicion->estatus?->value ?? (string) $requisicion->estatus;
         $this->info("Requisición {$requisicion->folio} (id {$requisicion->id}, estatus {$estatus})");
+
+        if ($mapa === []) {
+            return $this->listar($reasignacion, $requisicion);
+        }
+
+        $plan = $reasignacion->planear($requisicion, $mapa);
 
         if ($plan['errores'] !== []) {
             foreach ($plan['errores'] as $error) {
@@ -95,6 +100,44 @@ class ReasignarRequisicionCommand extends Command
 
         $this->newLine();
         $this->info("Listo: {$hecho['partidas']} partidas y {$hecho['cargos']} cargos reasignados en {$requisicion->folio}.");
+
+        return self::SUCCESS;
+    }
+
+    /**
+     * Sin mapa, el comando sirve para encontrar los ids: los centros a los que
+     * carga la requisición (orígenes) y los de sus presupuestos más los que se
+     * pidan con --presupuesto (destinos).
+     */
+    private function listar(ReasignacionCentroCostosRequisicion $reasignacion, Requisicion $requisicion): int
+    {
+        $enUso = $reasignacion->centrosEnUso($requisicion);
+
+        if ($enUso === []) {
+            $this->warn('La requisición no carga a ningún centro de costos.');
+
+            return self::SUCCESS;
+        }
+
+        $this->newLine();
+        $this->line('Centros de costos de la requisición (origen del --mapa):');
+        $this->table(
+            ['Id', 'Presupuesto', 'Rubro', 'Partidas', 'Cargado MXN'],
+            array_map(fn (array $c): array => [$c['id'], $c['presupuesto'], $c['rubro'], $c['partidas'], number_format($c['cargado'], 2)], $enUso),
+        );
+
+        $presupuestos = array_values(array_unique(array_merge(
+            array_column($enUso, 'presupuesto_id'),
+            array_map('intval', (array) $this->option('presupuesto')),
+        )));
+
+        $this->line('Centros de costos disponibles (destino del --mapa):');
+        $this->table(
+            ['Id', 'Presupuesto', 'Rubro', 'Disponible MXN', 'Cerrado'],
+            array_map(fn (array $c): array => [$c['id'], $c['presupuesto'], $c['rubro'], number_format($c['disponible'], 2), $c['cerrado'] ? 'sí' : ''], $reasignacion->centrosDePresupuestos($presupuestos)),
+        );
+
+        $this->line('Para otra obra, agrega --presupuesto=<id>. Para reasignar: --mapa=origen:destino.');
 
         return self::SUCCESS;
     }

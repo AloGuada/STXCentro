@@ -130,6 +130,83 @@ class ReasignacionCentroCostosRequisicion
     }
 
     /**
+     * Los centros de costos a los que carga la requisición: los orígenes que
+     * se pueden poner en el mapa, con cuántas partidas y cuánto presupuesto
+     * vivo (requisición y OC no canceladas) tiene cada uno.
+     *
+     * @return list<array{id: int, presupuesto_id: int, presupuesto: string, rubro: string, partidas: int, cargado: float}>
+     */
+    public function centrosEnUso(Requisicion $requisicion): array
+    {
+        $partidas = $requisicion->detalles()
+            ->whereNotNull('obra_rubro_id')
+            ->get()
+            ->countBy('obra_rubro_id');
+
+        if ($partidas->isEmpty()) {
+            return [];
+        }
+
+        $identidad = $partidas->keys()->mapWithKeys(fn ($id): array => [(int) $id => (int) $id])->all();
+        $cargado = $this->cargos($requisicion, $this->ocsVivas($requisicion), $identidad)
+            ->groupBy('obra_rubro_id')
+            ->map(fn (Collection $cargos): float => (float) $cargos->sum('monto'));
+
+        return $this->filas(ObraRubro::query()->whereIn('id', array_keys($identidad)))
+            ->map(fn (array $fila): array => [
+                'id' => $fila['id'],
+                'presupuesto_id' => $fila['presupuesto_id'],
+                'presupuesto' => $fila['presupuesto'],
+                'rubro' => $fila['rubro'],
+                'partidas' => (int) $partidas->get($fila['id'], 0),
+                'cargado' => round((float) $cargado->get($fila['id'], 0), 2),
+            ])
+            ->all();
+    }
+
+    /**
+     * Los centros de costos de uno o varios presupuestos: los destinos
+     * posibles, con su disponible y si el presupuesto está cerrado.
+     *
+     * @param  list<int>  $presupuestoIds
+     * @return list<array{id: int, presupuesto: string, rubro: string, disponible: float, cerrado: bool}>
+     */
+    public function centrosDePresupuestos(array $presupuestoIds): array
+    {
+        return $this->filas(ObraRubro::query()->whereIn('presupuesto_id', $presupuestoIds))
+            ->map(fn (array $fila): array => [
+                'id' => $fila['id'],
+                'presupuesto' => $fila['presupuesto'],
+                'rubro' => $fila['rubro'],
+                'disponible' => $fila['disponible'],
+                'cerrado' => $fila['cerrado'],
+            ])
+            ->all();
+    }
+
+    /**
+     * @param  \Illuminate\Database\Eloquent\Builder<ObraRubro>  $query
+     * @return Collection<int, array{id: int, presupuesto_id: int, presupuesto: string, rubro: string, disponible: float, cerrado: bool}>
+     */
+    private function filas($query): Collection
+    {
+        return $query
+            ->with(['presupuesto.presupuestable', 'rubro:id,codigo,descripcion'])
+            ->orderBy('presupuesto_id')
+            ->orderBy('id')
+            ->get()
+            ->map(fn (ObraRubro $or): array => [
+                'id' => (int) $or->id,
+                'presupuesto_id' => (int) $or->presupuesto_id,
+                'presupuesto' => $or->presupuesto?->nombreMostrar() ?? 'sin presupuesto',
+                'rubro' => trim(($or->rubro?->codigo ?? '').' '.($or->rubro?->descripcion ?? '')),
+                'disponible' => round((float) $or->disponible, 2),
+                'cerrado' => $or->estaCerrado(),
+            ])
+            ->values();
+    }
+
+    /**
      * Ejecuta la reasignación en una sola transacción. Quien llama ya revisó
      * el plan: si hay errores, no se hace nada.
      *

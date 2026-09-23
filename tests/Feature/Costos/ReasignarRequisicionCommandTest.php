@@ -11,6 +11,7 @@ use App\Models\Costos\RequisicionDetalle;
 use App\Models\Costos\RubroAfectado;
 use App\Models\Costos\SolicitudPago;
 use App\Services\Costos\ApartadoPresupuestal;
+use App\Services\Costos\ReasignacionCentroCostosRequisicion;
 use Illuminate\Support\Carbon;
 use Spatie\Activitylog\Models\Activity;
 
@@ -242,4 +243,41 @@ test('un mapa mal escrito se rechaza', function () {
     reasignar($datos, ['--mapa' => ['12-34']])
         ->expectsOutputToContain('no tiene la forma viejo:nuevo')
         ->assertExitCode(2);
+});
+
+test('sin --mapa lista los centros de costos de la requisición y sus destinos', function () {
+    $datos = requisicionLiberadaEnOtraObra();
+    $hermano = ObraRubro::factory()->create(['presupuesto_id' => $datos['origen']->presupuesto_id]);
+
+    test()->artisan('costos:reasignar-requisicion', ['folio' => $datos['requisicion']->folio])
+        ->expectsOutputToContain('origen del --mapa')
+        ->expectsOutputToContain('1,000.00')
+        ->expectsOutputToContain('destino del --mapa')
+        ->assertSuccessful();
+
+    $servicio = app(ReasignacionCentroCostosRequisicion::class);
+
+    expect($servicio->centrosEnUso($datos['requisicion']))->toBe([[
+        'id' => $datos['origen']->id,
+        'presupuesto_id' => $datos['origen']->presupuesto_id,
+        'presupuesto' => $datos['origen']->presupuesto->nombreMostrar(),
+        'rubro' => trim($datos['origen']->rubro->codigo.' '.$datos['origen']->rubro->descripcion),
+        'partidas' => 1,
+        'cargado' => 1000.0,
+    ]])
+        ->and(array_column($servicio->centrosDePresupuestos([$datos['origen']->presupuesto_id]), 'id'))
+        ->toBe([$datos['origen']->id, $hermano->id]);
+
+    expect((int) $datos['partida']->fresh()->obra_rubro_id)->toBe($datos['origen']->id);
+});
+
+test('--presupuesto agrega los centros de otra obra a los destinos', function () {
+    $datos = requisicionLiberadaEnOtraObra();
+
+    test()->artisan('costos:reasignar-requisicion', [
+        'folio' => $datos['requisicion']->folio,
+        '--presupuesto' => [$datos['destino']->presupuesto_id],
+    ])
+        ->expectsOutputToContain($datos['destino']->presupuesto->nombreMostrar())
+        ->assertSuccessful();
 });
