@@ -17,29 +17,39 @@ use Illuminate\Support\Facades\DB;
 /**
  * Aprueba una solicitud de pago o requisición por folio o id, firmando su
  * cadena de aprobación nivel por nivel. Permite saltar niveles (ej. Director)
- * cancelando sus firmas pendientes para que el documento se complete sin ellos.
+ * cancelando sus firmas pendientes para que el documento se complete sin ellos,
+ * o firmar sólo los niveles elegidos (`--nivel`) y dejar el resto esperando a
+ * su aprobador.
  */
 class AprobarDocumentoCommand extends Command
 {
     protected $signature = 'costos:aprobar
         {identificador : Folio o id de la solicitud/requisición}
         {--tipo= : solicitud|requisicion (para desambiguar cuando el id existe en ambas)}
+        {--nivel=* : Firmar sólo este/estos nivel(es) y dejar los demás pendientes; sin él se firman todos}
         {--saltar-nivel=* : Nivel(es) de aprobación a saltar (ej. 4 = Director); sus firmas pendientes se cancelan}
         {--motivo= : Observación registrada en cada firma}
         {--dry-run : Muestra qué haría sin ejecutar}';
 
-    protected $description = 'Aprueba una solicitud de pago o requisición por folio/id, con opción de saltar niveles (ej. Director).';
+    protected $description = 'Aprueba una solicitud de pago o requisición por folio/id: todos los niveles, sólo los elegidos (--nivel) o saltando alguno (--saltar-nivel).';
 
     public function handle(AprobacionService $service): int
     {
         $ident = (string) $this->argument('identificador');
         $tipo = $this->option('tipo');
+        $niveles = array_map('intval', (array) $this->option('nivel'));
         $saltar = array_map('intval', (array) $this->option('saltar-nivel'));
         $motivo = $this->option('motivo') ?: 'Aprobado por comando';
         $dry = (bool) $this->option('dry-run');
 
         if ($tipo !== null && ! in_array($tipo, ['solicitud', 'requisicion'], true)) {
             $this->error("--tipo debe ser 'solicitud' o 'requisicion'.");
+
+            return self::INVALID;
+        }
+
+        if (($repetidos = array_intersect($niveles, $saltar)) !== []) {
+            $this->error('Un nivel no puede ir en --nivel y en --saltar-nivel a la vez: '.implode(', ', $repetidos).'.');
 
             return self::INVALID;
         }
@@ -73,7 +83,31 @@ class AprobarDocumentoCommand extends Command
             return self::SUCCESS;
         }
 
-        $aFirmar = $pendientes->reject(fn ($a) => in_array((int) $a->nivel, $saltar, true));
+        // Con --nivel, cada nivel pedido tiene que estar esperando firma; si no,
+        // el usuario se equivocó de número y es mejor no tocar nada.
+        $nivelesPendientes = $pendientes->pluck('nivel')->map(fn ($n): int => (int) $n)->unique()->values();
+        $sinFirmaPendiente = array_values(array_diff($niveles, $nivelesPendientes->all()));
+
+        if ($sinFirmaPendiente !== []) {
+            $this->error(sprintf(
+                'El nivel %s no tiene firma pendiente en %s. Niveles pendientes: %s.',
+                implode(', ', $sinFirmaPendiente),
+                $doc->folio,
+                $nivelesPendientes->implode(', '),
+            ));
+
+            return self::FAILURE;
+        }
+
+        $accion = function ($aprobacion) use ($saltar, $niveles): string {
+            if (in_array((int) $aprobacion->nivel, $saltar, true)) {
+                return 'SALTAR (cancelar)';
+            }
+
+            return $niveles === [] || in_array((int) $aprobacion->nivel, $niveles, true) ? 'FIRMAR' : 'DEJAR PENDIENTE';
+        };
+
+        $aFirmar = $pendientes->filter(fn ($a) => $accion($a) === 'FIRMAR');
 
         $this->line("Documento: <info>{$doc->folio}</info> ({$tipoDetectado}) — estatus actual: {$doc->estatus->value}");
         $this->table(
@@ -81,7 +115,7 @@ class AprobarDocumentoCommand extends Command
             $pendientes->map(fn ($a) => [
                 $a->nivel,
                 optional($a->aprobador)->name ?? $a->aprobador_id ?? '—',
-                in_array((int) $a->nivel, $saltar, true) ? 'SALTAR (cancelar)' : 'FIRMAR',
+                $accion($a),
             ])->all(),
         );
 
@@ -91,7 +125,7 @@ class AprobarDocumentoCommand extends Command
             return self::SUCCESS;
         }
 
-        DB::transaction(function () use ($doc, $service, $saltar, $aFirmar, $motivo): void {
+        DB::transaction(function () use ($doc, $service, $saltar, $niveles, $aFirmar, $motivo): void {
             // 1) Cancelar los niveles a saltar (ej. Director) para que la cadena
             //    pueda cerrar sin ellos.
             if ($saltar !== []) {
@@ -105,12 +139,14 @@ class AprobarDocumentoCommand extends Command
                     ]);
             }
 
-            // 2) Firmar el resto por nivel ascendente. AprobacionService cierra
-            //    el nivel (lógica OR) y dispara onAprobacionCompleta cuando ya no
-            //    quedan pendientes → apartado→aplicado (solicitud) / aprobada.
+            // 2) Firmar por nivel ascendente: todos los pendientes, o sólo los
+            //    de --nivel. AprobacionService cierra el nivel (lógica OR) y
+            //    dispara onAprobacionCompleta cuando ya no quedan pendientes →
+            //    apartado→aplicado (solicitud) / aprobada.
             while (true) {
                 $siguiente = $doc->cadenaAprobacion()
                     ->where('estatus', AprobacionEstatus::Pendiente->value)
+                    ->when($niveles !== [], fn ($q) => $q->whereIn('nivel', $niveles))
                     ->orderBy('nivel')
                     ->first();
 
@@ -126,13 +162,24 @@ class AprobarDocumentoCommand extends Command
             }
 
             // 3) Si TODO se saltó (no quedó nivel por firmar), completar a mano.
-            if ($aFirmar->isEmpty() && $doc instanceof Aprobable) {
+            //    Con --nivel eso no aplica: lo que no se pidió sigue esperando.
+            if ($niveles === [] && $aFirmar->isEmpty() && $doc instanceof Aprobable) {
                 $doc->onAprobacionCompleta(Auth::id());
             }
         });
 
         $doc->refresh();
         $this->info("Listo. {$doc->folio} quedó en estatus '{$doc->estatus->value}'.");
+
+        $siguenPendientes = $doc->cadenaAprobacion()
+            ->where('estatus', AprobacionEstatus::Pendiente->value)
+            ->orderBy('nivel')
+            ->pluck('nivel')
+            ->unique();
+
+        if ($siguenPendientes->isNotEmpty()) {
+            $this->comment('Siguen pendientes de firma los niveles: '.$siguenPendientes->implode(', ').'.');
+        }
 
         if ($tipoDetectado === 'requisicion' && $doc->estatus->value === RequisicionEstatus::Aprobada->value) {
             $this->comment('Nota: la requisición aprobada conserva su APARTADO; el acumulado se consolida (Aplicado) al LIBERAR la requisición (generar OC).');

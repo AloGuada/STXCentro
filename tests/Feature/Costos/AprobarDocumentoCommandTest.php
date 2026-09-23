@@ -126,3 +126,61 @@ test('costos:aprobar --dry-run no cambia nada', function () {
 
     expect($solicitud->fresh()->estatus->value)->toBe('pendiente_firma');
 });
+
+test('costos:aprobar --nivel firma sólo ese nivel y deja los demás esperando', function () {
+    [$solicitud] = solicitudConCadena($this->user);
+
+    $this->artisan('costos:aprobar', [
+        'identificador' => $solicitud->folio,
+        '--nivel' => [2],
+        '--motivo' => 'Firmó el gerente fuera del sistema',
+    ])->assertSuccessful();
+
+    $solicitud->refresh();
+    expect($solicitud->estatus->value)->toBe('pendiente_firma');
+
+    expect($solicitud->aprobaciones()->where('nivel', 2)->first()->estatus->value)->toBe('aprobada');
+    expect($solicitud->aprobaciones()->whereIn('nivel', [1, 3, 4])->where('estatus', 'pendiente')->count())->toBe(3);
+
+    // El apartado sigue vivo: la cadena no cerró.
+    expect($solicitud->rubrosAfectados()->where('estatus', 'apartado')->exists())->toBeTrue();
+});
+
+test('costos:aprobar --nivel del último pendiente cierra la cadena', function () {
+    [$solicitud] = solicitudConCadena($this->user);
+
+    $this->artisan('costos:aprobar', ['identificador' => $solicitud->folio, '--nivel' => [1, 2, 3]])
+        ->assertSuccessful();
+
+    expect($solicitud->fresh()->estatus->value)->toBe('pendiente_firma');
+
+    $this->artisan('costos:aprobar', ['identificador' => $solicitud->folio, '--nivel' => [4]])
+        ->assertSuccessful();
+
+    $solicitud->refresh();
+    expect($solicitud->estatus->value)->toBe('aprobada');
+    expect($solicitud->aprobaciones()->where('estatus', 'aprobada')->count())->toBe(4);
+    expect($solicitud->rubrosAfectados()->where('estatus', 'aplicado')->exists())->toBeTrue();
+});
+
+test('costos:aprobar --nivel sin firma pendiente falla y no toca nada', function () {
+    [$solicitud] = solicitudConCadena($this->user);
+
+    $this->artisan('costos:aprobar', ['identificador' => $solicitud->folio, '--nivel' => [7]])
+        ->assertFailed();
+
+    expect($solicitud->fresh()->estatus->value)->toBe('pendiente_firma');
+    expect($solicitud->aprobaciones()->where('estatus', 'pendiente')->count())->toBe(4);
+});
+
+test('costos:aprobar no acepta el mismo nivel en --nivel y --saltar-nivel', function () {
+    [$solicitud] = solicitudConCadena($this->user);
+
+    $this->artisan('costos:aprobar', [
+        'identificador' => $solicitud->folio,
+        '--nivel' => [4],
+        '--saltar-nivel' => [4],
+    ])->assertExitCode(2);
+
+    expect($solicitud->aprobaciones()->where('estatus', 'pendiente')->count())->toBe(4);
+});
