@@ -13,11 +13,14 @@ type Props = {
     partidaDescripcion: string;
     unidad: string;
     cantidadCancelable: number;
+    /** Lo que falta por llegar; si es más que lo cancelable, la diferencia ya está facturada. */
+    sinRecibir?: number;
     open: boolean;
     onClose: () => void;
 };
 
-export function CancelarUnidadesModal({ detalleId, partidaDescripcion, unidad, cantidadCancelable, open, onClose }: Props) {
+export function CancelarUnidadesModal({ detalleId, partidaDescripcion, unidad, cantidadCancelable, sinRecibir, open, onClose }: Props) {
+    const amparadoPorFactura = Math.max(0, Number(sinRecibir ?? cantidadCancelable) - cantidadCancelable);
     const [cantidad, setCantidad] = useState<string>(String(cantidadCancelable));
     const [motivo, setMotivo] = useState<string>('');
     const [submitting, setSubmitting] = useState(false);
@@ -69,6 +72,15 @@ export function CancelarUnidadesModal({ detalleId, partidaDescripcion, unidad, c
                     {partidaDescripcion}
                     <br />
                     Por cancelar: <strong>{cantidadCancelable.toLocaleString('es-MX')} {unidad}</strong>
+                    {amparadoPorFactura > 0.001 && (
+                        <>
+                            <br />
+                            <span className="text-warning">
+                                Otras {amparadoPorFactura.toLocaleString('es-MX')} {unidad} no han llegado pero ya están facturadas: para
+                                cancelarlas hay que cancelar la factura o registrar su nota de crédito.
+                            </span>
+                        </>
+                    )}
                 </p>
 
                 <div className="space-y-3">

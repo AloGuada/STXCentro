@@ -14,7 +14,13 @@ import { Button } from '@/components/ui/button';
 import { useCan } from '@/hooks/use-can';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
-import type { CostosOcCancelacionUnidades, CostosOrdenCompra, CostosOrdenCompraEstatus, CostosRetencionDesglose } from '@/types/models';
+import type {
+    CostosOcCancelacionUnidades,
+    CostosOrdenCompra,
+    CostosOrdenCompraDetalle,
+    CostosOrdenCompraEstatus,
+    CostosRetencionDesglose,
+} from '@/types/models';
 import { OC_CANCELACION_ESTATUS_COLORS, OC_CANCELACION_ESTATUS_LABELS, DEVOLUCION_ESTATUS_COLORS, DEVOLUCION_ESTATUS_LABELS, FACTURA_ESTATUS_COLORS, FACTURA_ESTATUS_LABELS, MODO_PAGO_LABELS, ORDEN_COMPRA_ESTATUS_COLORS, ORDEN_COMPRA_ESTATUS_LABELS, TIPO_MONEDA_LABELS } from '@/types/models';
 
 type Props = {
@@ -43,6 +49,8 @@ type CancelarUnidadesTarget = {
     partidaDescripcion: string;
     unidad: string;
     cantidadCancelable: number;
+    /** Lo que falta por llegar; si es más que lo cancelable, la diferencia ya está facturada. */
+    sinRecibir: number;
 };
 
 type DevolverTarget = {
@@ -118,20 +126,16 @@ export default function OrdenesCompraShow({ ordenCompra, retenciones, usuarios }
         return Math.max(0, Number(ordenado) - Number(cancelado) - recibido);
     };
 
-    // Lo que todavía se puede dar por cancelado: el pendiente por recibir menos
-    // lo que otra cancelación ya tiene tomado esperando firma.
-    const cancelablePorPartida = (
-        detalleId: number,
-        ordenado: number,
-        cancelado = 0,
-        cancelaciones: CostosOcCancelacionUnidades[] = [],
-    ): number => {
-        const enEspera = cancelaciones
-            .filter((c) => c.estatus === 'pendiente')
-            .reduce((acc, c) => acc + Number(c.cantidad), 0);
+    // Lo que todavía se puede dar por cancelado lo mide el servidor: lo que no
+    // ha llegado, menos lo que otra cancelación ya tomó esperando firma y menos
+    // lo que una factura adelantada ya ampare. Ese último tope es de la orden
+    // entera y la pantalla no tiene con qué calcularlo.
+    const cancelablePorPartida = (d: CostosOrdenCompraDetalle): number => Number(d.cancelacion?.cancelable ?? 0);
 
-        return Math.max(0, pendientePorRecibir(detalleId, ordenado, cancelado) - enEspera);
-    };
+    // Hay algo sin recibir, pero una factura ya lo cobró: no se cancela sin
+    // cancelar la factura o registrar su nota de crédito.
+    const amparadoPorFactura = (d: CostosOrdenCompraDetalle): boolean =>
+        Number(d.cancelacion?.sin_recibir ?? 0) > 0 && cancelablePorPartida(d) <= 0;
 
     const puedeCancelarUnidades = can('costos.ordenes-compra.cancelar') && ordenCompra.estatus !== 'cancelada';
     const puedeAutorizarCancelacion = can('costos.ordenes-compra.autorizar-cancelacion');
@@ -338,6 +342,7 @@ export default function OrdenesCompraShow({ ordenCompra, retenciones, usuarios }
                                             <th className="text-right">Cantidad</th>
                                             <th>Unidad</th>
                                             <th className="text-right">Canceladas</th>
+                                            <th className="text-right">Recibido</th>
                                             <th className="text-right">Pendiente por recibir</th>
                                             <th className="text-right">P. Unitario</th>
                                             <th className="text-right">Subtotal</th>
@@ -371,6 +376,29 @@ export default function OrdenesCompraShow({ ordenCompra, retenciones, usuarios }
                                                 </td>
                                                 <td className="text-right">
                                                     {(() => {
+                                                        const recibido = Number(d.cancelacion?.recibido ?? 0);
+                                                        const conFactura = Number(d.cancelacion?.recibido_facturado ?? 0);
+                                                        if (recibido <= 0) return '-';
+
+                                                        return (
+                                                            <div>
+                                                                <div>{recibido.toLocaleString('es-MX', { maximumFractionDigits: 4 })}</div>
+                                                                <div
+                                                                    className={`text-[11px] ${conFactura < recibido ? 'text-warning' : 'text-base-content/60'}`}
+                                                                    title={
+                                                                        conFactura < recibido
+                                                                            ? 'Parte de lo recibido entró sin factura viva.'
+                                                                            : 'Todo lo recibido entró con su factura.'
+                                                                    }
+                                                                >
+                                                                    {conFactura.toLocaleString('es-MX', { maximumFractionDigits: 4 })} con factura
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    })()}
+                                                </td>
+                                                <td className="text-right">
+                                                    {(() => {
                                                         const pend = pendientePorRecibir(d.id, d.cantidad, d.cantidad_cancelada);
                                                         return <span className={pend <= 0 ? 'text-success' : 'font-medium'}>{pend.toLocaleString('es-MX')}</span>;
                                                     })()}
@@ -380,8 +408,18 @@ export default function OrdenesCompraShow({ ordenCompra, retenciones, usuarios }
                                                 {puedeCancelarUnidades && (
                                                     <td className="text-right">
                                                         {(() => {
-                                                            const cancelable = cancelablePorPartida(d.id, d.cantidad, d.cantidad_cancelada, d.cancelaciones ?? []);
-                                                            if (cancelable <= 0) return null;
+                                                            const cancelable = cancelablePorPartida(d);
+
+                                                            if (cancelable <= 0) {
+                                                                return amparadoPorFactura(d) ? (
+                                                                    <span
+                                                                        className="text-[11px] text-base-content/50"
+                                                                        title="Lo que falta ya está facturado: para cancelarlo hay que cancelar la factura o registrar su nota de crédito."
+                                                                    >
+                                                                        Amparado por factura
+                                                                    </span>
+                                                                ) : null;
+                                                            }
 
                                                             return (
                                                                 <button
@@ -393,6 +431,7 @@ export default function OrdenesCompraShow({ ordenCompra, retenciones, usuarios }
                                                                             partidaDescripcion: d.descripcion,
                                                                             unidad: d.unidad,
                                                                             cantidadCancelable: cancelable,
+                                                                            sinRecibir: Number(d.cancelacion?.sin_recibir ?? cancelable),
                                                                         })
                                                                     }
                                                                 >
@@ -823,6 +862,7 @@ export default function OrdenesCompraShow({ ordenCompra, retenciones, usuarios }
                         partidaDescripcion={cancelarUnidadesTarget.partidaDescripcion}
                         unidad={cancelarUnidadesTarget.unidad}
                         cantidadCancelable={cancelarUnidadesTarget.cantidadCancelable}
+                        sinRecibir={cancelarUnidadesTarget.sinRecibir}
                         open={true}
                         onClose={() => setCancelarUnidadesTarget(null)}
                     />
