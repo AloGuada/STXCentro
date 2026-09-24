@@ -125,7 +125,11 @@ export default function ExistenciasIndex({
     /** El servidor sólo consulta cuando ya hay una pregunta que contestar. */
     const consultado = totales !== null;
 
-    /** El Excel es de lo filtrado entero: lleva los mismos filtros que la pantalla. */
+    /**
+     * El Excel es de lo filtrado entero: lleva los mismos filtros que la
+     * pantalla. No espera a que haya consulta: sin almacén elegido salen todos,
+     * una hoja por almacén.
+     */
     const exportar = () => {
         const params = new URLSearchParams();
 
@@ -178,8 +182,11 @@ export default function ExistenciasIndex({
                         type="button"
                         className="btn btn-outline btn-sm"
                         onClick={exportar}
-                        disabled={!consultado}
-                        title={consultado ? 'Descarga lo filtrado, completo' : 'Filtra primero: el reporte es de lo que está en pantalla'}
+                        title={
+                            filters.almacen_id
+                                ? 'Descarga lo filtrado de este almacén, completo'
+                                : 'Descarga todos los almacenes, una hoja por cada uno'
+                        }
                     >
                         <DownloadIcon className="size-4" /> Exportar Excel
                     </button>
