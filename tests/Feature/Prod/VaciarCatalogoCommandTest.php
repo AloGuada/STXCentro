@@ -22,7 +22,7 @@ use App\Models\Qal\PndFoto;
 use App\Models\Qal\PndJunta;
 use App\Models\Qal\PndReporte;
 use App\Models\Qal\Programacion;
-use App\Models\Qal\ProgramacionMarca;
+use App\Models\Qal\ProgramacionPieza;
 use App\Models\Qal\Sublote;
 use App\Models\User;
 use Illuminate\Http\UploadedFile;
@@ -291,7 +291,11 @@ test('con --con-calidad vacia el catalogo y borra lo que calidad le colgo', func
     Sublote::factory()->create(['lote_id' => $lote->id, 'sublote_origen_id' => $original->id, 'numero_inspeccion' => 2]);
 
     $programacion = Programacion::factory()->create(['obra_id' => $catalogo->obra_id]);
-    ProgramacionMarca::factory()->create(['programacion_id' => $programacion->id, 'concepto_id' => $marca->id]);
+    ProgramacionPieza::factory()->create(['programacion_id' => $programacion->id, 'concepto_id' => $marca->id]);
+    ProgramacionPieza::factory()->create([
+        'programacion_id' => $programacion->id,
+        'pieza_id' => Pieza::where('catalogo_id', $catalogo->id)->value('id'),
+    ]);
 
     // El informe se va entero aunque traiga juntas de otras marcas.
     $pnd = PndReporte::factory()->create(['qal_obra_id' => $obraDeCalidad->id, 'archivo_pdf' => 'qal/pnd/informe.pdf']);
@@ -315,7 +319,7 @@ test('con --con-calidad vacia el catalogo y borra lo que calidad le colgo', func
         ->and(Modelo::count())->toBe(0)
         ->and(LoteAccesorio::count())->toBe(0)
         ->and(Sublote::count())->toBe(0)
-        ->and(ProgramacionMarca::count())->toBe(0)
+        ->and(ProgramacionPieza::count())->toBe(0)
         ->and(PndReporte::whereKey($pnd->id)->exists())->toBeFalse()
         // Lo que es de la obra y no del catálogo sigue en pie.
         ->and(Catalogo::whereKey($catalogo->id)->exists())->toBeTrue()

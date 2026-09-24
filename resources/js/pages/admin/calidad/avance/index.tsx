@@ -25,7 +25,7 @@
 
 import { Head, router } from '@inertiajs/react';
 import { numeroSemana, rangoSemana } from '@/components/qal/avance/semanas';
-import type { ComparativaAvance, Fase, ObraOpcion, VistaAvance } from '@/components/qal/avance/tipos';
+import type { ComparativaAvance, Fase, GrupoOpcion, ObraOpcion, VistaAvance } from '@/components/qal/avance/tipos';
 import { VistaComparativa } from '@/components/qal/avance/vista-comparativa';
 import { VistaObra } from '@/components/qal/avance/vista-obra';
 import { Select, SelectItem } from '@/components/ui/select';
@@ -48,12 +48,16 @@ type Props = {
     vista: VistaAvance | null;
     /** Sin obra elegida: la portada con todas. */
     comparativa: ComparativaAvance | null;
+    /** Los grupos de trabajo con sus módulos; sólo llegan con obra elegida. */
+    grupos: GrupoOpcion[];
     puedeCapturar: boolean;
+    /** Cerrar el plan es un permiso aparte de capturarlo. */
+    puedeCerrar: boolean;
 };
 
 const nombreDe = (obra: ObraOpcion | undefined) => (obra ? [obra.no, obra.descripcion].filter(Boolean).join(' — ') : '');
 
-export default function AvanceProduccion({ semana, semanas, obras, obraId, fase, vista, comparativa, puedeCapturar }: Props) {
+export default function AvanceProduccion({ semana, semanas, obras, obraId, fase, vista, comparativa, grupos, puedeCapturar, puedeCerrar }: Props) {
     const ir = (cambios: { semana?: string; obra?: number | null; fase?: Fase }) => {
         const destino = { semana, obra: obraId, fase, ...cambios };
 
@@ -114,7 +118,9 @@ export default function AvanceProduccion({ semana, semanas, obras, obraId, fase,
                         semana={semana}
                         fase={fase}
                         vista={vista}
+                        grupos={grupos}
                         puedeCapturar={puedeCapturar}
+                        puedeCerrar={puedeCerrar}
                         onFase={(siguiente) => ir({ fase: siguiente })}
                         onVolver={() => ir({ obra: null })}
                         onAbrirObra={(otra) => ir({ obra: otra })}

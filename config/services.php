@@ -56,4 +56,12 @@ return [
         'poll_segundos' => env('IFC_SERVICE_POLL', 20),
     ],
 
+    // Servicio aparte que reconoce texto en imágenes y PDF (ocr-service/). El
+    // modelo tarda en cargar y come memoria, así que vive en su propio proceso
+    // y se levanta una vez, no por petición.
+    'paddle_ocr' => [
+        'url' => env('OCR_SERVICE_URL', 'http://127.0.0.1:8800'),
+        'timeout' => env('OCR_SERVICE_TIMEOUT', 120),
+    ],
+
 ];

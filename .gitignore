@@ -24,7 +24,8 @@ yarn-error.log
 /auth.json
 /.claude
 /app/graphify-out
-/ocr-service
+/ocr-service/.venv
+/ocr-service/__pycache__
 /.fleet
 /.idea
 /.nova

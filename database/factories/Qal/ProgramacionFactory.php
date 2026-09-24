@@ -15,7 +15,7 @@ class ProgramacionFactory extends Factory
     protected $model = Programacion::class;
 
     /**
-     * El plan de 2ª de esta semana, sin marcas.
+     * El plan de 2ª de esta semana, abierto y sin piezas.
      *
      * @return array<string, mixed>
      */
@@ -30,5 +30,11 @@ class ProgramacionFactory extends Factory
             'semana' => $hoy->isoWeek(),
             'notas' => null,
         ];
+    }
+
+    /** El plan ya comprometido: cuenta y lo ve Calidad. */
+    public function cerrada(): static
+    {
+        return $this->state(fn (): array => ['cerrada_at' => now()]);
     }
 }

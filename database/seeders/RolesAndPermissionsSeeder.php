@@ -490,9 +490,11 @@ class RolesAndPermissionsSeeder extends Seeder
             'qal.obras.ver',
             'qal.obras.crear',
             'qal.obras.editar',
-            // Avance de producción: ver el cruce y capturar el plan de la semana.
+            // Avance de producción: ver el cruce, capturar el plan de la semana
+            // y cerrarlo, que es lo que lo hace contar.
             'qal.programacion.ver',
             'qal.programacion.capturar',
+            'qal.programacion.cerrar',
             'qal.usuarios.gestionar',
             'qal.soldadores.ver',
             'qal.soldadores.crear',
@@ -565,6 +567,7 @@ class RolesAndPermissionsSeeder extends Seeder
             'qal.registros.exportar',
             'qal.programacion.ver',
             'qal.programacion.capturar',
+            'qal.programacion.cerrar',
         ];
 
         // Permisos Core

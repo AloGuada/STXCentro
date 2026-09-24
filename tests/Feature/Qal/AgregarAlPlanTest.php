@@ -1,14 +1,22 @@
 <?php
 
+use App\Enums\Qal\FaseTransformacion;
+use App\Enums\Qal\Subetapa;
 use App\Models\Concepto;
 use App\Models\Prod\Catalogo;
+use App\Models\Prod\GrupoTrabajo;
 use App\Models\Prod\Pieza;
+use App\Models\Qal\Inspeccion;
+use App\Models\Qal\Obra;
+use App\Models\Qal\Programacion;
+use App\Models\Qal\ProgramacionPieza;
 use App\Models\User;
 use Spatie\Permission\Models\Permission;
 
 /**
  * El formulario «agregar al plan» del avance de producción: las marcas de la
- * obra, las piezas de una marca y la pieza de un QR, que rellena obra y marca.
+ * obra, las piezas de una marca con su estado frente al plan, y la pieza de un
+ * QR, que rellena obra, lote y marca.
  */
 function quienProgramaPiezas(array $permisos = ['qal.programacion.ver', 'qal.programacion.capturar']): User
 {
@@ -48,21 +56,38 @@ test('las marcas de la obra llegan en orden natural, sin las del catalogo congel
         ]);
 });
 
-test('las piezas de una marca llegan por su qs', function () {
+test('las piezas de una marca llegan por su qs, con su estado frente al plan de la semana', function () {
     $marca = Concepto::factory()->create();
-    $segunda = Pieza::factory()->create(['concepto_id' => $marca->id, 'qr' => '155002', 'qs' => '2']);
-    $primera = Pieza::factory()->create(['concepto_id' => $marca->id, 'qr' => '155001', 'qs' => '1']);
+    Obra::paraObra($marca->obra);
+    $grupo = GrupoTrabajo::factory()->create();
+    $piezas = collect(['1' => '155001', '2' => '155002', '3' => '155003', '4' => '155004', '5' => '155005'])
+        ->map(fn (string $qr, string $qs): Pieza => Pieza::factory()->create(['concepto_id' => $marca->id, 'qr' => $qr, 'qs' => $qs]));
+    $pasada = Programacion::factory()->cerrada()->create(['obra_id' => $marca->obra_id, 'anio' => 2026, 'semana' => 33]);
+    $borradorViejo = Programacion::factory()->create(['obra_id' => $marca->obra_id, 'anio' => 2026, 'semana' => 32]);
+    $actual = Programacion::factory()->create(['obra_id' => $marca->obra_id, 'anio' => 2026, 'semana' => 34]);
+    $enElPlan = fn (Programacion $plan, Pieza $pieza) => ProgramacionPieza::factory()->dePieza($pieza)
+        ->for($plan, 'programacion')->for($grupo, 'grupoTrabajo');
+
+    $enElPlan($actual, $piezas['2'])->create();
+    $enElPlan($pasada, $piezas['3'])->create();
+    // Un borrador que nunca se cerró no deja nada pendiente.
+    $enElPlan($borradorViejo, $piezas['4'])->create();
+    $enElPlan($pasada, $piezas['5'])->create();
+    Inspeccion::factory()->dePieza($piezas['5'], FaseTransformacion::Segunda, Subetapa::Soldado)->create();
 
     $this->actingAs(quienProgramaPiezas())
-        ->getJson(route('admin.qal.avance.piezas', ['marca' => $marca->id]))
+        ->getJson(route('admin.qal.avance.piezas', ['marca' => $marca->id, 'fase' => '2', 'semana' => '2026-S34']))
         ->assertExactJson([
-            ['id' => $primera->id, 'qr' => '155001', 'qs' => '1'],
-            ['id' => $segunda->id, 'qr' => '155002', 'qs' => '2'],
+            ['id' => $piezas['1']->id, 'qr' => '155001', 'qs' => '1', 'estado' => 'libre'],
+            ['id' => $piezas['2']->id, 'qr' => '155002', 'qs' => '2', 'estado' => 'en_plan'],
+            ['id' => $piezas['3']->id, 'qr' => '155003', 'qs' => '3', 'estado' => 'pendiente'],
+            ['id' => $piezas['4']->id, 'qr' => '155004', 'qs' => '4', 'estado' => 'libre'],
+            ['id' => $piezas['5']->id, 'qr' => '155005', 'qs' => '5', 'estado' => 'fabricada'],
         ]);
 });
 
-test('buscar por qr rellena la obra y la marca', function () {
-    $marca = Concepto::factory()->create(['marca' => 'SX-TP2-7']);
+test('buscar por qr rellena la obra, el lote y la marca', function () {
+    $marca = Concepto::factory()->create(['marca' => 'SX-TP2-7', 'lote' => 'L4']);
     $pieza = Pieza::factory()->create(['concepto_id' => $marca->id, 'qr' => '155745', 'qs' => '4']);
 
     $this->actingAs(quienProgramaPiezas())
@@ -72,6 +97,7 @@ test('buscar por qr rellena la obra y la marca', function () {
             'obra_id' => $marca->obra_id,
             'marca_id' => $marca->id,
             'marca' => 'SX-TP2-7',
+            'lote' => 'L4',
             'pieza_id' => $pieza->id,
             'qr' => '155745',
             'qs' => '4',

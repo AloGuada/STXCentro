@@ -4,7 +4,7 @@ namespace App\Services\Qal;
 
 use App\Enums\Qal\FaseTransformacion;
 use App\Models\Qal\Programacion;
-use App\Models\Qal\ProgramacionMarca;
+use App\Models\Qal\ProgramacionPieza;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Collection;
 
@@ -20,6 +20,8 @@ use Illuminate\Support\Collection;
  *  - El arrastre es una lista de piezas, no un número: una marca no puede
  *    contarse dos veces, y siempre se puede señalar cuál lleva tres semanas sin
  *    hacerse.
+ *  - Sólo cuenta el plan cerrado: mientras Producción lo arma es un borrador
+ *    que ni suma ni se arrastra, y Calidad no lo ve.
  *  - Las reparaciones no vuelven al plan: una pieza rechazada ya está
  *    fabricada. Reprogramarla la contaría dos veces, y repararla no cuesta lo
  *    mismo que armarla. Vive en su propio bloque, con su antigüedad.
@@ -72,33 +74,53 @@ class AvanceProduccion
     /**
      * Una obra, una semana, una transformación.
      *
+     * El borrador —el plan de la semana mientras sigue abierto— sólo viaja
+     * para quien lo captura, y aparte: no entra en las líneas ni en los totales.
+     *
      * @param  '2'|'3'  $fase
      * @return array<string, mixed>
      */
-    public function deObra(int $obraId, string $fase, string $semana): array
+    public function deObra(int $obraId, string $fase, string $semana, bool $conBorrador = false): array
     {
         $piezas = $this->historial->piezas([$obraId], $fase);
-        $planes = $this->planes([$obraId], $fase);
-        $lineas = $this->lineas($planes, $this->indexar($piezas), $this->historial->enProceso([$obraId], $fase), $obraId, $semana);
-        $plan = $planes->first(fn (Programacion $programacion): bool => $programacion->clave() === $semana);
+        $lineas = $this->lineas($this->planes([$obraId], $fase), $this->indexar($piezas), $this->historial->enProceso([$obraId], $fase), $obraId, $semana);
+        $plan = $this->planDeLaSemana($obraId, $fase, $semana);
+        $abierto = $plan !== null && ! $plan->cerrada();
 
         return [
-            'plan' => $plan ? [
-                'marcas' => $plan->marcas
-                    ->where('es_baja', false)
-                    ->map(fn (ProgramacionMarca $marca): string => $marca->cantidad > 1 ? "{$marca->marca} x{$marca->cantidad}" : $marca->marca)
-                    ->implode("\n"),
-                'bajas' => $plan->marcas
-                    ->where('es_baja', true)
-                    ->map(fn (ProgramacionMarca $baja): string => $baja->motivo_baja ? "{$baja->marca}: {$baja->motivo_baja}" : $baja->marca)
-                    ->implode("\n"),
-                'notas' => $plan->notas,
-            ] : null,
+            'plan' => [
+                'estado' => $plan === null ? 'sin_plan' : ($abierto ? 'abierto' : 'cerrado'),
+                'notas' => $abierto && ! $conBorrador ? null : $plan?->notas,
+                'cerradoEl' => $plan?->cerrada_at?->toDateString(),
+                'cerradoPor' => $plan?->cerradaPor?->name,
+            ],
+            'borrador' => $abierto && $conBorrador
+                ? $plan->piezas->map(fn (ProgramacionPieza $pieza): array => [
+                    'id' => $pieza->id,
+                    'marca' => $pieza->marca,
+                    'lote' => $pieza->lote,
+                    'qr' => $pieza->qr,
+                    'qs' => $pieza->qs,
+                    'grupo' => $pieza->grupoTrabajo?->descripcion,
+                    'modulo' => $pieza->modulo,
+                ])->sortBy(fn (array $pieza): string => $pieza['marca'].' '.$pieza['qr'], SORT_NATURAL | SORT_FLAG_CASE)->values()->all()
+                : null,
             'lineas' => $lineas,
             'total' => $this->totalizar($lineas),
             'tipos' => $this->porTipo($lineas),
             'reparaciones' => $this->deReparacion($piezas, $semana),
         ];
+    }
+
+    /** El plan de esa semana, abierto o cerrado. */
+    public function planDeLaSemana(int $obraId, string $fase, string $semana): ?Programacion
+    {
+        [$anio, $numero] = self::partesDeSemana($semana);
+
+        return Programacion::query()
+            ->where(['obra_id' => $obraId, 'fase' => self::fase($fase)->value, 'anio' => $anio, 'semana' => $numero])
+            ->with(['piezas.grupoTrabajo:id,descripcion', 'cerradaPor:id,name'])
+            ->first();
     }
 
     /**
@@ -166,6 +188,40 @@ class AvanceProduccion
     }
 
     /**
+     * Cómo está cada QR de la obra frente al plan, para el formulario de
+     * agregar: lo fabricado ya no se programa, lo que está en el plan de la
+     * semana no se repite, y lo pendiente de un plan cerrado anterior se puede
+     * volver a programar.
+     *
+     * @param  '2'|'3'  $fase
+     * @return array<string, 'fabricada'|'en_plan'|'pendiente'>
+     */
+    public function estadosPorQr(int $obraId, string $fase, string $semana): array
+    {
+        $estados = [];
+
+        foreach ($this->planes([$obraId], $fase) as $programacion) {
+            if ($programacion->clave() < $semana) {
+                foreach ($programacion->piezas as $pieza) {
+                    $estados[$pieza->qr] = 'pendiente';
+                }
+            }
+        }
+
+        foreach ($this->planDeLaSemana($obraId, $fase, $semana)?->piezas ?? [] as $pieza) {
+            $estados[$pieza->qr] = 'en_plan';
+        }
+
+        foreach ($this->historial->piezas([$obraId], $fase) as $pieza) {
+            $estados[$pieza['qr']] = 'fabricada';
+        }
+
+        return $estados;
+    }
+
+    /**
+     * Los planes que cuentan: los cerrados. Un plan abierto es un borrador.
+     *
      * @param  list<int>  $obras
      * @return Collection<int, Programacion>
      */
@@ -174,55 +230,52 @@ class AvanceProduccion
         return Programacion::query()
             ->whereIn('obra_id', $obras)
             ->where('fase', self::fase($fase)->value)
-            ->with(['marcas' => fn ($consulta) => $consulta->orderBy('id')])
+            ->whereNotNull('cerrada_at')
+            ->with(['piezas' => fn ($consulta) => $consulta->orderBy('id'), 'piezas.grupoTrabajo:id,descripcion'])
             ->get();
     }
 
     /**
-     * Las piezas por `marca|obra_id`, que es como viene el plan.
+     * Las piezas inspeccionadas por `obra_id|qr`, que es como viene el plan.
      *
      * @param  list<array<string, mixed>>  $piezas
-     * @return array<string, list<array<string, mixed>>>
+     * @return array<string, array<string, mixed>>
      */
     private function indexar(array $piezas): array
     {
         $indice = [];
 
         foreach ($piezas as $pieza) {
-            $indice[$pieza['marca'].'|'.$pieza['obra_id']][] = $pieza;
+            $indice[$pieza['obra_id'].'|'.$pieza['qr']] = $pieza;
         }
 
         return $indice;
     }
 
     /**
-     * Las líneas de la semana: lo programado ahora más lo que se arrastra.
+     * Las líneas de la semana: lo comprometido ahora más lo que se arrastra.
      *
-     * El arrastre recorre los planes anteriores de esa obra y esa
-     * transformación, y se queda con las marcas que siguen sin fabricarse y que
-     * no vuelven a estar en el plan de esta semana. Las dadas de baja se caen:
-     * declarar que una pieza ya no se va a hacer es la única forma de que deje
-     * de arrastrarse para siempre.
+     * El arrastre recorre los planes cerrados anteriores de esa obra y esa
+     * transformación, y se queda con las piezas que siguen sin fabricarse y que
+     * no vuelven a estar en el plan de esta semana; conservan el grupo y el
+     * módulo con los que se programaron. Una pieza arrastrada no se mueve ni
+     * se quita: deja de arrastrarse cuando se fabrica.
      *
-     * @param  Collection<int, Programacion>  $planes
-     * @param  array<string, list<array<string, mixed>>>  $indice
-     * @param  array<string, int>  $enProceso
+     * @param  Collection<int, Programacion>  $planes  sólo los cerrados
+     * @param  array<string, array<string, mixed>>  $indice
+     * @param  array<string, true>  $enProceso
      * @return list<array<string, mixed>>
      */
     private function lineas(Collection $planes, array $indice, array $enProceso, int $obraId, string $semana): array
     {
         $suyos = $planes->where('obra_id', $obraId);
         $plan = $suyos->first(fn (Programacion $programacion): bool => $programacion->clave() === $semana);
-        $bajas = $suyos->flatMap(fn (Programacion $programacion) => $programacion->marcas->where('es_baja', true)->pluck('marca'))->flip();
-
-        $deEstaSemana = $plan
-            ? $plan->marcas->where('es_baja', false)->reject(fn (ProgramacionMarca $marca): bool => $bajas->has($marca->marca))
-            : collect();
-        $enPlan = $deEstaSemana->pluck('marca')->flip();
+        $deEstaSemana = $plan ? $plan->piezas : collect();
+        $enPlan = $deEstaSemana->pluck('qr')->flip();
 
         $lineas = $deEstaSemana
-            ->map(fn (ProgramacionMarca $marca): array => [
-                ...$this->estadoDeLinea($indice, $enProceso, $marca->marca, $obraId, $marca->cantidad, $semana),
+            ->map(fn (ProgramacionPieza $pieza): array => [
+                ...$this->estadoDeLinea($indice, $enProceso, $pieza, $obraId, $semana),
                 'arrastrada' => false,
                 'desde' => $semana,
             ])
@@ -235,15 +288,15 @@ class AvanceProduccion
             ->sortBy(fn (Programacion $programacion): string => $programacion->clave());
 
         foreach ($anteriores as $anterior) {
-            foreach ($anterior->marcas->where('es_baja', false) as $marca) {
-                if ($bajas->has($marca->marca) || $enPlan->has($marca->marca) || isset($yaArrastradas[$marca->marca])) {
+            foreach ($anterior->piezas as $pieza) {
+                if ($enPlan->has($pieza->qr) || isset($yaArrastradas[$pieza->qr])) {
                     continue;
                 }
 
-                $estado = $this->estadoDeLinea($indice, $enProceso, $marca->marca, $obraId, $marca->cantidad, $semana);
+                $estado = $this->estadoDeLinea($indice, $enProceso, $pieza, $obraId, $semana);
 
                 if ($estado['pendientes'] > 0) {
-                    $yaArrastradas[$marca->marca] = true;
+                    $yaArrastradas[$pieza->qr] = true;
                     $lineas[] = [...$estado, 'arrastrada' => true, 'desde' => $anterior->clave()];
                 }
             }
@@ -252,51 +305,55 @@ class AvanceProduccion
         // Lo atrasado primero: es de lo que se habla en la reunión.
         usort($lineas, fn (array $a, array $b): int => $a['arrastrada'] !== $b['arrastrada']
             ? ($a['arrastrada'] ? -1 : 1)
-            : strnatcasecmp($a['marca'], $b['marca']));
+            : (strnatcasecmp($a['marca'], $b['marca']) ?: strnatcasecmp($a['qr'], $b['qr'])));
 
         return $lineas;
     }
 
     /**
-     * Cruza una marca del plan con sus piezas.
+     * Cruza una pieza del plan con su historia en las inspecciones.
      *
      * Los rechazos se cuentan hasta esta semana, no sólo los de la semana en
-     * curso: del plan importa qué ha pasado con sus piezas, no qué pasó en siete
-     * días. Lo empezado nunca pasa de lo pendiente: una pieza ya fabricada no
-     * sigue «en proceso» por mucho que su marca tenga otras a medias.
+     * curso: del plan importa qué ha pasado con la pieza, no qué pasó en siete
+     * días. La línea conserva las cuentas —con una pieza valen cero o uno—
+     * porque los totales, el corte por tipo y la portada las suman.
      *
-     * @param  array<string, list<array<string, mixed>>>  $indice
-     * @param  array<string, int>  $enProceso
+     * @param  array<string, array<string, mixed>>  $indice
+     * @param  array<string, true>  $enProceso
      * @return array<string, mixed>
      */
-    private function estadoDeLinea(array $indice, array $enProceso, string $marca, int $obraId, int $cantidad, string $semana): array
+    private function estadoDeLinea(array $indice, array $enProceso, ProgramacionPieza $pieza, int $obraId, string $semana): array
     {
-        $clave = "{$marca}|{$obraId}";
-        $piezas = collect($indice[$clave] ?? []);
-        $fabricadas = $piezas->filter(fn (array $pieza): bool => $pieza['semanaFabricada'] <= $semana)->count();
-        $liberadas = $piezas->filter(fn (array $pieza): bool => $pieza['semanaLiberada'] !== '' && $pieza['semanaLiberada'] <= $semana)->count();
-        $pendientes = max(0, $cantidad - $fabricadas);
-        $empezadas = min($pendientes, $enProceso[$clave] ?? 0);
-        $primera = $piezas->first();
+        $clave = "{$obraId}|{$pieza->qr}";
+        $historia = $indice[$clave] ?? null;
+        $fabricada = $historia !== null && $historia['semanaFabricada'] <= $semana;
+        $liberada = $historia !== null && $historia['semanaLiberada'] !== '' && $historia['semanaLiberada'] <= $semana;
+        $empezada = ! $fabricada && isset($enProceso[$clave]);
 
         return [
-            'marca' => $marca,
-            'tipo' => $this->lector->tipoDeMarca($marca),
-            'cantidad' => $cantidad,
-            'fabricadas' => $fabricadas,
-            'fabricadasSemana' => $piezas->where('semanaFabricada', $semana)->count(),
-            'liberadas' => $liberadas,
-            'liberadasSemana' => $piezas->where('semanaLiberada', $semana)->count(),
-            'rechazadas' => $piezas->filter(fn (array $pieza): bool => collect($pieza['semanasRechazada'])->contains(fn (string $rechazo): bool => $rechazo <= $semana))->count(),
-            'rechazadasSemana' => $piezas->filter(fn (array $pieza): bool => in_array($semana, $pieza['semanasRechazada'], true))->count(),
-            'enReparacion' => $piezas->where('estatus', 'Rechazado')->count(),
-            'pendientes' => $pendientes,
-            'empezadas' => $empezadas,
-            'sinEmpezar' => max(0, $pendientes - $empezadas),
-            'primera' => $primera ? [
-                'semanaFabricada' => $primera['semanaFabricada'],
-                'semanaLiberada' => $primera['semanaLiberada'],
-                'inspecciones' => $primera['inspecciones'],
+            'id' => $pieza->id,
+            'marca' => $pieza->marca,
+            'lote' => $pieza->lote,
+            'qr' => $pieza->qr,
+            'qs' => $pieza->qs,
+            'grupo' => $pieza->grupoTrabajo?->descripcion,
+            'modulo' => $pieza->modulo,
+            'tipo' => $this->lector->tipoDeMarca($this->lector->normalizar($pieza->marca)),
+            'cantidad' => 1,
+            'fabricadas' => (int) $fabricada,
+            'fabricadasSemana' => (int) ($historia !== null && $historia['semanaFabricada'] === $semana),
+            'liberadas' => (int) $liberada,
+            'liberadasSemana' => (int) ($historia !== null && $historia['semanaLiberada'] === $semana),
+            'rechazadas' => (int) ($historia !== null && collect($historia['semanasRechazada'])->contains(fn (string $rechazo): bool => $rechazo <= $semana)),
+            'rechazadasSemana' => (int) ($historia !== null && in_array($semana, $historia['semanasRechazada'], true)),
+            'enReparacion' => (int) ($historia !== null && $historia['estatus'] === 'Rechazado'),
+            'pendientes' => (int) ! $fabricada,
+            'empezadas' => (int) $empezada,
+            'sinEmpezar' => (int) (! $fabricada && ! $empezada),
+            'primera' => $historia ? [
+                'semanaFabricada' => $historia['semanaFabricada'],
+                'semanaLiberada' => $historia['semanaLiberada'],
+                'inspecciones' => $historia['inspecciones'],
             ] : null,
         ];
     }

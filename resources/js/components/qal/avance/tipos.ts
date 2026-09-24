@@ -1,7 +1,7 @@
 /**
  * Lo que la pantalla de avance recibe del servidor.
  *
- * El cruce entre el plan y lo que vio calidad —arrastre, bajas, rechazos hasta
+ * El cruce entre el plan y lo que vio calidad —arrastre, rechazos hasta
  * la semana, corte por tipo— se calcula en `app/Services/Qal/AvanceProduccion.php`;
  * aquí sólo viven sus formas y las definiciones de cada transformación.
  */
@@ -62,9 +62,42 @@ export type PiezaVista = {
     inspector: string | null;
 };
 
-/** El estado de una línea del plan: lo programado contra lo que vio calidad. */
-export type EstadoLinea = {
+/** Un grupo de trabajo de Producción. */
+export type GrupoOpcion = { id: number; descripcion: string };
+
+/**
+ * Una pieza del borrador: el plan de la semana mientras sigue abierto. Todavía
+ * no se cruza con nada, porque no cuenta hasta que se cierra.
+ */
+export type PiezaDelBorrador = {
+    id: number;
     marca: string;
+    lote: string | null;
+    qr: string;
+    qs: string | null;
+    grupo: string | null;
+    modulo: string | null;
+};
+
+/**
+ * En qué va el plan de la semana. Abierto es un borrador de Producción: no
+ * cuenta ni lo ve Calidad. Cerrado es el compromiso, y ya no se toca.
+ */
+export type EstadoDelPlan = 'sin_plan' | 'abierto' | 'cerrado';
+
+/**
+ * Una línea del plan: una pieza programada contra lo que vio calidad. Las
+ * cuentas valen cero o uno; se conservan porque los totales las suman.
+ */
+export type EstadoLinea = {
+    id: number;
+    marca: string;
+    lote: string | null;
+    qr: string;
+    qs: string | null;
+    /** El grupo de trabajo que la hace y el módulo donde la hace, como se escribió («1.2»). */
+    grupo: string | null;
+    modulo: string | null;
     tipo: string;
     cantidad: number;
     /** Presentadas a inspección hasta esta semana, inclusive. */
@@ -80,7 +113,7 @@ export type EstadoLinea = {
     /** De lo pendiente, lo que ya está empezado. */
     empezadas: number;
     sinEmpezar: number;
-    /** La primera pieza de la marca, para las columnas de la tabla. */
+    /** Su historia en las inspecciones, para las columnas de la tabla. */
     primera: { semanaFabricada: string; semanaLiberada: string; inspecciones: number } | null;
     /** Viene de una semana anterior que no se cerró. */
     arrastrada: boolean;
@@ -124,8 +157,10 @@ export type FilaTipo = {
 
 /** Una obra, una semana y una transformación, ya cruzadas. */
 export type VistaAvance = {
-    /** Lo escrito para esa semana, como se vuelve a mostrar en las cajas. Nulo si no hay plan. */
-    plan: { marcas: string; bajas: string; notas: string | null } | null;
+    plan: { estado: EstadoDelPlan; notas: string | null; cerradoEl: string | null; cerradoPor: string | null };
+    /** Las piezas del plan abierto; sólo llegan a quien lo captura. */
+    borrador: PiezaDelBorrador[] | null;
+    /** Sólo de planes cerrados: lo de esta semana más lo arrastrado. */
     lineas: EstadoLinea[];
     total: Totales;
     tipos: FilaTipo[];

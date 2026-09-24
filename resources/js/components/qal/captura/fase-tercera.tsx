@@ -7,6 +7,9 @@
  * calcula sola para que el inspector no tenga que echar cuentas de pie.
  */
 
+import axios from 'axios';
+import { useState } from 'react';
+import { cn } from '@/lib/utils';
 import type { Campos } from './estado';
 import { evidenciaDe, type Evidencia, type FotoGuardada } from './fotos';
 import { ESPESOR_MEDICIONES_BASE, ESPESOR_MEDICIONES_MAX, resumirEspesores } from './reglas';
@@ -87,6 +90,59 @@ export function FaseTercera({
 }) {
     const resumen = resumirEspesores(lecturas, mediciones, campos.v('p3_req'));
     const requerido = parseFloat(campos.v('p3_req'));
+    const [leyendo, setLeyendo] = useState(false);
+
+    /**
+     * Los espesores de una foto de la pantalla del calibre.
+     *
+     * Entran a partir del primer hueco de la rejilla, para poder ir pantalla a
+     * pantalla (el PosiTector las lista de diez en diez). Lo leído queda a la
+     * vista y editable: el OCR ayuda a teclear, no dictamina — un espesor
+     * decide si la pieza pasa.
+     */
+    const leerDelCalibre = async (archivo: File) => {
+        setLeyendo(true);
+        try {
+            const cuerpo = new FormData();
+            cuerpo.append('foto', archivo);
+            const { data } = await axios.post<{ lecturas: number[] }>('/admin/calidad/espesores/ocr', cuerpo);
+            const leidas = data.lecturas ?? [];
+
+            if (leidas.length === 0) {
+                onAviso('No se reconoció ninguna lectura en la foto', 'error');
+                return;
+            }
+
+            const copia = lecturas.map((fila) => [...fila]);
+            const vacio = copia.flat().indexOf('');
+            const desde = vacio < 0 ? copia.length * 3 : vacio;
+
+            leidas.forEach((valor, posicion) => {
+                const celda = desde + posicion;
+                const medicion = Math.floor(celda / 3);
+                if (medicion < copia.length) {
+                    copia[medicion][celda % 3] = String(valor);
+                }
+            });
+            onLecturas(copia);
+
+            // Si lo leído pasa de las mediciones a la vista, se abren las que faltan.
+            const usadas = Math.min(Math.ceil((desde + leidas.length) / 3), ESPESOR_MEDICIONES_MAX);
+            if (usadas > mediciones) {
+                onMediciones(usadas);
+            }
+
+            onAviso(`${leidas.length} lectura(s) leídas — revísalas contra la pantalla`, 'ok');
+        } catch (error) {
+            const mensaje = axios.isAxiosError<{ message?: string }>(error)
+                ? (error.response?.data?.message ?? error.message)
+                : 'No se pudo leer la foto';
+            onAviso(mensaje, 'error');
+        } finally {
+            setLeyendo(false);
+        }
+    };
+
     const escribir = (medicion: number, lectura: number, valor: string) => {
         const copia = lecturas.map((fila) => [...fila]);
         copia[medicion][lectura] = valor;
@@ -150,6 +206,35 @@ export function FaseTercera({
                         Cada medición (columna) tiene 3 lecturas (P1–P3). Se llena columna por columna; el promedio de
                         cada medición es lo que va al reporte.
                     </Pista>
+
+                    <div className="mb-3 flex flex-wrap items-center gap-2">
+                        <label
+                            className={cn(
+                                'cursor-pointer rounded-[11px] border border-base-300 bg-base-100 px-4 py-3 text-base font-bold text-primary',
+                                leyendo && 'pointer-events-none opacity-60',
+                            )}
+                        >
+                            {leyendo ? 'Leyendo la foto…' : '📷 Leer del calibre'}
+                            <input
+                                type="file"
+                                accept="image/*"
+                                capture="environment"
+                                className="hidden"
+                                onChange={(e) => {
+                                    const archivo = e.target.files?.[0];
+                                    // El valor se limpia para poder repetir la misma foto.
+                                    e.target.value = '';
+                                    if (archivo) {
+                                        void leerDelCalibre(archivo);
+                                    }
+                                }}
+                            />
+                        </label>
+                        <span className="text-xs text-base-content/60">
+                            Foto de la pantalla del PosiTector: las lecturas entran de 3 en 3 desde el primer hueco.
+                            Repite la foto por cada pantalla y <b>revísalas</b> antes de guardar.
+                        </span>
+                    </div>
 
                     <div className="overflow-x-auto">
                         <table className="border-collapse text-[13px]">

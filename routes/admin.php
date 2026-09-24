@@ -143,6 +143,7 @@ use App\Http\Controllers\Admin\Qal\DossierArchivoController as QalDossierArchivo
 use App\Http\Controllers\Admin\Qal\DossierDescargaController as QalDossierDescargaController;
 use App\Http\Controllers\Admin\Qal\DossierPlantillaController as QalDossierPlantillaController;
 use App\Http\Controllers\Admin\Qal\EquipoController as QalEquipoController;
+use App\Http\Controllers\Admin\Qal\EspesorOcrController as QalEspesorOcrController;
 use App\Http\Controllers\Admin\Qal\FirmanteController as QalFirmanteController;
 use App\Http\Controllers\Admin\Qal\IncidenciasController as QalIncidenciasController;
 use App\Http\Controllers\Admin\Qal\InspeccionController as QalInspeccionController;
@@ -153,6 +154,7 @@ use App\Http\Controllers\Admin\Qal\PiezaController as QalPiezaController;
 use App\Http\Controllers\Admin\Qal\PiezasDelPlanController as QalPiezasDelPlanController;
 use App\Http\Controllers\Admin\Qal\PndController as QalPndController;
 use App\Http\Controllers\Admin\Qal\ProgramacionController as QalProgramacionController;
+use App\Http\Controllers\Admin\Qal\ProgramacionPiezaController as QalProgramacionPiezaController;
 use App\Http\Controllers\Admin\Qal\RegistroController as QalRegistroController;
 use App\Http\Controllers\Admin\Qal\ReporteController as QalReporteController;
 use App\Http\Controllers\Admin\Qal\ReporteSemanalController as QalReporteSemanalController;
@@ -1210,6 +1212,10 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
                 ->name('inspecciones.reinspeccionar');
             Route::get('piezas/resolver', [QalPiezaController::class, 'resolver'])
                 ->name('piezas.resolver');
+            // Ayuda de captura: lee los espesores de una foto de la pantalla
+            // del calibre. No guarda nada, sólo devuelve los números.
+            Route::post('espesores/ocr', QalEspesorOcrController::class)
+                ->name('espesores.ocr');
         });
         Route::middleware('permission:qal.inspecciones.editar')->group(function () {
             Route::get('inspecciones/{inspeccion}/edit', [QalInspeccionController::class, 'edit'])
@@ -1271,12 +1277,20 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::post('avance/programaciones', [QalProgramacionController::class, 'store'])
             ->middleware('permission:qal.programacion.capturar')
             ->name('avance.programaciones.store');
-        // El formulario «agregar al plan» (obra, marca, QR): responde JSON
-        // para no recargar el plan que se está escribiendo.
+        // Cerrar el plan es comprometerlo: hasta entonces no cuenta ni lo ve
+        // Calidad, y después ya no se toca.
+        Route::post('avance/programaciones/cerrar', [QalProgramacionController::class, 'cerrar'])
+            ->middleware('permission:qal.programacion.cerrar')
+            ->name('avance.programaciones.cerrar');
+        // El formulario «agregar al plan» (lote, marca, piezas): responde JSON
+        // mientras se eligen. Agregar ya guarda, y cada pieza se quita por su
+        // cuenta mientras el plan siga abierto.
         Route::middleware('permission:qal.programacion.capturar')->prefix('avance')->name('avance.')->group(function () {
             Route::get('marcas', [QalPiezasDelPlanController::class, 'marcas'])->name('marcas');
             Route::get('piezas', [QalPiezasDelPlanController::class, 'piezas'])->name('piezas');
             Route::get('pieza', [QalPiezasDelPlanController::class, 'pieza'])->name('pieza');
+            Route::post('plan', [QalProgramacionPiezaController::class, 'store'])->name('plan.store');
+            Route::delete('plan/{programacionPieza}', [QalProgramacionPiezaController::class, 'destroy'])->name('plan.destroy');
         });
 
         // Pruebas no destructivas. Es recurso aparte de reportes: aqui se

@@ -42,13 +42,13 @@ class HistorialDePiezas
     }
 
     /**
-     * Las piezas a medias, por `marca|obra_id`: en 2ª pasaron armado y todavía
+     * Las piezas a medias, por `obra_id|qr`: en 2ª pasaron armado y todavía
      * no se presentan en soldado; en 3ª ya se liberaron en soldado y pintura no
      * las ha visto. No lo declara nadie: sale de los propios registros.
      *
      * @param  list<int>  $obras
      * @param  '2'|'3'  $fase
-     * @return array<string, int>
+     * @return array<string, true>
      */
     public function enProceso(array $obras, string $fase): array
     {
@@ -66,10 +66,11 @@ class HistorialDePiezas
                 fn (Builder $consulta) => $consulta->where('subetapa', Subetapa::ArmadoVestido->value),
                 fn (Builder $consulta) => $consulta->where('subetapa', Subetapa::Soldado->value)->where('estatus', EstatusInspeccion::Liberado->value),
             )
-            ->get(['obra_id', 'qr', 'marca'])
-            ->unique(fn (Inspeccion $inspeccion): string => $inspeccion->obra_id.'|'.$inspeccion->qr)
-            ->reject(fn (Inspeccion $inspeccion): bool => $yaEnLaPuerta->has($inspeccion->obra_id.'|'.$inspeccion->qr))
-            ->countBy(fn (Inspeccion $inspeccion): string => $this->lector->normalizar((string) $inspeccion->marca).'|'.$inspeccion->obra_id)
+            ->get(['obra_id', 'qr'])
+            ->map(fn (Inspeccion $inspeccion): string => $inspeccion->obra_id.'|'.$inspeccion->qr)
+            ->unique()
+            ->reject(fn (string $clave): bool => $yaEnLaPuerta->has($clave))
+            ->mapWithKeys(fn (string $clave): array => [$clave => true])
             ->all();
     }
 

@@ -19,7 +19,7 @@ use App\Models\Qal\ObraMontaje;
 use App\Models\Qal\ObraPndPlan;
 use App\Models\Qal\PndReporte;
 use App\Models\Qal\Programacion;
-use App\Models\Qal\ProgramacionMarca;
+use App\Models\Qal\ProgramacionPieza;
 use App\Models\Qal\Sublote;
 use App\Services\Qal\RegistradorInspeccion;
 use Illuminate\Console\Command;
@@ -44,7 +44,7 @@ use Illuminate\Support\Facades\Storage;
  * desaparezca.
  *
  * Lo que Calidad ya trabajó también bloquea, y sólo --con-calidad lo borra: las
- * inspecciones, modelos IFC, lotes de accesorios, marcas del plan de avance e
+ * inspecciones, modelos IFC, lotes de accesorios, piezas del plan de avance e
  * informes de PND que cuelgan del catálogo o de sus marcas. Si con --eliminar era
  * el último catálogo, la obra sale de Calidad entera y el rastro es todo lo de
  * la obra: además dosier, informes PND, montaje, incidencias y plan de PND. Los
@@ -213,7 +213,11 @@ class VaciarCatalogoCommand extends Command
                 ->orWhereHas('juntas', fn (Builder $junta) => $junta->whereIn('cordon_id', $cordones))),
             'modelos' => Modelo::query()->where('catalogo_id', $catalogo->id),
             'lotes de accesorios' => LoteAccesorio::query()->whereIn('concepto_id', $conceptos),
-            'marcas en planes de avance' => ProgramacionMarca::query()->whereIn('concepto_id', $conceptos),
+            // Por marca o por pieza: el renglón guarda las dos, y cualquiera de
+            // las dos basta para saber que se planeó sobre este catálogo.
+            'piezas en planes de avance' => ProgramacionPieza::query()->where(fn (Builder $pieza) => $pieza
+                ->whereIn('concepto_id', $conceptos)
+                ->orWhereIn('pieza_id', $piezas)),
             'reportes de PND' => PndReporte::query()
                 ->whereHas('juntas', fn (Builder $junta) => $junta->whereIn('concepto_id', $conceptos)),
         ];
