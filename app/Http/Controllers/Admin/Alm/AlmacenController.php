@@ -9,6 +9,7 @@ use App\Http\Requests\Admin\Alm\AlmacenUpdateRequest;
 use App\Models\Alm\Almacen;
 use App\Models\Obra;
 use App\Models\Usuario;
+use App\Services\Alm\DesactivadorAlmacen;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -54,12 +55,14 @@ class AlmacenController extends Controller
         return to_route('admin.alm.almacenes.index');
     }
 
-    public function edit(Request $request, Almacen $almacen): Response
+    public function edit(Request $request, Almacen $almacen, DesactivadorAlmacen $desactivador): Response
     {
         abort_unless($almacen->esVisiblePara($request->user()), 403);
 
         return Inertia::render('admin/almacen/almacenes/edit', [
             'almacen' => $almacen,
+            // Para que el modal de desactivar explique el bloqueo antes del viaje.
+            'bloqueos' => $desactivador->bloqueos($almacen),
             ...$this->opciones(),
         ]);
     }
@@ -71,6 +74,17 @@ class AlmacenController extends Controller
         $almacen->update($request->validated());
 
         return to_route('admin.alm.almacenes.index');
+    }
+
+    /**
+     * Apaga o prende el almacén. Es la única puerta al `activo`: el formulario
+     * de edición ya no lo toca, para que nadie se salte las reglas.
+     */
+    public function toggle(Request $request, Almacen $almacen, DesactivadorAlmacen $desactivador): RedirectResponse
+    {
+        abort_unless($almacen->esVisiblePara($request->user()), 403);
+
+        return back()->with('success', $desactivador->alternar($almacen));
     }
 
     /**

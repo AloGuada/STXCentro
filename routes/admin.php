@@ -321,6 +321,12 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
             ->middlewareFor(['create', 'store'], 'permission:alm.almacenes.crear')
             ->middlewareFor(['edit', 'update'], 'permission:alm.almacenes.editar')
             ->middlewareFor(['destroy'], 'permission:alm.almacenes.eliminar');
+        // Desactivar/reactivar en lugar de borrar: se niega mientras tenga
+        // saldo, resguardos abiertos o transferencias en camino.
+        Route::patch('almacenes/{almacen}/toggle', [AlmAlmacenController::class, 'toggle'])
+            ->whereNumber('almacen')
+            ->middleware('permission:alm.almacenes.editar')
+            ->name('almacenes.toggle');
 
         // Catalogo de areas: clasifica el articulo. Una sola pantalla, porque
         // es una lista de un campo. Sin destroy: aqui nada se borra, se

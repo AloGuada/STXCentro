@@ -38,7 +38,6 @@ export function AlmacenForm({ almacen, obras, usuarios, tipos }: Props) {
         tipo: (almacen?.tipo ?? 'insumos') as AlmAlmacenTipo,
         responsable_id: almacen?.responsable_id ?? '',
         observaciones: almacen?.observaciones ?? '',
-        activo: almacen?.activo ?? true,
     });
 
     const alternarPlanta = (marcado: boolean) => {
@@ -193,16 +192,6 @@ export function AlmacenForm({ almacen, obras, usuarios, tipos }: Props) {
                     placeholder="Ubicación física, horario, notas"
                 />
             </FormField>
-
-            <label className="flex cursor-pointer items-center gap-2">
-                <input
-                    type="checkbox"
-                    className="checkbox checkbox-sm"
-                    checked={data.activo}
-                    onChange={(e) => setData('activo', e.target.checked)}
-                />
-                <span className="text-sm">Activo</span>
-            </label>
 
             <div className="flex justify-end gap-2">
                 <Button variant="outline" asChild>

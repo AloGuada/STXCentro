@@ -29,7 +29,6 @@ class AlmacenUpdateRequest extends FormRequest
             'tipo' => ['required', Rule::in(AlmacenTipo::valores())],
             'responsable_id' => ['nullable', 'uuid', 'exists:usuarios,id'],
             'observaciones' => ['nullable', 'string'],
-            'activo' => ['nullable', 'boolean'],
         ];
     }
 
