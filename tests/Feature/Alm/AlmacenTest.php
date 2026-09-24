@@ -1,9 +1,15 @@
 <?php
 
+use App\Enums\Alm\MovimientoTipo;
 use App\Models\Alm\Almacen;
+use App\Models\Alm\Articulo;
+use App\Models\Alm\Transferencia;
 use App\Models\Obra;
 use App\Models\User;
 use App\Models\Usuario;
+use App\Services\Alm\AlmacenLedger;
+use App\Services\Alm\RegistradorPiezas;
+use App\Services\Alm\RegistradorPrestamos;
 use Spatie\Permission\Models\Permission;
 
 /**
@@ -190,6 +196,7 @@ describe('catalogo de almacenes', function () {
     test('se edita y se elimina', function () {
         $almacen = Almacen::factory()->create(['clave' => 'A', 'nombre' => 'Viejo']);
 
+        // `activo` ya no se toca desde la edición: sólo por desactivar/reactivar.
         $this->actingAs(usuarioDeAlmacen())
             ->put(route('admin.alm.almacenes.update', $almacen), [
                 'clave' => 'A',
@@ -203,7 +210,7 @@ describe('catalogo de almacenes', function () {
             'id' => $almacen->id,
             'nombre' => 'Nuevo',
             'tipo' => 'herramienta',
-            'activo' => false,
+            'activo' => true,
         ]);
 
         $this->actingAs(usuarioDeAlmacen())
@@ -220,6 +227,95 @@ describe('catalogo de almacenes', function () {
         $obra->delete();
 
         expect(Almacen::whereKey($almacen->id)->value('obra_id'))->toBeNull();
+    });
+});
+
+describe('desactivar un almacen', function () {
+    test('un almacen vacio se desactiva y se vuelve a activar', function () {
+        $almacen = Almacen::factory()->create(['clave' => 'CONST']);
+        $user = usuarioDeAlmacen();
+
+        $this->actingAs($user)
+            ->from(route('admin.alm.almacenes.edit', $almacen))
+            ->patch(route('admin.alm.almacenes.toggle', $almacen))
+            ->assertRedirect(route('admin.alm.almacenes.edit', $almacen))
+            ->assertSessionHas('success');
+
+        expect($almacen->fresh()->activo)->toBeFalse();
+
+        $this->actingAs($user)
+            ->patch(route('admin.alm.almacenes.toggle', $almacen))
+            ->assertSessionHas('success');
+
+        expect($almacen->fresh()->activo)->toBeTrue();
+    });
+
+    test('con saldo se niega: el material no se queda en un almacen que nadie ve', function () {
+        $almacen = Almacen::factory()->create();
+        app(AlmacenLedger::class)->registrarPorArticulo(
+            almacenId: $almacen->id,
+            articuloId: Articulo::factory()->create()->id,
+            tipo: MovimientoTipo::Entrada,
+            cantidad: 5,
+            costoUnitario: 10,
+        );
+
+        $this->actingAs(usuarioDeAlmacen())
+            ->patch(route('admin.alm.almacenes.toggle', $almacen))
+            ->assertSessionHasErrors('activo');
+
+        expect($almacen->fresh()->activo)->toBeTrue();
+    });
+
+    test('con una transferencia en transito se niega aunque ya no tenga saldo', function () {
+        $almacen = Almacen::factory()->create();
+        Transferencia::factory()->create(['almacen_origen_id' => $almacen->id, 'folio' => 'TRA-2609-01']);
+
+        $this->actingAs(usuarioDeAlmacen())
+            ->patch(route('admin.alm.almacenes.toggle', $almacen))
+            ->assertSessionHasErrors(['activo' => 'No se puede desactivar: hay transferencias en tránsito (TRA-2609-01). Confírmalas primero.']);
+
+        expect($almacen->fresh()->activo)->toBeTrue();
+    });
+
+    test('la edicion manda lo que impide desactivarlo para explicarlo en el modal', function () {
+        $almacen = Almacen::factory()->create();
+        $piezas = app(RegistradorPiezas::class);
+        $pulidora = Articulo::factory()->porPieza()->create();
+        [$pieza] = $piezas->alta($pulidora, $almacen, [['no_serie' => 'PUL-1']]);
+        $prestamo = app(RegistradorPrestamos::class)->prestar($almacen, [
+            'responsable_id' => supervisorDeAlmacen()->id,
+            'fecha_salida' => today()->toDateString(),
+        ], [['articulo_id' => $pulidora->id, 'activo_id' => $pieza->id]]);
+
+        $this->actingAs(usuarioDeAlmacen())
+            ->get(route('admin.alm.almacenes.edit', $almacen))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->where('bloqueos.articulos_con_saldo', 1)
+                ->where('bloqueos.prestamos_abiertos', [$prestamo->folio])
+                ->where('bloqueos.transferencias_en_transito', []));
+    });
+
+    test('quien solo puede ver no lo desactiva', function () {
+        $almacen = Almacen::factory()->create();
+
+        $this->actingAs(usuarioDeAlmacen(['ver']))
+            ->patch(route('admin.alm.almacenes.toggle', $almacen))
+            ->assertForbidden();
+
+        expect($almacen->fresh()->activo)->toBeTrue();
+    });
+
+    test('un almacenista no desactiva un almacen que no es suyo', function () {
+        $suyo = Almacen::factory()->create();
+        $ajeno = Almacen::factory()->create();
+
+        $this->actingAs(usuarioDeUnSoloAlmacen($suyo))
+            ->patch(route('admin.alm.almacenes.toggle', $ajeno))
+            ->assertForbidden();
+
+        expect($ajeno->fresh()->activo)->toBeTrue();
     });
 });
 
