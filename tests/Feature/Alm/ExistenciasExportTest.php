@@ -49,7 +49,7 @@ function hojasDe(ExistenciasExport $export): array
         ->all();
 }
 
-function existenciaDe(Almacen $almacen, Articulo $articulo, float $cantidad, float $costo): void
+function existenciaParaExportar(Almacen $almacen, Articulo $articulo, float $cantidad, float $costo): void
 {
     app(AlmacenLedger::class)->registrarPorArticulo(
         almacenId: $almacen->id,
@@ -70,9 +70,9 @@ test('descarga un xlsx con lo filtrado y las once columnas del reporte', functio
     $tornillo = Articulo::factory()->create(['codigo' => 'ART-001', 'descripcion' => 'Tornillo 1/2', 'unidad' => 'PZA', 'area_id' => $area->id]);
     $pulidora = Articulo::factory()->activoPorCantidad()->create(['codigo' => 'ART-002', 'descripcion' => 'Pulidora 4 1/2', 'unidad' => 'PZA']);
 
-    existenciaDe($almacen, $tornillo, 100, 2.5);
-    existenciaDe($almacen, $pulidora, 4, 1500);
-    existenciaDe($otro, $pulidora, 7, 1500);
+    existenciaParaExportar($almacen, $tornillo, 100, 2.5);
+    existenciaParaExportar($almacen, $pulidora, 4, 1500);
+    existenciaParaExportar($otro, $pulidora, 7, 1500);
 
     $this->actingAs(usuarioQueExporta())
         ->get(route('admin.alm.existencias.exportar', ['almacen_id' => $almacen->id]))
@@ -106,10 +106,10 @@ test('una hoja por almacén activo, con su lista y nada de los demás', function
     $arnes = Articulo::factory()->create(['descripcion' => 'Arnés de cuerpo completo']);
     $casco = Articulo::factory()->create(['descripcion' => 'Casco de seguridad']);
 
-    existenciaDe($mbp, $arnes, 3, 390);
-    existenciaDe($t4, $casco, 10, 95);
-    existenciaDe($mbp, $casco, 6, 95);
-    existenciaDe($dadoDeBaja, $casco, 4, 95);
+    existenciaParaExportar($mbp, $arnes, 3, 390);
+    existenciaParaExportar($t4, $casco, 10, 95);
+    existenciaParaExportar($mbp, $casco, 6, 95);
+    existenciaParaExportar($dadoDeBaja, $casco, 4, 95);
     $dadoDeBaja->update(['activo' => false]);
 
     $this->actingAs(usuarioQueExporta())
@@ -137,7 +137,7 @@ test('el nombre de la hoja cabe en los 31 caracteres de Excel y no se repite', f
     $casco = Articulo::factory()->create(['descripcion' => 'Casco de seguridad']);
 
     foreach (['Almacén de Construcción TERRAZA ERNESTO ROSADO', 'Herramienta MBP', 'Herramienta MBP', 'Pintura: nave D/K'] as $nombre) {
-        existenciaDe(Almacen::factory()->create(['nombre' => $nombre]), $casco, 1, 1);
+        existenciaParaExportar(Almacen::factory()->create(['nombre' => $nombre]), $casco, 1, 1);
     }
 
     $this->actingAs(usuarioQueExporta())
@@ -209,9 +209,9 @@ test('respeta el buscador y trae todo lo filtrado, no una pagina', function () {
     $almacen = Almacen::factory()->create();
 
     foreach (range(1, 60) as $i) {
-        existenciaDe($almacen, Articulo::factory()->create(['descripcion' => "Tuerca {$i}"]), 1, 1);
+        existenciaParaExportar($almacen, Articulo::factory()->create(['descripcion' => "Tuerca {$i}"]), 1, 1);
     }
-    existenciaDe($almacen, Articulo::factory()->create(['descripcion' => 'Rondana']), 1, 1);
+    existenciaParaExportar($almacen, Articulo::factory()->create(['descripcion' => 'Rondana']), 1, 1);
 
     $this->actingAs(usuarioQueExporta())
         ->get(route('admin.alm.existencias.exportar', ['search' => 'tuerca']))
@@ -223,15 +223,26 @@ test('respeta el buscador y trae todo lo filtrado, no una pagina', function () {
     );
 });
 
-test('sin filtro no hay reporte, igual que no hay tabla', function () {
+test('sin almacén elegido exporta todos los almacenes activos, una hoja por cada uno', function () {
     Excel::fake();
     $this->freezeTime();
 
+    $general = Almacen::factory()->create(['nombre' => 'Almacén General']);
+    $pintura = Almacen::factory()->create(['nombre' => 'Almacén de Pintura']);
+    $dadoDeBaja = Almacen::factory()->create(['nombre' => 'Almacén de Chatarra', 'activo' => false]);
+    existenciaParaExportar($general, Articulo::factory()->create(['descripcion' => 'Tornillo']), 10, 1);
+    existenciaParaExportar($pintura, Articulo::factory()->create(['descripcion' => 'Thinner']), 4, 1);
+    existenciaParaExportar($dadoDeBaja, Articulo::factory()->create(['descripcion' => 'Fierro viejo']), 1, 1);
+
     $this->actingAs(usuarioQueExporta())
-        ->from(route('admin.alm.existencias.index'))
         ->get(route('admin.alm.existencias.exportar'))
-        ->assertRedirect(route('admin.alm.existencias.index'))
-        ->assertSessionHasErrors('filtros');
+        ->assertOk();
+
+    Excel::assertDownloaded(archivoEsperado(), function (ExistenciasExport $export): bool {
+        expect(array_keys(hojasDe($export)))->toBe(['General', 'Pintura']);
+
+        return true;
+    });
 });
 
 test('solo exporta los almacenes que el usuario puede ver', function () {
@@ -239,7 +250,7 @@ test('solo exporta los almacenes que el usuario puede ver', function () {
     $this->freezeTime();
 
     $ajeno = Almacen::factory()->create();
-    existenciaDe($ajeno, Articulo::factory()->create(['descripcion' => 'Cable']), 5, 1);
+    existenciaParaExportar($ajeno, Articulo::factory()->create(['descripcion' => 'Cable']), 5, 1);
 
     $this->actingAs(usuarioQueExporta(extra: []))
         ->get(route('admin.alm.existencias.exportar', ['search' => 'cable']))

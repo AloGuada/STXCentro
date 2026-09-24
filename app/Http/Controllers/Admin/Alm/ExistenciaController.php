@@ -14,7 +14,6 @@ use App\Models\Obra;
 use App\Services\Alm\SaldoEnTransito;
 use App\Support\HoraLocal;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
@@ -159,15 +158,12 @@ class ExistenciaController extends Controller
      * Lo filtrado, entero, a Excel.
      *
      * Misma pregunta que la pantalla —mismos filtros, misma visibilidad— sin
-     * paginar. Sin filtro no hay reporte, igual que no hay tabla: el
-     * inventario completo de la empresa no es lo que nadie quiere en un archivo.
+     * paginar. A diferencia de la tabla, no pide filtro: sin almacén elegido
+     * salen todos los que el usuario ve, una hoja por almacén, y con uno
+     * elegido sale sólo ese.
      */
-    public function exportar(Request $request): BinaryFileResponse|RedirectResponse
+    public function exportar(Request $request): BinaryFileResponse
     {
-        if (! $this->hayFiltro($request)) {
-            return back()->withErrors(['filtros' => 'Filtra primero: el reporte es de lo que está en pantalla.']);
-        }
-
         $consulta = $this->consultaFiltrada($request, $this->almacenesVisibles($request));
 
         return Excel::download(new ExistenciasExport($consulta), 'existencias-'.now()->format('Ymd-Hi').'.xlsx');
