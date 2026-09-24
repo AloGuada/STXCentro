@@ -528,3 +528,55 @@ describe('las pantallas', function () {
                 ->where('pendientes', 1));
     });
 });
+
+/**
+ * Mangueras y cables son activos sin serie que se miden: se prestan y vuelven
+ * por metros, con decimales.
+ */
+describe('activos por cantidad con decimales', function () {
+    it('presta y devuelve metros con decimales hasta cerrar el resguardo', function () {
+        $almacen = Almacen::factory()->create();
+        $manguera = Articulo::factory()->activoPorCantidad()->create(['descripcion' => 'Manguera 1/2"', 'unidad' => 'M']);
+        app(RegistradorPiezas::class)->altaPorCantidad($manguera, $almacen, 30.5, 45);
+        $user = usuarioDePrestamos();
+
+        $this->actingAs($user)
+            ->post(route('admin.alm.prestamos.store'), prestamoValido($almacen, [
+                ['articulo_id' => $manguera->id, 'cantidad' => 12.5],
+            ]))
+            ->assertSessionHasNoErrors();
+
+        $prestamo = Prestamo::firstOrFail();
+        $renglon = $prestamo->detalles()->firstOrFail();
+        $existencia = Existencia::query()->where('articulo_id', $manguera->id)->firstOrFail();
+
+        expect((float) $renglon->cantidad)->toBe(12.5)
+            ->and((float) $existencia->prestado)->toBe(12.5)
+            ->and($existencia->disponibleParaPrestar())->toBe(18.0);
+
+        $this->actingAs($user)
+            ->get(route('admin.alm.prestamos.pdf', $prestamo))
+            ->assertOk();
+
+        $this->actingAs($user)
+            ->post(route('admin.alm.devoluciones.store'), [
+                'fecha' => today()->toDateString(),
+                'renglones' => [['detalle_id' => $renglon->id, 'cantidad' => 12.25]],
+            ])
+            ->assertSessionHasNoErrors();
+
+        expect((float) $existencia->refresh()->prestado)->toBe(0.25)
+            ->and($prestamo->refresh()->estatus)->toBe(PrestamoEstatus::Abierto);
+
+        $this->actingAs($user)
+            ->post(route('admin.alm.devoluciones.store'), [
+                'fecha' => today()->toDateString(),
+                'renglones' => [['detalle_id' => $renglon->id, 'cantidad' => 0.25]],
+            ])
+            ->assertSessionHasNoErrors();
+
+        expect($prestamo->refresh()->estatus)->toBe(PrestamoEstatus::Cerrado)
+            ->and((float) $existencia->refresh()->prestado)->toBe(0.0)
+            ->and((float) $existencia->cantidad)->toBe(30.5);
+    });
+});

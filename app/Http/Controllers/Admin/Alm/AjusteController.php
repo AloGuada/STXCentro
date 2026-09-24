@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin\Alm;
 
 use App\Enums\Alm\AjusteMotivo;
+use App\Enums\Alm\DocumentoAlm;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\Alm\AjusteStoreRequest;
 use App\Models\Alm\Ajuste;
@@ -10,6 +11,7 @@ use App\Models\Alm\AjusteDetalle;
 use App\Models\Alm\Almacen;
 use App\Models\Alm\Articulo;
 use App\Models\Alm\Existencia;
+use App\Services\Alm\FirmasDelFormato;
 use App\Services\Alm\RegistradorAjuste;
 use App\Support\HoraLocal;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -248,7 +250,7 @@ class AjusteController extends Controller
      * El acta del conteo. Un ajuste mueve saldo sin que entre ni salga nada,
      * así que la hoja firmada es el respaldo de quién respondió por él.
      */
-    public function pdf(Request $request, Ajuste $ajuste): HttpResponse
+    public function pdf(Request $request, Ajuste $ajuste, FirmasDelFormato $firmas): HttpResponse
     {
         abort_unless($ajuste->almacen->esVisiblePara($request->user()), 403);
 
@@ -258,7 +260,10 @@ class AjusteController extends Controller
             'detalles.articulo:id,codigo,descripcion,unidad',
         ]);
 
-        $pdf = Pdf::loadView('pdf.alm.formato-ajuste', ['ajuste' => $ajuste])
+        $pdf = Pdf::loadView('pdf.alm.formato-ajuste', [
+            'ajuste' => $ajuste,
+            'firmas' => $firmas->para(DocumentoAlm::Ajuste, $ajuste->almacen_id),
+        ])
             ->setPaper('letter', 'portrait');
 
         return $pdf->stream("ajuste-{$ajuste->folio}.pdf");

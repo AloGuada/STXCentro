@@ -17,6 +17,7 @@ use App\Models\Departamento;
 use App\Models\Obra;
 use App\Models\Proveedor;
 use App\Models\Usuario;
+use App\Services\Costos\CanceladorDeUnidades;
 use App\Services\Costos\CfdiXmlParser;
 use App\Services\Costos\ComparativoTotalesBuilder;
 use App\Services\Costos\ContrareciboPdf;
@@ -331,6 +332,12 @@ class OrdenCompraController extends Controller
         ]);
 
         $ordenCompra->append(['total_facturado', 'total_pagado', 'saldo_pendiente', 'pagada_anticipo_contado', 'completada']);
+
+        // Cuánto se puede cancelar de cada partida lo mide el servidor: el tope
+        // por facturas es de la orden entera y la pantalla no tiene con qué
+        // calcularlo.
+        $desglose = app(CanceladorDeUnidades::class)->desglosePorOrden($ordenCompra);
+        $ordenCompra->detalles->each(fn ($d) => $d->setAttribute('cancelacion', $desglose[$d->id]));
 
         $lineas = $ordenCompra->detalles->map(fn ($d) => [
             'tipo_fiscal' => $d->tipo_fiscal?->value ?? 'mercancia',

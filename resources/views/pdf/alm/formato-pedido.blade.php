@@ -86,11 +86,7 @@
         </tfoot>
     </table>
 
-    @include('pdf.partials.firmas', ['firmas' => [
-        ['nombre' => $pedido->solicitante?->name, 'rol' => 'Solicitó'],
-        ['nombre' => $pedido->aprobador?->name, 'rol' => 'Autorizó'],
-        ['nombre' => null, 'rol' => 'Surtió - Almacén'],
-    ]])
+    @include('pdf.partials.firmas', ['firmas' => $firmas])
 
     <div class="aviso">
         Este pedido no ampara la entrega del material: lo que sale del almacén se documenta con su vale de salida.

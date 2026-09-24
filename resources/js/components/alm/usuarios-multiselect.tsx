@@ -1,25 +1,26 @@
-import { cn } from '@/lib/utils';
-import type { AlmUsuarioDemo } from '@/types/models';
 import { CheckIcon, ChevronDownIcon, SearchIcon, XIcon } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
+import { cn } from '@/lib/utils';
+import type { AlmUsuarioOpcion } from '@/types/models';
 
 type Props = {
-    usuarios: AlmUsuarioDemo[];
-    seleccionados: number[];
-    onChange: (ids: number[]) => void;
+    usuarios: AlmUsuarioOpcion[];
+    seleccionados: string[];
+    onChange: (ids: string[]) => void;
     placeholder?: string;
 };
 
 /**
- * Selección múltiple de usuarios que pueden firmar un documento. Los elegidos
- * quedan como chips porque lo normal es que sean pocos y hay que verlos todos
- * de un golpe: la regla es que basta con que firme cualquiera de ellos.
+ * Selección múltiple de usuarios para una raya de firma. Los elegidos quedan
+ * como chips porque lo normal es que sean pocos y hay que verlos todos de un
+ * golpe: la regla es que basta con que firme cualquiera de ellos, así que en
+ * el formato se imprimen separados por «/».
  */
 export function UsuariosMultiselect({
     usuarios,
     seleccionados,
     onChange,
-    placeholder = 'Sin aprobadores',
+    placeholder = 'Nadie fijo: la raya va en blanco',
 }: Props) {
     const [abierto, setAbierto] = useState(false);
     const [query, setQuery] = useState('');
@@ -36,13 +37,11 @@ export function UsuariosMultiselect({
         return () => document.removeEventListener('mousedown', alClicFuera);
     }, []);
 
-    const alternar = (id: number) =>
+    const alternar = (id: string) =>
         onChange(seleccionados.includes(id) ? seleccionados.filter((x) => x !== id) : [...seleccionados, id]);
 
     const elegidos = usuarios.filter((u) => seleccionados.includes(u.id));
-    const filtrados = usuarios.filter((u) =>
-        `${u.nombre} ${u.puesto}`.toLowerCase().includes(query.trim().toLowerCase()),
-    );
+    const filtrados = usuarios.filter((u) => u.name.toLowerCase().includes(query.trim().toLowerCase()));
 
     return (
         <div ref={contenedor} className="relative">
@@ -55,14 +54,14 @@ export function UsuariosMultiselect({
                 ) : (
                     elegidos.map((u) => (
                         <span key={u.id} className="badge badge-primary badge-sm gap-1 py-2.5">
-                            {u.nombre}
+                            {u.name}
                             <button
                                 type="button"
                                 onClick={(e) => {
                                     e.stopPropagation();
                                     alternar(u.id);
                                 }}
-                                aria-label={`Quitar ${u.nombre}`}
+                                aria-label={`Quitar ${u.name}`}
                             >
                                 <XIcon className="size-3" />
                             </button>
@@ -81,7 +80,7 @@ export function UsuariosMultiselect({
                         <input
                             type="text"
                             className="w-full bg-transparent text-sm outline-none"
-                            placeholder="Buscar por nombre o puesto..."
+                            placeholder="Buscar por nombre..."
                             value={query}
                             onChange={(e) => setQuery(e.target.value)}
                             autoFocus
@@ -108,8 +107,7 @@ export function UsuariosMultiselect({
                                             <CheckIcon
                                                 className={cn('size-4 shrink-0', activo ? 'text-primary' : 'opacity-0')}
                                             />
-                                            <span>{u.nombre}</span>
-                                            <span className="text-base-content/50 ml-auto text-xs">{u.puesto}</span>
+                                            <span>{u.name}</span>
                                         </button>
                                     </li>
                                 );

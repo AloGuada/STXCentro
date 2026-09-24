@@ -311,6 +311,27 @@ describe('el cierre', function () {
             ->and($hoja->refresh()->firmado_path)->toBeNull();
     });
 
+    it('con la hoja cerrada da el reporte con lo contado contra el sistema', function () {
+        $hoja = hojaConSaldos([100, 50]);
+        $user = quienCuenta();
+
+        $this->actingAs($user)->patch(route('admin.alm.conteos.capturar', $hoja), capturaPorSaldo($hoja, [100 => 97, 50 => 50]));
+        $this->actingAs($user)->post(route('admin.alm.conteos.cerrar', $hoja))->assertSessionHasNoErrors();
+
+        $this->actingAs(quienCuenta(['ver']))
+            ->get(route('admin.alm.conteos.reporte', $hoja))
+            ->assertOk()
+            ->assertHeader('content-type', 'application/pdf');
+    });
+
+    it('no hay reporte mientras la hoja siga abierta', function () {
+        $hoja = hojaConSaldos([10]);
+
+        $this->actingAs(quienCuenta())
+            ->get(route('admin.alm.conteos.reporte', $hoja))
+            ->assertNotFound();
+    });
+
     it('cerrar pide su propio permiso', function () {
         $hoja = hojaConSaldos([10]);
 

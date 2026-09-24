@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin\Alm;
 
+use App\Enums\Alm\DocumentoAlm;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\Alm\TransferenciaStoreRequest;
 use App\Models\Alm\Almacen;
@@ -11,6 +12,7 @@ use App\Models\Alm\Transferencia;
 use App\Models\Alm\TransferenciaDetalle;
 use App\Models\Costos\Producto;
 use App\Models\Usuario;
+use App\Services\Alm\FirmasDelFormato;
 use App\Services\Alm\RegistradorTransferencia;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\RedirectResponse;
@@ -345,7 +347,7 @@ class TransferenciaController extends Controller
      * La hoja viaja con el material y vuelve firmada por el destino: es el
      * comprobante de que llegó, y de cuánto llegó.
      */
-    public function pdf(Request $request, Transferencia $transferencia): HttpResponse
+    public function pdf(Request $request, Transferencia $transferencia, FirmasDelFormato $firmas): HttpResponse
     {
         abort_unless(
             $transferencia->origen->esVisiblePara($request->user())
@@ -363,7 +365,10 @@ class TransferenciaController extends Controller
             'detalles.articulo:id,codigo,descripcion,unidad',
         ]);
 
-        $pdf = Pdf::loadView('pdf.alm.formato-transferencia', ['transferencia' => $transferencia])
+        $pdf = Pdf::loadView('pdf.alm.formato-transferencia', [
+            'transferencia' => $transferencia,
+            'firmas' => $firmas->para(DocumentoAlm::Transferencia, $transferencia->almacen_origen_id),
+        ])
             ->setPaper('letter', 'portrait');
 
         return $pdf->stream("transferencia-{$transferencia->folio}.pdf");

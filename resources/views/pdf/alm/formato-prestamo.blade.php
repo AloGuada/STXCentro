@@ -69,16 +69,12 @@
         <tfoot>
             <tr class="total-row">
                 <td colspan="3" class="text-right">TOTAL</td>
-                <td colspan="2">{{ $prestamo->detalles->count() }} renglón(es) · {{ number_format((float) $prestamo->detalles->sum('cantidad'), 0) }} unidad(es)</td>
+                <td colspan="2">{{ $prestamo->detalles->count() }} renglón(es) · {{ rtrim(rtrim(number_format((float) $prestamo->detalles->sum('cantidad'), 2), '0'), '.') }} unidad(es)</td>
             </tr>
         </tfoot>
     </table>
 
-    @include('pdf.partials.firmas', ['firmas' => [
-        ['nombre' => $prestamo->creador?->name, 'rol' => 'Entregó - Almacén'],
-        ['nombre' => $prestamo->responsable?->name, 'rol' => 'Recibió en resguardo'],
-        ['nombre' => $prestamo->autorizador?->name, 'rol' => 'Autorizó'],
-    ]])
+    @include('pdf.partials.firmas', ['firmas' => $firmas])
 
     <div class="aviso">
         Lo aquí listado sigue siendo del almacén y queda bajo resguardo de quien firma como responsable, quien responde por su
