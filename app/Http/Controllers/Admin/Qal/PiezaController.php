@@ -2,9 +2,11 @@
 
 namespace App\Http\Controllers\Admin\Qal;
 
+use App\Enums\Qal\FaseTransformacion;
 use App\Http\Controllers\Controller;
 use App\Models\Prod\Pieza;
 use App\Services\Qal\FichaDePieza;
+use App\Services\Qal\PiezasHabilitadas;
 use App\Services\Qal\ResolutorDePiezas;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -18,7 +20,7 @@ use Illuminate\Http\Request;
  */
 class PiezaController extends Controller
 {
-    public function resolver(Request $request, ResolutorDePiezas $resolutor, FichaDePieza $fichas): JsonResponse
+    public function resolver(Request $request, ResolutorDePiezas $resolutor, FichaDePieza $fichas, PiezasHabilitadas $habilitadas): JsonResponse
     {
         $candidatas = $resolutor->candidatas(
             (string) $request->query('codigo', ''),
@@ -40,6 +42,21 @@ class PiezaController extends Controller
             ], 409);
         }
 
-        return response()->json($fichas->de($candidatas->first()));
+        $pieza = $candidatas->first();
+
+        // Con el filtro por avance encendido, la pieza tiene que estar en lo
+        // que Producción programó para esa fase. Sin fase se asume 2ª, que es
+        // con la que abre la captura.
+        $motivo = $habilitadas->motivoDeBloqueo(
+            (int) $pieza->catalogo?->obra_id,
+            FaseTransformacion::tryFrom((string) $request->query('fase')) ?? FaseTransformacion::Segunda,
+            $pieza->qr,
+        );
+
+        if ($motivo !== null) {
+            return response()->json(['message' => $motivo], 422);
+        }
+
+        return response()->json($fichas->de($pieza));
     }
 }

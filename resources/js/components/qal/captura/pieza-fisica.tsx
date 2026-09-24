@@ -54,12 +54,15 @@ const SUBETAPA: Record<string, string> = { armado_vestido: 'Armado', soldado: 'S
 
 export function PiezaFisica({
     obraId,
+    fase,
     pieza,
     onPieza,
     fija = false,
     onAviso,
 }: {
     obraId: string;
+    /** Con el filtro por avance, el servidor revisa la pieza contra el plan de esta fase. */
+    fase: string;
     pieza: PiezaResuelta | null;
     /** Al corregir o reinspeccionar, la pieza es la de la inspección: no se cambia. */
     fija?: boolean;
@@ -81,7 +84,7 @@ export function PiezaFisica({
         setBuscando(true);
         setCandidatas([]);
         try {
-            const consulta = new URLSearchParams({ codigo: limpio });
+            const consulta = new URLSearchParams({ codigo: limpio, fase });
             if (obraId) {
                 consulta.set('obra_id', obraId);
             }

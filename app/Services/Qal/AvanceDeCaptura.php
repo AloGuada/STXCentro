@@ -22,9 +22,15 @@ use Illuminate\Support\Collection;
  *
  * Las marcas llegan con sus cuentas; las piezas de una marca se piden al
  * abrirla, porque una obra trae miles y nadie las va a mirar todas.
+ *
+ * Con el filtro por avance encendido sólo salen las piezas habilitadas (ver
+ * PiezasHabilitadas), y una marca sin ninguna no sale: la pestaña enseña lo
+ * que se puede inspeccionar, no el catálogo entero.
  */
 class AvanceDeCaptura
 {
+    public function __construct(private readonly PiezasHabilitadas $habilitadas) {}
+
     /**
      * Cada marca del catálogo vigente con cuántas piezas tiene y cómo van: la
      * última inspección de cada pieza decide en qué cuenta entra.
@@ -33,15 +39,32 @@ class AvanceDeCaptura
      */
     public function marcasDeLaObra(int $obraId): array
     {
-        $ultimas = $this->ultimaPorPieza($obraId)->groupBy('concepto_id');
+        $permitidas = $this->habilitadas->paraRegistros($obraId);
 
-        return Concepto::query()
+        $ultimas = $this->ultimaPorPieza($obraId)
+            ->when($permitidas !== null, fn (Collection $todas) => $todas->filter(fn (Inspeccion $inspeccion): bool => isset($permitidas[$inspeccion->qr])))
+            ->groupBy('concepto_id');
+
+        $conceptos = Concepto::query()
             ->deCatalogoVigente()
             ->where('obra_id', $obraId)
             ->where('activo', true)
             ->withCount('piezas')
-            ->get(['id', 'marca', 'lote', 'descripcion', 'cantidad'])
-            ->map(function (Concepto $concepto) use ($ultimas): array {
+            ->get(['id', 'marca', 'lote', 'descripcion', 'cantidad']);
+
+        // Cuántas piezas habilitadas trae cada marca; sin filtro, todas.
+        $piezasPorMarca = $permitidas === null
+            ? $conceptos->mapWithKeys(fn (Concepto $concepto): array => [$concepto->id => (int) $concepto->piezas_count])
+            : Pieza::query()
+                ->whereIn('concepto_id', $conceptos->modelKeys())
+                ->where('activo', true)
+                ->get(['concepto_id', 'qr'])
+                ->filter(fn (Pieza $pieza): bool => isset($permitidas[$pieza->qr]))
+                ->countBy('concepto_id');
+
+        return $conceptos
+            ->filter(fn (Concepto $concepto): bool => $permitidas === null || $piezasPorMarca->get($concepto->id, 0) > 0)
+            ->map(function (Concepto $concepto) use ($ultimas, $piezasPorMarca): array {
                 $deLaMarca = $ultimas->get($concepto->id, collect());
 
                 return [
@@ -49,7 +72,7 @@ class AvanceDeCaptura
                     'marca' => $concepto->marca,
                     'lote' => $concepto->lote,
                     'descripcion' => $concepto->descripcion,
-                    'piezas' => (int) $concepto->piezas_count,
+                    'piezas' => (int) $piezasPorMarca->get($concepto->id, 0),
                     'inspeccionadas' => $deLaMarca->count(),
                     'liberadas' => $deLaMarca->where('estatus', EstatusInspeccion::Liberado)->count(),
                     'rechazadas' => $deLaMarca->where('estatus', EstatusInspeccion::Rechazado)->count(),
@@ -70,6 +93,9 @@ class AvanceDeCaptura
      */
     public function piezasDeLaMarca(int $conceptoId): array
     {
+        $obraId = Concepto::query()->whereKey($conceptoId)->value('obra_id');
+        $permitidas = $obraId === null ? null : $this->habilitadas->paraRegistros((int) $obraId);
+
         $inspecciones = Inspeccion::query()
             ->where('concepto_id', $conceptoId)
             ->whereNotNull('prod_pieza_id')
@@ -84,6 +110,7 @@ class AvanceDeCaptura
             ->orderBy('qs')
             ->orderBy('qr')
             ->get(['id', 'qr', 'qs'])
+            ->when($permitidas !== null, fn (Collection $piezas) => $piezas->filter(fn (Pieza $pieza): bool => isset($permitidas[$pieza->qr])))
             ->map(function (Pieza $pieza) use ($inspecciones): array {
                 $etapas = $inspecciones->get($pieza->id, collect())
                     ->groupBy(fn (Inspeccion $inspeccion): string => $this->etapa($inspeccion))
@@ -121,7 +148,7 @@ class AvanceDeCaptura
                 ->whereIn('catalogo_id', fn ($catalogos) => $catalogos->select('id')->from('prod_catalogos')->where('obra_id', $obraId)->where('vigente', true)))
             ->orderBy('fecha')
             ->orderBy('id')
-            ->get(['id', 'prod_pieza_id', 'concepto_id', 'estatus'])
+            ->get(['id', 'prod_pieza_id', 'concepto_id', 'qr', 'estatus'])
             ->groupBy('prod_pieza_id')
             ->map(fn (Collection $historia): Inspeccion => $historia->last())
             ->values();

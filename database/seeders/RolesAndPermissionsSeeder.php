@@ -568,6 +568,9 @@ class RolesAndPermissionsSeeder extends Seeder
             'qal.programacion.ver',
             'qal.programacion.capturar',
             'qal.programacion.cerrar',
+            // Cambia lo que puede capturar toda la planta (p. ej. limitar
+            // Formularios al avance de producción).
+            'qal.configuracion.editar',
         ];
 
         // Permisos Core

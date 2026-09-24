@@ -31,6 +31,12 @@ pest()->extend(Tests\TestCase::class)
     })
     ->in('Feature');
 
+// Formularios nace limitado al avance de producción, y casi ninguna prueba de
+// Calidad arma un plan: se apaga aquí para que cada una pruebe lo suyo.
+// FormulariosSegunAvanceTest lo enciende donde lo necesita.
+pest()->beforeEach(fn () => \App\Models\Qal\ConfiguracionQal::actual()->update(['formularios_segun_avance' => false]))
+    ->in('Feature/Qal');
+
 /*
 |--------------------------------------------------------------------------
 | Expectations

@@ -28,7 +28,10 @@ use Inertia\Response;
  */
 class PantallaDeCaptura
 {
-    public function __construct(private readonly AvanceDeCaptura $avance) {}
+    public function __construct(
+        private readonly AvanceDeCaptura $avance,
+        private readonly PiezasHabilitadas $habilitadas,
+    ) {}
 
     /**
      * Marcas y lotes llegan sólo con obra elegida y se recargan al cambiarla:
@@ -49,6 +52,11 @@ class PantallaDeCaptura
             'avance' => fn () => $obraId ? $this->avance->marcasDeLaObra($obraId) : [],
             'piezasDeMarca' => fn () => $conceptoId
                 ? ['conceptoId' => $conceptoId, 'piezas' => $this->avance->piezasDeLaMarca($conceptoId)]
+                : null,
+            // Con el filtro por avance encendido, la semana y qué fases tienen
+            // su plan cerrado: la pantalla avisa por qué no deja escanear.
+            'filtroAvance' => fn () => $this->habilitadas->activo()
+                ? ['obra' => $obraId ? $this->habilitadas->estado($obraId) : null]
                 : null,
             'catalogos' => fn () => $this->catalogos(),
             'precarga' => $precarga,

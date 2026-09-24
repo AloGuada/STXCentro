@@ -316,6 +316,14 @@ const navGroups: NavGroup[] = [
                 icon: TriangleAlert,
                 permission: 'qal.incidencias.ver',
             },
+            {
+                // Lo que cambia como trabaja todo el modulo, como limitar
+                // Formularios al avance de produccion de la semana.
+                title: 'Configuracion',
+                href: '/admin/calidad/configuracion',
+                icon: Settings,
+                permission: 'qal.configuracion.editar',
+            },
         ],
     },
     {

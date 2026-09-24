@@ -27,6 +27,7 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\ValidationException;
 
 /**
  * Guarda una inspección entera: cabecera, puntos, defectos y lo propio de su
@@ -47,6 +48,7 @@ class RegistradorInspeccion
         private readonly ReglasInspeccion $reglas,
         private readonly CalculadorAql $aql,
         private readonly CalculadorEspesores $espesores,
+        private readonly PiezasHabilitadas $habilitadas,
     ) {}
 
     /**
@@ -59,6 +61,14 @@ class RegistradorInspeccion
             $fase = FaseTransformacion::from($datos['fase']);
             $subetapa = $fase === FaseTransformacion::Segunda ? Subetapa::from($datos['subetapa']) : null;
             $pieza = $this->pieza($fase, $datos);
+
+            // Con el filtro por avance encendido sólo entra lo que Producción
+            // programó. Corregir una inspección ya guardada no pasa por aquí.
+            $motivo = $this->habilitadas->motivoDeBloqueo((int) $datos['obra_id'], $fase, $pieza['qr']);
+
+            if ($motivo !== null) {
+                throw ValidationException::withMessages(['prod_pieza_id' => $motivo]);
+            }
 
             $inspeccion = new Inspeccion([
                 ...$pieza,

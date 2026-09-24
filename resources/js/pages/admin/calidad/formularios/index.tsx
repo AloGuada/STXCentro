@@ -24,6 +24,7 @@
 
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { AvisoAvance, type FiltroAvance } from '@/components/qal/captura/aviso-avance';
 import type { NivelMuestreo } from '@/components/qal/captura/datos';
 import { useCampos, type Junta, type PiezaRechazada } from '@/components/qal/captura/estado';
 import { FasePrimera } from '@/components/qal/captura/fase-primera';
@@ -118,6 +119,8 @@ type Props = {
     piezasDeMarca: PiezasDeMarca | null;
     catalogos: Catalogos;
     precarga: Precarga | null;
+    /** Null con el filtro por avance apagado en Configuración de Calidad. */
+    filtroAvance: FiltroAvance;
 };
 
 type Cuerpo = NonNullable<Parameters<typeof router.post>[1]>;
@@ -253,7 +256,17 @@ const aPares = (lista: Opcion[]): [string, string][] => lista.map((opcion) => [S
 const idsDe = (lista: Opcion[], nombres: string[]): number[] =>
     nombres.map((nombre) => lista.find((defecto) => defecto.nombre === nombre)?.id).filter((id): id is number => id !== undefined);
 
-export default function CapturaCalidad({ obras, obraId, marcas, lotes, avance, piezasDeMarca, catalogos, precarga }: Props) {
+export default function CapturaCalidad({
+    obras,
+    obraId,
+    marcas,
+    lotes,
+    avance,
+    piezasDeMarca,
+    catalogos,
+    precarga,
+    filtroAvance,
+}: Props) {
     const { auth } = usePage<SharedData>().props;
 
     const iniciales = useMemo(
@@ -386,13 +399,16 @@ export default function CapturaCalidad({ obras, obraId, marcas, lotes, avance, p
             campos.set('fase', '2ª');
         }
         try {
-            const respuesta = await fetch(`/admin/calidad/piezas/resolver?${new URLSearchParams({ codigo: qr, obra_id: campos.v('obra') })}`, {
+            const consulta = new URLSearchParams({ codigo: qr, obra_id: campos.v('obra'), fase: esPrimera ? '2ª' : fase });
+            const respuesta = await fetch(`/admin/calidad/piezas/resolver?${consulta}`, {
                 headers: { Accept: 'application/json' },
             });
             if (respuesta.ok) {
                 elegirPieza((await respuesta.json()) as PiezaResuelta);
             } else {
-                avisar('No se pudo cargar la pieza', 'error');
+                // Con el filtro por avance, el servidor dice por qué no entra.
+                const cuerpo = await respuesta.json().catch(() => ({}));
+                avisar(cuerpo.message ?? 'No se pudo cargar la pieza', 'error');
             }
         } catch {
             avisar('No se pudo consultar la pieza. Revisa la conexión.', 'error');
@@ -769,6 +785,8 @@ export default function CapturaCalidad({ obras, obraId, marcas, lotes, avance, p
                         </div>
                     )}
 
+                    <AvisoAvance filtro={filtroAvance} />
+
                     {pestana === 'registros' ? (
                         <>
                             <Tarjeta titulo="Obra">
@@ -970,6 +988,7 @@ export default function CapturaCalidad({ obras, obraId, marcas, lotes, avance, p
                                             <div className="mb-3">
                                                 <PiezaFisica
                                                     obraId={campos.v('obra')}
+                                                    fase={fase}
                                                     pieza={pieza}
                                                     onPieza={elegirPieza}
                                                     fija={piezaFija}
