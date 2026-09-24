@@ -149,6 +149,22 @@ describe('el activo sin serie es un solo renglón por cantidad', function () {
             ->and($movimiento->observaciones)->toContain('Compra de arranque');
     });
 
+    it('se da de alta con decimales, como los metros de una manguera', function () {
+        $almacen = Almacen::factory()->create();
+        $manguera = Articulo::factory()->activoPorCantidad()->create(['descripcion' => 'Manguera 1/2"', 'unidad' => 'M']);
+
+        $this->actingAs(usuarioDeActivos())
+            ->post(route('admin.alm.activos.store'), [
+                'articulo_id' => $manguera->id,
+                'almacen_id' => $almacen->id,
+                'cantidad' => 30.5,
+                'costo' => 45,
+            ])
+            ->assertSessionHasNoErrors();
+
+        expect((float) Existencia::firstOrFail()->cantidad)->toBe(30.5);
+    });
+
     it('por cantidad no pide series, y por pieza no acepta cantidad', function () {
         $almacen = Almacen::factory()->create();
         $extension = Articulo::factory()->activoPorCantidad()->create();

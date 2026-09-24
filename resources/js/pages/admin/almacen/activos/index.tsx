@@ -404,7 +404,7 @@ function ModalRetirarCantidad({ renglon, onCerrar }: { renglon: PorCantidadFila;
                             type="number"
                             min="0"
                             max={renglon.cantidad}
-                            step="1"
+                            step="0.0001"
                             value={form.data.cantidad}
                             onChange={(e) => form.setData('cantidad', e.target.value)}
                             autoFocus

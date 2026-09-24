@@ -272,7 +272,7 @@ export default function PrestamoShow({ prestamo, detalles, usuarios, puede_devol
                                                             type="number"
                                                             min="0"
                                                             max={d.pendiente}
-                                                            step="1"
+                                                            step="0.0001"
                                                             className="input-sm w-24 text-right"
                                                             value={retorno.cantidad}
                                                             onChange={(e) => editar(d.id, { cantidad: e.target.value })}
