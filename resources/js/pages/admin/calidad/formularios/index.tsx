@@ -42,7 +42,6 @@ import {
     planMuestreo,
     semanaIso,
 } from '@/components/qal/captura/reglas';
-import { TecladoFolio } from '@/components/qal/captura/teclado-folio';
 import {
     AreaTexto,
     Campo,
@@ -285,7 +284,6 @@ export default function CapturaCalidad({
     const [pestana, setPestana] = useState<'capturar' | 'registros'>('capturar');
     const [columnaRef, cajaColumna] = useColumna();
     const [modo, setModo] = useState<'pieza' | 'acc'>(precarga?.modoCaptura ?? 'pieza');
-    const [tecladoFolio, setTecladoFolio] = useState(false);
     const [tipoDeducido, setTipoDeducido] = useState('');
     const [marcaTexto, setMarcaTexto] = useState(precarga?.marcaTexto ?? '');
     const [pieza, setPieza] = useState<PiezaResuelta | null>(precarga?.pieza ?? null);
@@ -428,6 +426,12 @@ export default function CapturaCalidad({
         if (resuelta.concepto.peso_unitario) {
             campos.set('kg', String(Number(resuelta.concepto.peso_unitario)));
         }
+        if (resuelta.linea) {
+            campos.set('linea', resuelta.linea);
+        }
+        if (resuelta.modulo) {
+            campos.set('modulo', resuelta.modulo);
+        }
         sugerirTipo(resuelta.concepto.marca, resuelta.tipo_pieza_id);
         avisar(`Pieza ${resuelta.etiqueta}`, 'ok');
     };
@@ -506,7 +510,6 @@ export default function CapturaCalidad({
             cantidad_lote: esPrimera ? vacioANulo(campos.v('cant')) : null,
             prod_pieza_id: esPrimera ? null : (pieza?.id ?? null),
             kg: campos.v('kg'),
-            folio_strumis: vacioANulo(campos.v('folio')),
             tipo_pieza_id: vacioANulo(campos.v('tipo')),
             linea: esPrimera ? null : vacioANulo(campos.v('linea')),
             modulo: esPrimera ? null : vacioANulo(campos.v('modulo')),
@@ -1025,14 +1028,6 @@ export default function CapturaCalidad({
                                                     </datalist>
                                                 </Campo>
                                             )}
-                                            <Campo label="Folio (Strumis)">
-                                                <Texto
-                                                    value={campos.v('folio')}
-                                                    onFocus={() => setTecladoFolio(true)}
-                                                    sinTeclado
-                                                    placeholder="Folio único · trazabilidad"
-                                                />
-                                            </Campo>
                                             <Campo label="Tipo" ayuda={tipoDeducido ? <span className="text-primary">{tipoDeducido}</span> : undefined}>
                                                 <Selector
                                                     value={campos.v('tipo')}
@@ -1055,14 +1050,6 @@ export default function CapturaCalidad({
                                                 </Campo>
                                             )}
                                         </Rejilla>
-
-                                        {tecladoFolio && (
-                                            <TecladoFolio
-                                                onTecla={(caracter) => campos.set('folio', (campos.v('folio') + caracter).toUpperCase())}
-                                                onBorrar={() => campos.set('folio', campos.v('folio').slice(0, -1))}
-                                                onListo={() => setTecladoFolio(false)}
-                                            />
-                                        )}
 
                                         {esPrimera && (
                                             <>
