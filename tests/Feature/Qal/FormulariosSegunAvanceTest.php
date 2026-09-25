@@ -233,10 +233,10 @@ describe('pestana registros', function () {
 });
 
 describe('configuracion', function () {
-    test('una instalacion nueva arranca con el filtro encendido', function () {
+    test('una instalacion nueva arranca con el filtro apagado', function () {
         ConfiguracionQal::query()->delete();
 
-        expect(ConfiguracionQal::actual()->formularios_segun_avance)->toBeTrue();
+        expect(ConfiguracionQal::actual()->formularios_segun_avance)->toBeFalse();
     });
 
     test('quien tiene el permiso enciende y apaga el filtro', function () {
