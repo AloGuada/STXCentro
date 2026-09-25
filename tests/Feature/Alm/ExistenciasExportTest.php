@@ -3,6 +3,7 @@
 use App\Enums\Alm\MovimientoTipo;
 use App\Exports\Alm\ExistenciasAlmacenSheet;
 use App\Exports\Alm\ExistenciasExport;
+use App\Exports\Alm\ExistenciasTablaExport;
 use App\Models\Alm\Almacen;
 use App\Models\Alm\Area;
 use App\Models\Alm\Articulo;
@@ -31,10 +32,10 @@ function usuarioQueExporta(array $extra = ['alm.almacenes.ver-todos']): User
     return $usuario;
 }
 
-/** El nombre que el controlador le pone al archivo, con el reloj congelado. */
+/** El nombre que el controlador le pone al inventario, con el reloj congelado. */
 function archivoEsperado(): string
 {
-    return 'existencias-'.now()->format('Ymd-Hi').'.xlsx';
+    return 'inventario-almacen-'.now()->format('Ymd-Hi').'.xlsx';
 }
 
 /**
@@ -265,5 +266,55 @@ test('solo exporta los almacenes que el usuario puede ver', function () {
 test('exportar exige el permiso de ver existencias', function () {
     $this->actingAs(User::factory()->create())
         ->get(route('admin.alm.existencias.exportar', ['search' => 'x']))
+        ->assertForbidden();
+});
+
+test('el Excel de la tabla trae las columnas de la pantalla en una sola hoja, con lo prestado dentro de la existencia', function () {
+    Excel::fake();
+    $this->freezeTime();
+
+    $obra = Obra::factory()->create(['no' => 'MBP']);
+    $almacen = Almacen::factory()->create(['clave' => 'CONST', 'obra_id' => $obra->id]);
+    $otro = Almacen::factory()->create();
+    $area = Area::factory()->create(['descripcion' => 'Tornillería']);
+    $tornillo = Articulo::factory()->create(['codigo' => 'ART-001', 'descripcion' => 'Tornillo 1/2', 'unidad' => 'PZA', 'area_id' => $area->id]);
+    $arnes = Articulo::factory()->activoPorCantidad()->create(['codigo' => 'ART-002', 'descripcion' => 'Arnés', 'unidad' => 'PZA']);
+
+    existenciaParaExportar($almacen, $tornillo, 100, 2.5);
+    app(RegistradorPiezas::class)->altaPorCantidad($arnes, $almacen, 20, 390);
+    existenciaParaExportar($otro, $tornillo, 7, 2.5);
+
+    $juan = supervisorDeAlmacen('Juan Pérez');
+    app(RegistradorPrestamos::class)->prestar(
+        $almacen,
+        ['responsable_id' => $juan->id, 'obra_id' => $obra->id, 'fecha_salida' => today()->toDateString()],
+        [['articulo_id' => $arnes->id, 'cantidad' => 3]],
+    );
+
+    $this->actingAs(usuarioQueExporta())
+        ->get(route('admin.alm.existencias.exportar-tabla', ['almacen_id' => $almacen->id]))
+        ->assertOk();
+
+    Excel::assertDownloaded('existencias-'.now()->format('Ymd-Hi').'.xlsx', function (ExistenciasTablaExport $export): bool {
+        $filas = $export->collection()->all();
+
+        expect($export->headings())->toBe(['Almacén', 'Obra', 'Código', 'Descripción', 'Tipo', 'Área', 'Unidad', 'Ubicación', 'Existencia', 'En resguardo', 'Asignado a', 'En camino', 'Costo promedio', 'Valor'])
+            ->and($filas)->toHaveCount(2)
+            ->and($filas[0])->toBe([
+                'almacen' => 'CONST', 'obra' => 'MBP', 'codigo' => 'ART-002', 'descripcion' => 'Arnés', 'tipo' => 'Activo', 'area' => null, 'unidad' => 'PZA', 'ubicacion' => null,
+                'existencia' => 20.0, 'prestado' => 3.0, 'asignado_a' => null, 'en_transito' => 0.0, 'costo_promedio' => 390.0, 'valor' => 7800.0,
+            ])
+            ->and($filas[1])->toBe([
+                'almacen' => 'CONST', 'obra' => 'MBP', 'codigo' => 'ART-001', 'descripcion' => 'Tornillo 1/2', 'tipo' => 'Insumo', 'area' => 'Tornillería', 'unidad' => 'PZA', 'ubicacion' => null,
+                'existencia' => 100.0, 'prestado' => 0.0, 'asignado_a' => null, 'en_transito' => 0.0, 'costo_promedio' => 2.5, 'valor' => 250.0,
+            ]);
+
+        return true;
+    });
+});
+
+test('el Excel de la tabla exige el permiso de ver existencias', function () {
+    $this->actingAs(User::factory()->create())
+        ->get(route('admin.alm.existencias.exportar-tabla', ['search' => 'x']))
         ->assertForbidden();
 });

@@ -64,6 +64,16 @@ test('un qs que existe en dos obras es ambiguo hasta elegir la obra', function (
         ->assertJsonPath('id', $una->id);
 });
 
+test('trae la linea y el modulo que el layout le puso a la pieza', function () {
+    $pieza = Pieza::factory()->create(['linea' => 'L2', 'modulo' => 'MOD-A']);
+
+    $this->actingAs(usuarioQueEscanea())
+        ->getJson(route('admin.qal.piezas.resolver', ['codigo' => $pieza->qr]))
+        ->assertOk()
+        ->assertJsonPath('linea', 'L2')
+        ->assertJsonPath('modulo', 'MOD-A');
+});
+
 test('trae las inspecciones previas de la pieza', function () {
     $pieza = Pieza::factory()->create();
     Inspeccion::factory()->dePieza($pieza, FaseTransformacion::Segunda, Subetapa::Soldado)->rechazada()->create();

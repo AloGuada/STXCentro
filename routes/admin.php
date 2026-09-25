@@ -136,6 +136,7 @@ use App\Http\Controllers\Admin\Prod\UbicacionController as ProdUbicacionControll
 use App\Http\Controllers\Admin\ProveedorController;
 use App\Http\Controllers\Admin\Qal\AccesorioController as QalAccesorioController;
 use App\Http\Controllers\Admin\Qal\CatalogoController as QalCatalogoController;
+use App\Http\Controllers\Admin\Qal\ConfiguracionController as QalConfiguracionController;
 use App\Http\Controllers\Admin\Qal\DashboardController as QalDashboardController;
 use App\Http\Controllers\Admin\Qal\DefectoController as QalDefectoController;
 use App\Http\Controllers\Admin\Qal\DosierController as QalDosierController;
@@ -363,6 +364,9 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::get('existencias/exportar', [AlmExistenciaController::class, 'exportar'])
             ->middleware('permission:alm.existencias.ver')
             ->name('existencias.exportar');
+        Route::get('existencias/exportar-tabla', [AlmExistenciaController::class, 'exportarTabla'])
+            ->middleware('permission:alm.existencias.ver')
+            ->name('existencias.exportar-tabla');
         Route::get('kardex', [AlmKardexController::class, 'index'])
             ->middleware('permission:alm.kardex.ver')
             ->name('kardex.index');
@@ -1195,6 +1199,13 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
     // La URL sigue siendo /admin/calidad: qal es el prefijo de la base, no el
     // nombre del modulo.
     Route::prefix('calidad')->name('qal.')->group(function () {
+        // Configuracion del modulo: por ahora, si Formularios se limita a lo
+        // que Produccion programo en el avance de la semana.
+        Route::middleware('permission:qal.configuracion.editar')->group(function () {
+            Route::get('configuracion', [QalConfiguracionController::class, 'edit'])->name('configuracion.edit');
+            Route::put('configuracion', [QalConfiguracionController::class, 'update'])->name('configuracion.update');
+        });
+
         // El tablero solo lee: resume lo que capturaron las demas pantallas.
         Route::get('dashboard', [QalDashboardController::class, 'index'])
             ->middleware('permission:qal.dashboard.ver')

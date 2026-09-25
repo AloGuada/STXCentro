@@ -729,6 +729,9 @@ export type ProdPieza = {
     qs: string | null;
     /** La numeración de planta según el QR, tal cual («1 de 92»); las piezas viejas no lo traen. */
     correlativo: string | null;
+    /** Línea de fabricación y módulo de la obra, del layout; opcionales. */
+    linea: string | null;
+    modulo: string | null;
     pieza_origen_id: number | null;
     activo: boolean;
     marca?: Concepto;

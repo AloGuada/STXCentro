@@ -24,6 +24,7 @@
 
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { AvisoAvance, type FiltroAvance } from '@/components/qal/captura/aviso-avance';
 import type { NivelMuestreo } from '@/components/qal/captura/datos';
 import { useCampos, type Junta, type PiezaRechazada } from '@/components/qal/captura/estado';
 import { FasePrimera } from '@/components/qal/captura/fase-primera';
@@ -41,7 +42,6 @@ import {
     planMuestreo,
     semanaIso,
 } from '@/components/qal/captura/reglas';
-import { TecladoFolio } from '@/components/qal/captura/teclado-folio';
 import {
     AreaTexto,
     Campo,
@@ -118,6 +118,8 @@ type Props = {
     piezasDeMarca: PiezasDeMarca | null;
     catalogos: Catalogos;
     precarga: Precarga | null;
+    /** Null con el filtro por avance apagado en Configuración de Calidad. */
+    filtroAvance: FiltroAvance;
 };
 
 type Cuerpo = NonNullable<Parameters<typeof router.post>[1]>;
@@ -253,7 +255,17 @@ const aPares = (lista: Opcion[]): [string, string][] => lista.map((opcion) => [S
 const idsDe = (lista: Opcion[], nombres: string[]): number[] =>
     nombres.map((nombre) => lista.find((defecto) => defecto.nombre === nombre)?.id).filter((id): id is number => id !== undefined);
 
-export default function CapturaCalidad({ obras, obraId, marcas, lotes, avance, piezasDeMarca, catalogos, precarga }: Props) {
+export default function CapturaCalidad({
+    obras,
+    obraId,
+    marcas,
+    lotes,
+    avance,
+    piezasDeMarca,
+    catalogos,
+    precarga,
+    filtroAvance,
+}: Props) {
     const { auth } = usePage<SharedData>().props;
 
     const iniciales = useMemo(
@@ -272,7 +284,6 @@ export default function CapturaCalidad({ obras, obraId, marcas, lotes, avance, p
     const [pestana, setPestana] = useState<'capturar' | 'registros'>('capturar');
     const [columnaRef, cajaColumna] = useColumna();
     const [modo, setModo] = useState<'pieza' | 'acc'>(precarga?.modoCaptura ?? 'pieza');
-    const [tecladoFolio, setTecladoFolio] = useState(false);
     const [tipoDeducido, setTipoDeducido] = useState('');
     const [marcaTexto, setMarcaTexto] = useState(precarga?.marcaTexto ?? '');
     const [pieza, setPieza] = useState<PiezaResuelta | null>(precarga?.pieza ?? null);
@@ -386,13 +397,16 @@ export default function CapturaCalidad({ obras, obraId, marcas, lotes, avance, p
             campos.set('fase', '2ª');
         }
         try {
-            const respuesta = await fetch(`/admin/calidad/piezas/resolver?${new URLSearchParams({ codigo: qr, obra_id: campos.v('obra') })}`, {
+            const consulta = new URLSearchParams({ codigo: qr, obra_id: campos.v('obra'), fase: esPrimera ? '2ª' : fase });
+            const respuesta = await fetch(`/admin/calidad/piezas/resolver?${consulta}`, {
                 headers: { Accept: 'application/json' },
             });
             if (respuesta.ok) {
                 elegirPieza((await respuesta.json()) as PiezaResuelta);
             } else {
-                avisar('No se pudo cargar la pieza', 'error');
+                // Con el filtro por avance, el servidor dice por qué no entra.
+                const cuerpo = await respuesta.json().catch(() => ({}));
+                avisar(cuerpo.message ?? 'No se pudo cargar la pieza', 'error');
             }
         } catch {
             avisar('No se pudo consultar la pieza. Revisa la conexión.', 'error');
@@ -411,6 +425,12 @@ export default function CapturaCalidad({ obras, obraId, marcas, lotes, avance, p
         }
         if (resuelta.concepto.peso_unitario) {
             campos.set('kg', String(Number(resuelta.concepto.peso_unitario)));
+        }
+        if (resuelta.linea) {
+            campos.set('linea', resuelta.linea);
+        }
+        if (resuelta.modulo) {
+            campos.set('modulo', resuelta.modulo);
         }
         sugerirTipo(resuelta.concepto.marca, resuelta.tipo_pieza_id);
         avisar(`Pieza ${resuelta.etiqueta}`, 'ok');
@@ -490,7 +510,6 @@ export default function CapturaCalidad({ obras, obraId, marcas, lotes, avance, p
             cantidad_lote: esPrimera ? vacioANulo(campos.v('cant')) : null,
             prod_pieza_id: esPrimera ? null : (pieza?.id ?? null),
             kg: campos.v('kg'),
-            folio_strumis: vacioANulo(campos.v('folio')),
             tipo_pieza_id: vacioANulo(campos.v('tipo')),
             linea: esPrimera ? null : vacioANulo(campos.v('linea')),
             modulo: esPrimera ? null : vacioANulo(campos.v('modulo')),
@@ -769,6 +788,8 @@ export default function CapturaCalidad({ obras, obraId, marcas, lotes, avance, p
                         </div>
                     )}
 
+                    <AvisoAvance filtro={filtroAvance} />
+
                     {pestana === 'registros' ? (
                         <>
                             <Tarjeta titulo="Obra">
@@ -970,6 +991,7 @@ export default function CapturaCalidad({ obras, obraId, marcas, lotes, avance, p
                                             <div className="mb-3">
                                                 <PiezaFisica
                                                     obraId={campos.v('obra')}
+                                                    fase={fase}
                                                     pieza={pieza}
                                                     onPieza={elegirPieza}
                                                     fija={piezaFija}
@@ -1006,14 +1028,6 @@ export default function CapturaCalidad({ obras, obraId, marcas, lotes, avance, p
                                                     </datalist>
                                                 </Campo>
                                             )}
-                                            <Campo label="Folio (Strumis)">
-                                                <Texto
-                                                    value={campos.v('folio')}
-                                                    onFocus={() => setTecladoFolio(true)}
-                                                    sinTeclado
-                                                    placeholder="Folio único · trazabilidad"
-                                                />
-                                            </Campo>
                                             <Campo label="Tipo" ayuda={tipoDeducido ? <span className="text-primary">{tipoDeducido}</span> : undefined}>
                                                 <Selector
                                                     value={campos.v('tipo')}
@@ -1036,14 +1050,6 @@ export default function CapturaCalidad({ obras, obraId, marcas, lotes, avance, p
                                                 </Campo>
                                             )}
                                         </Rejilla>
-
-                                        {tecladoFolio && (
-                                            <TecladoFolio
-                                                onTecla={(caracter) => campos.set('folio', (campos.v('folio') + caracter).toUpperCase())}
-                                                onBorrar={() => campos.set('folio', campos.v('folio').slice(0, -1))}
-                                                onListo={() => setTecladoFolio(false)}
-                                            />
-                                        )}
 
                                         {esPrimera && (
                                             <>

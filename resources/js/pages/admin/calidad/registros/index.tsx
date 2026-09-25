@@ -329,10 +329,10 @@ function TablaPiezas({
                         Fase
                     </Th>
                     <Th campo="marca" orden={orden} onOrdenar={onOrdenar}>
-                        Marca / Folio
+                        Marca
                     </Th>
                     <Th campo="consecutivo" orden={orden} onOrdenar={onOrdenar}>
-                        Pieza
+                        QR
                     </Th>
                     <Th campo="numero_inspeccion" orden={orden} onOrdenar={onOrdenar}>
                         Insp.
@@ -361,7 +361,7 @@ function TablaPiezas({
                             {fila.lote && <span className="text-base-content/50 ml-1 text-xs">lote {fila.lote}</span>}
                             <div className="text-base-content/50 font-mono text-xs">{fila.folio}</div>
                         </td>
-                        <td className="font-mono text-sm">{fila.consecutivo ? `#${fila.consecutivo}` : fila.qr}</td>
+                        <td className="font-mono text-sm">{fila.qr ?? (fila.consecutivo ? `#${fila.consecutivo}` : '')}</td>
                         <td className="font-mono">
                             {/* Una segunda inspección significa que la pieza se
                                 rechazó antes: se marca para que se note sin abrir la ficha. */}

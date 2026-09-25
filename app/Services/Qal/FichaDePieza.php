@@ -31,6 +31,8 @@ class FichaDePieza
             'id' => $pieza->id,
             'qr' => $pieza->qr,
             'qs' => $pieza->qs,
+            'linea' => $pieza->linea,
+            'modulo' => $pieza->modulo,
             'etiqueta' => $pieza->etiqueta(),
             'obra_id' => $obraId,
             'concepto' => [

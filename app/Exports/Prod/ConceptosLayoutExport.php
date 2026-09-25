@@ -33,6 +33,8 @@ class ConceptosLayoutExport implements ShouldAutoSize, WithHeadings, WithStyles,
             'AREA',
             'LONGITUD MM',
             'LOTE',
+            'LINEA',
+            'MODULO',
         ];
     }
 
@@ -41,9 +43,9 @@ class ConceptosLayoutExport implements ShouldAutoSize, WithHeadings, WithStyles,
      */
     public function styles(Worksheet $sheet): array
     {
-        $sheet->getStyle('A1:J1')->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('4472C4');
-        $sheet->getStyle('A1:J1')->getFont()->setBold(true)->getColor()->setRGB('FFFFFF');
-        $sheet->getStyle('A1:J1')->getBorders()->getAllBorders()->setBorderStyle(Border::BORDER_THIN);
+        $sheet->getStyle('A1:L1')->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('4472C4');
+        $sheet->getStyle('A1:L1')->getFont()->setBold(true)->getColor()->setRGB('FFFFFF');
+        $sheet->getStyle('A1:L1')->getBorders()->getAllBorders()->setBorderStyle(Border::BORDER_THIN);
 
         return [];
     }

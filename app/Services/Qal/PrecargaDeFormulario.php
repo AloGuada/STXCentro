@@ -71,7 +71,6 @@ class PrecargaDeFormulario
             'consec' => $this->texto($inspeccion->consecutivo),
             'cant' => $this->texto($inspeccion->cantidad_lote) ?: '1',
             'kg' => $this->texto($inspeccion->kg),
-            'folio' => $this->texto($inspeccion->folio_strumis),
             'tipo' => $this->texto($inspeccion->tipo_pieza_id),
             'linea' => $this->texto($inspeccion->linea),
             'modulo' => $this->texto($inspeccion->modulo),

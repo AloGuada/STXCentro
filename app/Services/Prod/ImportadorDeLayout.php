@@ -19,7 +19,10 @@ use RuntimeException;
  * pieza suya.
  *
  * Columnas del layout vigente:
- * `QR, MARCA, DESCRIPCION, CATEGORIA QS, CORRELATIVO, CANTIDAD, PESO KG, AREA, LONGITUD MM, LOTE`.
+ * `QR, MARCA, DESCRIPCION, CATEGORIA QS, CORRELATIVO, CANTIDAD, PESO KG, AREA, LONGITUD MM, LOTE, LINEA, MODULO`.
+ * LINEA y MODULO son de la pieza (dónde se fabrica y a qué módulo de la obra
+ * va) y son opcionales: un layout sin ellas carga igual y no borra los que ya
+ * tenían las piezas.
  * El orden no importa —se emparejan por nombre— y los espacios del encabezado se
  * ignoran, así que `PESO KG` y `PESOKG` son la misma columna. Los layouts viejos
  * siguen cargando: sin QR se usa el QS como identificador, CATEGORIA entra como
@@ -113,6 +116,8 @@ class ImportadorDeLayout
                         'qr' => $pieza['qr'],
                         'qs' => $pieza['qs'],
                         'correlativo' => $pieza['correlativo'],
+                        'linea' => $pieza['linea'],
+                        'modulo' => $pieza['modulo'],
                     ];
                     $piezasEscritas++;
                 }
@@ -230,7 +235,7 @@ class ImportadorDeLayout
      * garantiza que un QR no venga dos veces en el mismo archivo, que Postgres
      * tampoco deja tocar la misma fila dos veces en la misma sentencia.
      *
-     * @param  list<array{marca: Concepto, qr: string, qs: ?string, correlativo: ?string}>  $piezas
+     * @param  list<array{marca: Concepto, qr: string, qs: ?string, correlativo: ?string, linea: ?string, modulo: ?string}>  $piezas
      */
     private function escribirPiezas(Catalogo $catalogo, array $piezas): void
     {
@@ -242,6 +247,8 @@ class ImportadorDeLayout
                     'qr' => $pieza['qr'],
                     'qs' => $pieza['qs'],
                     'correlativo' => $pieza['correlativo'],
+                    'linea' => $pieza['linea'],
+                    'modulo' => $pieza['modulo'],
                     'activo' => true,
                 ], $bloque),
                 ['catalogo_id', 'qr'],
@@ -255,6 +262,8 @@ class ImportadorDeLayout
                     // PostgreSQL y en SQLite por igual.
                     'qs' => DB::raw('COALESCE(excluded.qs, prod_piezas.qs)'),
                     'correlativo' => DB::raw('COALESCE(excluded.correlativo, prod_piezas.correlativo)'),
+                    'linea' => DB::raw('COALESCE(excluded.linea, prod_piezas.linea)'),
+                    'modulo' => DB::raw('COALESCE(excluded.modulo, prod_piezas.modulo)'),
                 ],
             );
         }
@@ -374,7 +383,7 @@ class ImportadorDeLayout
      * Agrupa los renglones del archivo por modelo. Los datos del modelo se toman
      * del primer renglón que lo trae; los siguientes sólo aportan su pieza.
      *
-     * @return array{filas: array<string, array{marca: string, lote: ?string, descripcion: string, categoria: string, cantidades: list<int>, peso_unitario: float, longitud: int, piezas: list<array{qr: string, qs: ?string, correlativo: ?string}>}>, avisos: list<string>}
+     * @return array{filas: array<string, array{marca: string, lote: ?string, descripcion: string, categoria: string, cantidades: list<int>, peso_unitario: float, longitud: int, piezas: list<array{qr: string, qs: ?string, correlativo: ?string, linea: ?string, modulo: ?string}>}>, avisos: list<string>}
      */
     private function leer(string $ruta): array
     {
@@ -489,6 +498,8 @@ class ImportadorDeLayout
                 'qr' => $qr,
                 'qs' => $qs === '' ? null : $qs,
                 'correlativo' => $correlativo,
+                'linea' => $this->texto($data['LINEA'] ?? $data['LÍNEA'] ?? null, 10),
+                'modulo' => $this->texto($data['MODULO'] ?? $data['MÓDULO'] ?? null, 60),
             ];
         }
 
@@ -631,6 +642,7 @@ class ImportadorDeLayout
     private const COLUMNAS = [
         'QR', 'MARCA', 'DESCRIPCION', 'DESCRIPCIÓN', 'CATEGORIAQS', 'CORRELATIVO',
         'CATEGORIA', 'QS', 'CANTIDAD', 'PESOKG', 'AREA', 'LONGITUDMM', 'LOTE', 'ETAPA',
+        'LINEA', 'LÍNEA', 'MODULO', 'MÓDULO',
     ];
 
     /**
@@ -639,9 +651,15 @@ class ImportadorDeLayout
      */
     private function correlativo(mixed $valor): ?string
     {
+        return $this->texto($valor, 30);
+    }
+
+    /** Una celda de texto recortada a lo que cabe en su columna; vacía es nulo. */
+    private function texto(mixed $valor, int $largo): ?string
+    {
         $texto = trim((string) $valor);
 
-        return $texto === '' ? null : mb_substr($texto, 0, 30);
+        return $texto === '' ? null : mb_substr($texto, 0, $largo);
     }
 
     /**
