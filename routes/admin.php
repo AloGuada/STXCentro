@@ -364,6 +364,9 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::get('existencias/exportar', [AlmExistenciaController::class, 'exportar'])
             ->middleware('permission:alm.existencias.ver')
             ->name('existencias.exportar');
+        Route::get('existencias/exportar-tabla', [AlmExistenciaController::class, 'exportarTabla'])
+            ->middleware('permission:alm.existencias.ver')
+            ->name('existencias.exportar-tabla');
         Route::get('kardex', [AlmKardexController::class, 'index'])
             ->middleware('permission:alm.kardex.ver')
             ->name('kardex.index');

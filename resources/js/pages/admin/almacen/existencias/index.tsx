@@ -126,11 +126,12 @@ export default function ExistenciasIndex({
     const consultado = totales !== null;
 
     /**
-     * El Excel es de lo filtrado entero: lleva los mismos filtros que la
-     * pantalla. No espera a que haya consulta: sin almacén elegido salen todos,
-     * una hoja por almacén.
+     * Los dos Excel son de lo filtrado entero: llevan los mismos filtros que la
+     * pantalla y no esperan a que haya consulta. «Excel» es la tabla tal cual,
+     * en una hoja; «Inventario almacén» es una hoja por almacén con lo
+     * prestado contado como parte del almacén y detallado.
      */
-    const exportar = () => {
+    const exportar = (destino: 'exportar-tabla' | 'exportar') => {
         const params = new URLSearchParams();
 
         Object.entries(filters).forEach(([clave, valor]) => {
@@ -139,7 +140,7 @@ export default function ExistenciasIndex({
             }
         });
 
-        window.location.href = `/admin/almacen/existencias/exportar?${params.toString()}`;
+        window.location.href = `/admin/almacen/existencias/${destino}?${params.toString()}`;
     };
 
     const filtrar = (cambio: Record<string, string | undefined>) =>
@@ -178,18 +179,29 @@ export default function ExistenciasIndex({
                             mueve con documentos, nunca a mano.
                         </p>
                     </div>
-                    <button
-                        type="button"
-                        className="btn btn-outline btn-sm"
-                        onClick={exportar}
-                        title={
-                            filters.almacen_id
-                                ? 'Descarga lo filtrado de este almacén, completo'
-                                : 'Descarga todos los almacenes, una hoja por cada uno'
-                        }
-                    >
-                        <DownloadIcon className="size-4" /> Exportar Excel
-                    </button>
+                    <div className="flex flex-wrap gap-2">
+                        <button
+                            type="button"
+                            className="btn btn-outline btn-sm"
+                            onClick={() => exportar('exportar-tabla')}
+                            title="Descarga la tabla tal como se ve, completa, en una hoja"
+                        >
+                            <DownloadIcon className="size-4" /> Excel
+                        </button>
+                        <button
+                            type="button"
+                            className="btn btn-outline btn-sm"
+                            onClick={() => exportar('exportar')}
+                            title={
+                                (filters.almacen_id
+                                    ? 'Descarga el inventario de este almacén, completo'
+                                    : 'Descarga todos los almacenes, una hoja por cada uno') +
+                                '. Lo prestado cuenta como parte del almacén'
+                            }
+                        >
+                            <DownloadIcon className="size-4" /> Inventario almacén
+                        </button>
+                    </div>
                 </div>
 
                 <form

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin\Alm;
 
 use App\Enums\Alm\ActivoEstatus;
 use App\Exports\Alm\ExistenciasExport;
+use App\Exports\Alm\ExistenciasTablaExport;
 use App\Http\Controllers\Controller;
 use App\Models\Alm\Activo;
 use App\Models\Alm\Almacen;
@@ -155,7 +156,8 @@ class ExistenciaController extends Controller
     }
 
     /**
-     * Lo filtrado, entero, a Excel.
+     * El inventario por almacén, a Excel: lo prestado cuenta como parte del
+     * almacén y se detalla con quién y en dónde anda.
      *
      * Misma pregunta que la pantalla —mismos filtros, misma visibilidad— sin
      * paginar. A diferencia de la tabla, no pide filtro: sin almacén elegido
@@ -166,7 +168,21 @@ class ExistenciaController extends Controller
     {
         $consulta = $this->consultaFiltrada($request, $this->almacenesVisibles($request));
 
-        return Excel::download(new ExistenciasExport($consulta), 'existencias-'.now()->format('Ymd-Hi').'.xlsx');
+        return Excel::download(new ExistenciasExport($consulta), 'inventario-almacen-'.now()->format('Ymd-Hi').'.xlsx');
+    }
+
+    /**
+     * La tabla tal como se ve, a Excel: una hoja, las columnas de la pantalla
+     * y todo lo filtrado sin paginar. «En camino» va sólo con almacén elegido,
+     * igual que en la tabla.
+     */
+    public function exportarTabla(Request $request): BinaryFileResponse
+    {
+        $almacenId = $request->integer('almacen_id') ?: null;
+        $consulta = $this->consultaFiltrada($request, $this->almacenesVisibles($request));
+        $enTransito = $almacenId === null ? [] : $this->transito->haciaAlmacen($almacenId);
+
+        return Excel::download(new ExistenciasTablaExport($consulta, $enTransito), 'existencias-'.now()->format('Ymd-Hi').'.xlsx');
     }
 
     /**
