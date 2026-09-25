@@ -59,6 +59,8 @@ class Pieza extends Model
         'qr',
         'qs',
         'correlativo',
+        'linea',
+        'modulo',
         'pieza_origen_id',
         'activo',
     ];

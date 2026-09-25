@@ -28,6 +28,9 @@ export type PiezaResuelta = {
     id: number;
     qr: string;
     qs: string | null;
+    /** Del layout de producción; la captura los precarga cuando vienen. */
+    linea: string | null;
+    modulo: string | null;
     etiqueta: string;
     obra_id: number;
     concepto: {

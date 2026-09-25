@@ -547,6 +547,40 @@ describe('import del layout por QR', function () {
             ->and($pieza->qs)->toBe('1001');
     });
 
+    test('el layout guarda la linea y el modulo de cada pieza cuando los trae', function () {
+        $catalogo = Catalogo::factory()->create();
+
+        subirLayout($catalogo,
+            'QR-01,TG-BAR-1,OC-BAR,Barandales QS,1,1,29.751,1.397,3542.177,L1,L2,MOD-A
+'.
+            'QR-02,TG-BAR-1,OC-BAR,Barandales QS,2,1,29.751,1.397,3542.177,L1,,
+',
+            layoutVigente().',LINEA,MODULO',
+        )->assertSessionHas('success')->assertSessionMissing('errors');
+
+        $piezas = Pieza::where('catalogo_id', $catalogo->id)->orderBy('qr')->get();
+
+        expect($piezas[0]->linea)->toBe('L2')
+            ->and($piezas[0]->modulo)->toBe('MOD-A')
+            ->and($piezas[1]->linea)->toBeNull()
+            ->and($piezas[1]->modulo)->toBeNull();
+    });
+
+    test('recargar un layout sin linea ni modulo no borra los que la pieza ya tenia', function () {
+        $catalogo = Catalogo::factory()->create();
+
+        subirLayout($catalogo, 'QR-01,TG-BAR-1,OC-BAR,Barandales QS,1,1,29.751,1.397,3542.177,L1,L2,MOD-A
+', layoutVigente().',LINEA,MODULO');
+        subirLayout($catalogo, 'QR-01,TG-BAR-1,OC-BAR,Barandales QS,1,1,29.751,1.397,3542.177,L1
+', layoutVigente())
+            ->assertSessionHas('success');
+
+        $pieza = Pieza::where('catalogo_id', $catalogo->id)->sole();
+
+        expect($pieza->linea)->toBe('L2')
+            ->and($pieza->modulo)->toBe('MOD-A');
+    });
+
     test('la cantidad es cuantos renglones trae la marca en el lote; el correlativo solo se guarda', function () {
         $catalogo = Catalogo::factory()->create();
 
