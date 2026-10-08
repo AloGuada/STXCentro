@@ -233,7 +233,7 @@ export type Media = {
     descripcion: string;
     nombre_original: string | null;
     path: string;
-    mime: string;
+    mime: string | null;
     size: number;
     mediable_type: string;
     mediable_id: number;
@@ -420,7 +420,7 @@ export type StiTicket = {
 export type StiCostoMantenimiento = {
     id: number;
     descripcion: string;
-    cantidad: number;
+    cantidad: string;
     costeable_id: number;
     costeable_type: string;
     created_at: string;

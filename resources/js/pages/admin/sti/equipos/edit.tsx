@@ -102,7 +102,7 @@ export default function EquiposEdit({ equipo, itemsDisponibles, tecnicos }: Prop
     };
 
     const calcularTotalCostos = (costos: StiCostoMantenimiento[]) => {
-        return costos.reduce((sum, c) => sum + c.cantidad, 0);
+        return costos.reduce((sum, c) => sum + Number(c.cantidad), 0);
     };
 
     return (

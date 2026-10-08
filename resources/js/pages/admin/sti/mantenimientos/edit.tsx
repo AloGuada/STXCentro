@@ -10,7 +10,7 @@ import { Select } from '@/components/ui/select';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import type { Media, StiCheckEjecucion, StiCostoMantenimiento, StiEquipo, StiMantenimiento, StiPlan, StiTecnico } from '@/types/models';
-import { Head, Link, useForm } from '@inertiajs/react';
+import { Head, Link, useForm, usePage } from '@inertiajs/react';
 import { CheckCircleIcon, Loader2Icon } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
 
@@ -28,6 +28,7 @@ type Props = {
 
 export default function MantenimientosEdit({ mantenimiento, equipos, tecnicos }: Props) {
     const [showScheduleModal, setShowScheduleModal] = useState(false);
+    const mensajesError = Object.values(usePage().props.errors);
 
     const breadcrumbs: BreadcrumbItem[] = [
         { title: 'Dashboard', href: '/dashboard' },
@@ -87,11 +88,13 @@ export default function MantenimientosEdit({ mantenimiento, equipos, tecnicos }:
                         <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
                             Este mantenimiento fue realizado el{' '}
                             <strong>
-                                {new Date(mantenimiento.fecha_realizado!.split('T')[0] + 'T00:00:00').toLocaleDateString('es-MX', {
-                                    day: 'numeric',
-                                    month: 'long',
-                                    year: 'numeric',
-                                })}
+                                {mantenimiento.fecha_realizado
+                                    ? new Date(mantenimiento.fecha_realizado.split('T')[0] + 'T00:00:00').toLocaleDateString('es-MX', {
+                                          day: 'numeric',
+                                          month: 'long',
+                                          year: 'numeric',
+                                      })
+                                    : 'una fecha no registrada'}
                             </strong>
                         </p>
                     ) : (
@@ -123,12 +126,23 @@ export default function MantenimientosEdit({ mantenimiento, equipos, tecnicos }:
                         />
                     </div>
 
+                    {mensajesError.length > 0 && (
+                        <div className="alert alert-error mb-4" role="alert">
+                            <ul className="list-inside list-disc">
+                                {mensajesError.map((mensaje) => (
+                                    <li key={mensaje}>{mensaje}</li>
+                                ))}
+                            </ul>
+                        </div>
+                    )}
+
                     <form onSubmit={handleSubmit} className="space-y-4">
                         <FormField label="Equipo" htmlFor="equipo_id" error={errors.equipo_id} required>
                             <Select
                                 id="equipo_id"
                                 value={data.equipo_id}
                                 onValueChange={(value) => setData('equipo_id', value)}
+                                error={!!errors.equipo_id}
                                 disabled={mantenimiento.status === 'realizado'}
                             >
                                 <option value="">Seleccionar equipo</option>
@@ -146,6 +160,7 @@ export default function MantenimientosEdit({ mantenimiento, equipos, tecnicos }:
                                 type="date"
                                 value={data.fecha_programada}
                                 onChange={(e) => setData('fecha_programada', e.target.value)}
+                                error={!!errors.fecha_programada}
                                 disabled={mantenimiento.status === 'realizado'}
                             />
                         </FormField>
@@ -155,6 +170,7 @@ export default function MantenimientosEdit({ mantenimiento, equipos, tecnicos }:
                                 id="tecnico_id"
                                 value={data.tecnico_id}
                                 onValueChange={(value) => setData('tecnico_id', value)}
+                                error={!!errors.tecnico_id}
                             >
                                 <option value="">Seleccionar tecnico</option>
                                 {tecnicos.map((tecnico) => (

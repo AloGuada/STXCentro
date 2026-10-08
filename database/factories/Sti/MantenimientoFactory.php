@@ -21,24 +21,9 @@ class MantenimientoFactory extends Factory
     {
         return [
             'equipo_id' => Equipo::factory(),
-            'tipo' => fake()->randomElement(['preventivo', 'correctivo', 'predictivo']),
             'fecha_programada' => fake()->dateTimeBetween('now', '+3 months'),
             'descripcion' => fake()->sentence(),
             'tecnico_id' => Tecnico::factory(),
         ];
-    }
-
-    public function preventivo(): static
-    {
-        return $this->state(fn (array $attributes) => [
-            'tipo' => 'preventivo',
-        ]);
-    }
-
-    public function correctivo(): static
-    {
-        return $this->state(fn (array $attributes) => [
-            'tipo' => 'correctivo',
-        ]);
     }
 }

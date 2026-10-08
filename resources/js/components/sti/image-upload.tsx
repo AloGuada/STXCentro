@@ -45,7 +45,7 @@ export function ImageUpload({ media, storeUrl, destroyUrlPrefix, readOnly = fals
         });
     };
 
-    const isPdf = (mime: string) => mime === 'application/pdf';
+    const isPdf = (mime: string | null) => mime === 'application/pdf';
 
     return (
         <div className="space-y-4">
@@ -53,7 +53,7 @@ export function ImageUpload({ media, storeUrl, destroyUrlPrefix, readOnly = fals
                 <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4">
                     {media.map((item) => (
                         <div key={item.id} className="group relative overflow-hidden rounded-lg border">
-                            {item.mime.startsWith('image/') ? (
+                            {item.mime?.startsWith('image/') ? (
                                 <a
                                     href={`/storage/${item.path}`}
                                     target="_blank"

@@ -18,7 +18,7 @@ export function CostosManager({ costos, storeUrl, destroyUrlPrefix, readOnly = f
     const [adding, setAdding] = useState(false);
     const [deletingId, setDeletingId] = useState<number | null>(null);
 
-    const total = costos.reduce((sum, c) => sum + c.cantidad, 0);
+    const total = costos.reduce((sum, c) => sum + Number(c.cantidad), 0);
 
     const handleAdd = () => {
         if (!descripcion.trim() || !cantidad) return;
@@ -63,7 +63,7 @@ export function CostosManager({ costos, storeUrl, destroyUrlPrefix, readOnly = f
                                 <tr key={costo.id}>
                                     <td className="px-3 py-2">{costo.descripcion}</td>
                                     <td className="px-3 py-2 text-right font-mono">
-                                        ${costo.cantidad.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+                                        ${Number(costo.cantidad).toLocaleString('es-MX', { minimumFractionDigits: 2 })}
                                     </td>
                                     {!readOnly && (
                                         <td className="px-3 py-2 text-center">
