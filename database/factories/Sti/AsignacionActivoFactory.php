@@ -34,6 +34,13 @@ class AsignacionActivoFactory extends Factory
         ];
     }
 
+    public function conEnlaceFirma(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'firma_token' => AsignacionActivo::generarFirmaToken(),
+        ]);
+    }
+
     public function devuelto(): static
     {
         return $this->state(fn (array $attributes) => [

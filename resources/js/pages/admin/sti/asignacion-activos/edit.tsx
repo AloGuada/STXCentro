@@ -1,5 +1,6 @@
 import { DeleteDialog } from '@/components/delete-dialog';
 import { FormField } from '@/components/form';
+import { EnlaceFirma } from '@/components/sti/enlace-firma';
 import { ImageUpload } from '@/components/sti/image-upload';
 import { SignaturePad } from '@/components/sti/signature-pad';
 import { Button } from '@/components/ui/button';
@@ -60,6 +61,7 @@ export default function AsignacionActivosEdit({ asignacion, departamentos, equip
                                     Generar PDF
                                 </a>
                             </Button>
+                            <EnlaceFirma asignacion={asignacion} />
                             <DeleteDialog
                                 title="Eliminar asignacion"
                                 description={`Estas seguro de eliminar la asignacion #${asignacion.id}? Esta accion no se puede deshacer.`}

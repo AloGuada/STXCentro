@@ -490,6 +490,8 @@ export type StiAsignacionActivo = {
     no_empleado: string;
     empleado: string;
     firma_empleado: string | null;
+    firma_token: string | null;
+    firma_url: string | null;
     no_ti: string;
     nombre_ti: string;
     firma_ti: string | null;

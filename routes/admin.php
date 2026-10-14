@@ -1062,6 +1062,7 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::resource('mantenimientos', StiMantenimientoController::class)->except(['show']);
         Route::resource('asignacion-activos', StiAsignacionActivoController::class);
         Route::get('asignacion-activos/{asignacion_activo}/pdf', [StiAsignacionActivoController::class, 'generarPdf'])->name('asignacion-activos.pdf');
+        Route::post('asignacion-activos/{asignacion_activo}/enlace-firma', [StiAsignacionActivoController::class, 'generarEnlaceFirma'])->name('asignacion-activos.enlace-firma');
         Route::post('asignacion-activos/{asignacion_activo}/media', [StiAsignacionActivoController::class, 'storeMedia'])->name('asignacion-activos.media.store');
         Route::delete('asignacion-activos/{asignacion_activo}/media/{media}', [StiAsignacionActivoController::class, 'destroyMedia'])->name('asignacion-activos.media.destroy');
 

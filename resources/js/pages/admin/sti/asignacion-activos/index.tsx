@@ -1,4 +1,5 @@
 import { DataTable, type Column } from '@/components/data-table';
+import { EnlaceFirma } from '@/components/sti/enlace-firma';
 import { Badge } from '@/components/ui/badge';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
@@ -45,6 +46,16 @@ const columns: Column<StiAsignacionActivo>[] = [
                 {a.estado}
             </Badge>
         ),
+    },
+    {
+        key: 'firma_empleado',
+        label: 'Status',
+        render: (a) => <Badge variant={a.firma_empleado ? 'success' : 'warning'}>{a.firma_empleado ? 'Firmado' : 'Pendiente'}</Badge>,
+    },
+    {
+        key: 'firma_url',
+        label: 'Link',
+        render: (a) => (a.firma_empleado ? '-' : <EnlaceFirma asignacion={a} size="xs" />),
     },
 ];
 
