@@ -13,6 +13,8 @@ use App\Models\Qal\Inspector;
 use App\Models\Qal\Obra;
 use App\Models\Qal\Sublote;
 use App\Services\Qal\FichaDeRegistro;
+use Carbon\CarbonImmutable;
+use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -28,7 +30,8 @@ use Symfony\Component\HttpFoundation\BinaryFileResponse;
  * Lee las mismas tablas —`qal_inspecciones` para piezas, `qal_sublotes` para
  * accesorios— y conserva sus criterios: registro ≠ pieza y de cada sublote
  * manda su última inspección. Lo que cambia es lo que pedía el backlog: el
- * periodo es un rango y no un solo día, una obra que no existe se descarta, y
+ * periodo es todo, los últimos 7 o 30 días, una semana o un día escogido, una
+ * obra que no existe se descarta, y
  * el catálogo de inspectores trae sólo a quienes tienen registros, activos o
  * no, para que el historial de quien ya se fue se siga pudiendo filtrar.
  */
@@ -40,6 +43,8 @@ class Registro2Controller extends Controller
 
     private const ORDEN_SUBLOTES = ['fecha', 'fase', 'unidades', 'muestra', 'rechazadas', 'veredicto', 'numero_inspeccion'];
 
+    private const PERIODOS = ['todo', '7d', '30d', 'semana', 'fecha'];
+
     public function index(Request $request, FichaDeRegistro $fichas): Response
     {
         $filtros = $this->filtros($request);
@@ -49,6 +54,7 @@ class Registro2Controller extends Controller
             'filtros' => $filtros,
             'obras' => fn () => Obra::opcionesDeSelector(soloActivas: false),
             'inspectores' => fn () => $this->inspectores(),
+            'semanas' => fn () => $this->semanas($filtros['semana']),
             'registros' => fn () => $esPiezas ? $this->piezas($filtros) : null,
             'sublotes' => fn () => $esPiezas ? null : $this->sublotes($filtros),
             'conteo' => fn () => $this->conteo($filtros),
@@ -77,23 +83,33 @@ class Registro2Controller extends Controller
 
     /**
      * Lo que no se reconoce se descarta en vez de filtrar por ello, igual que en
-     * Registros. Un periodo al revés se endereza: quien pide del 15 al 1 quiere
-     * esa quincena, no una tabla vacía.
+     * Registros.
      *
-     * @return array{que: string, obra: int|null, fase: string|null, inspector: int|null, estatus: string|null, desde: string|null, hasta: string|null, buscar: string|null, sort_by: string, sort_dir: string}
+     * El periodo llega como una opción y sale resuelto en `desde`/`hasta`, que
+     * es lo único que leen las consultas y las exportaciones. «Una semana» sin
+     * semana válida es la semana en curso y «escoger fecha» sin fecha válida es
+     * hoy: quien escogió la opción quiere filtrar, no ver todo.
+     *
+     * @return array{que: string, obra: int|null, fase: string|null, inspector: int|null, estatus: string|null, periodo: string, semana: string|null, dia: string|null, desde: string|null, hasta: string|null, buscar: string|null, sort_by: string, sort_dir: string}
      */
     private function filtros(Request $request): array
     {
         $que = $request->query('que') === 'acc' ? 'acc' : 'pza';
         $orden = $que === 'acc' ? self::ORDEN_SUBLOTES : self::ORDEN_PIEZAS;
         $obra = $request->integer('obra') ?: null;
-        $desde = $this->fecha($request->query('desde'));
-        $hasta = $this->fecha($request->query('hasta'));
         $buscar = trim((string) $request->query('buscar', ''));
+        $periodo = in_array($request->query('periodo'), self::PERIODOS, true) ? (string) $request->query('periodo') : 'todo';
+        $hoy = CarbonImmutable::today();
+        $semana = $periodo === 'semana' ? ($this->semana($request->query('semana')) ?? $hoy->startOfWeek(CarbonInterface::MONDAY)) : null;
+        $dia = $periodo === 'fecha' ? ($this->fecha($request->query('dia')) ?? $hoy->toDateString()) : null;
 
-        if ($desde !== null && $hasta !== null && $desde > $hasta) {
-            [$desde, $hasta] = [$hasta, $desde];
-        }
+        [$desde, $hasta] = match ($periodo) {
+            '7d' => [$hoy->subDays(6)->toDateString(), $hoy->toDateString()],
+            '30d' => [$hoy->subDays(29)->toDateString(), $hoy->toDateString()],
+            'semana' => [$semana->toDateString(), $semana->endOfWeek(CarbonInterface::SUNDAY)->toDateString()],
+            'fecha' => [$dia, $dia],
+            default => [null, null],
+        };
 
         return [
             'que' => $que,
@@ -101,6 +117,9 @@ class Registro2Controller extends Controller
             'fase' => FaseTransformacion::tryFrom((string) $request->query('fase'))?->value,
             'inspector' => $request->integer('inspector') ?: null,
             'estatus' => $que === 'pza' ? EstatusInspeccion::tryFrom((string) $request->query('estatus'))?->value : null,
+            'periodo' => $periodo,
+            'semana' => $semana === null ? null : $this->claveDeSemana($semana),
+            'dia' => $dia,
             'desde' => $desde,
             'hasta' => $hasta,
             'buscar' => $buscar === '' ? null : mb_strtoupper($buscar),
@@ -117,6 +136,47 @@ class Registro2Controller extends Controller
         }
 
         return checkdate((int) $partes[2], (int) $partes[3], (int) $partes[1]) ? $valor : null;
+    }
+
+    /** El lunes de una semana ISO `AAAA-Wss` que exista en ese año, o nada. */
+    private function semana(mixed $valor): ?CarbonImmutable
+    {
+        if (! is_string($valor) || ! preg_match('/^(\d{4})-W(\d{2})$/', $valor, $partes)) {
+            return null;
+        }
+
+        $lunes = CarbonImmutable::today()->setISODate((int) $partes[1], (int) $partes[2])->startOfDay();
+
+        return $lunes->isoWeekYear === (int) $partes[1] && $lunes->isoWeek === (int) $partes[2] ? $lunes : null;
+    }
+
+    private function claveDeSemana(CarbonInterface $dia): string
+    {
+        return sprintf('%d-W%02d', $dia->isoWeekYear, $dia->isoWeek);
+    }
+
+    /**
+     * Las semanas que tienen algo capturado, la más reciente primero. La
+     * escogida va siempre, aunque esté vacía, para que el selector la muestre.
+     *
+     * @return Collection<int, array{valor: string, desde: string, hasta: string}>
+     */
+    private function semanas(?string $escogida): Collection
+    {
+        return Inspeccion::query()->toBase()->select(['anio', 'semana'])
+            ->union(Sublote::query()->toBase()->select(['anio', 'semana']))
+            ->get()
+            ->map(fn (object $fila): string => sprintf('%d-W%02d', $fila->anio, $fila->semana))
+            ->push($escogida)
+            ->filter()
+            ->unique()
+            ->sortDesc()
+            ->map(function (string $clave): array {
+                $lunes = $this->semana($clave);
+
+                return ['valor' => $clave, 'desde' => $lunes->toDateString(), 'hasta' => $lunes->endOfWeek(CarbonInterface::SUNDAY)->toDateString()];
+            })
+            ->values();
     }
 
     /**

@@ -4,8 +4,8 @@
  * Lee las mismas tablas y comparte con Registros la ficha, la barra de filtros
  * y la paginación. Lo que cambia es lo que pedía el backlog:
  *
- *  - **Periodo, no un día.** Desde y hasta; cualquiera de los dos puede ir
- *    solo.
+ *  - **Periodo, no un día.** Todo, últimos 7 o 30 días, una semana con
+ *    capturas o un día escogido. Debajo se ve el rango que se está filtrando.
  *  - **Indicadores arriba.** Registros y piezas únicas por separado, porque
  *    no son lo mismo: una pieza reinspeccionada son dos registros.
  *  - **Inspectores con historial.** Sólo quien tiene algo capturado, y el que
@@ -62,6 +62,11 @@ type Filtros = {
     fase: string | null;
     inspector: number | null;
     estatus: string | null;
+    periodo: 'todo' | '7d' | '30d' | 'semana' | 'fecha';
+    /** La semana ISO escogida, `2026-W43`. */
+    semana: string | null;
+    dia: string | null;
+    /** El rango ya resuelto por el servidor: se muestra, no se manda de vuelta. */
     desde: string | null;
     hasta: string | null;
     buscar: string | null;
@@ -110,6 +115,7 @@ type Props = {
     filtros: Filtros;
     obras: { id: number; no: string | null; descripcion: string | null }[];
     inspectores: { id: number; nombre: string; activo: boolean }[];
+    semanas: Semana[];
     registros: PaginatedData<FilaPieza> | null;
     sublotes: PaginatedData<FilaSublote> | null;
     conteo: { registros: number; piezas: number | null; total: number };
@@ -117,7 +123,21 @@ type Props = {
     fichaSublote: FichaDeSublote | null;
 };
 
-/** Los filtros como parámetros de la URL, sin los vacíos: la dirección se comparte limpia. */
+type Semana = { valor: string; desde: string; hasta: string };
+
+const PERIODOS: [Filtros['periodo'], string][] = [
+    ['todo', 'Todo'],
+    ['7d', 'Últimos 7 días'],
+    ['30d', 'Últimos 30 días'],
+    ['semana', 'Una semana'],
+    ['fecha', 'Escoger fecha'],
+];
+
+/**
+ * Los filtros como parámetros de la URL, sin los vacíos: la dirección se
+ * comparte limpia. El rango no viaja: el servidor lo saca del periodo, y así
+ * «últimos 7 días» sigue siendo eso mañana.
+ */
 function parametros(
     filtros: Filtros,
     cambios: Record<string, string | number | null> = {},
@@ -125,11 +145,31 @@ function parametros(
     return Object.fromEntries(
         Object.entries({ ...filtros, ...cambios })
             .filter(
-                ([, valor]) =>
-                    valor !== null && valor !== undefined && valor !== '',
+                ([clave, valor]) =>
+                    valor !== null &&
+                    valor !== undefined &&
+                    valor !== '' &&
+                    clave !== 'desde' &&
+                    clave !== 'hasta' &&
+                    !(clave === 'periodo' && valor === 'todo'),
             )
             .map(([clave, valor]) => [clave, String(valor)]),
     );
+}
+
+/** `2026-10-19` como «19 oct 2026», sin que la zona horaria lo corra un día. */
+function fechaCorta(fecha: string, conAnio = true): string {
+    const [anio, mes, dia] = fecha.split('-').map(Number);
+
+    return new Date(anio, mes - 1, dia).toLocaleDateString('es-MX', {
+        day: 'numeric',
+        month: 'short',
+        ...(conAnio ? { year: 'numeric' } : {}),
+    });
+}
+
+function etiquetaDeSemana(semana: Semana): string {
+    return `Semana ${Number(semana.valor.slice(6))} · ${fechaCorta(semana.desde, false)} – ${fechaCorta(semana.hasta)}`;
 }
 
 /** Los parámetros que trae la URL ahora, incluida la página. */
@@ -141,6 +181,7 @@ export default function Registro2Calidad({
     filtros,
     obras,
     inspectores,
+    semanas,
     registros,
     sublotes,
     conteo,
@@ -327,25 +368,74 @@ export default function Registro2Calidad({
                         />
                     )}
 
-                    <Filtro label="Desde" className="w-40">
-                        <Input
-                            type="date"
-                            value={filtros.desde ?? ''}
-                            max={filtros.hasta ?? undefined}
-                            onChange={(e) => filtrar({ desde: e.target.value })}
-                            className="input-sm"
-                        />
-                    </Filtro>
+                    <div className="flex flex-col gap-1">
+                        <div className="flex items-end gap-2">
+                            <Filtro label="Periodo" className="w-40">
+                                <Select
+                                    value={filtros.periodo}
+                                    // Semana y día los pone el servidor —la semana en
+                                    // curso, hoy— y luego se cambian desde su control.
+                                    onValueChange={(valor) =>
+                                        filtrar({
+                                            periodo: valor,
+                                            semana: null,
+                                            dia: null,
+                                        })
+                                    }
+                                    className="select-sm"
+                                >
+                                    {PERIODOS.map(([valor, texto]) => (
+                                        <SelectItem key={valor} value={valor}>
+                                            {texto}
+                                        </SelectItem>
+                                    ))}
+                                </Select>
+                            </Filtro>
 
-                    <Filtro label="Hasta" className="w-40">
-                        <Input
-                            type="date"
-                            value={filtros.hasta ?? ''}
-                            min={filtros.desde ?? undefined}
-                            onChange={(e) => filtrar({ hasta: e.target.value })}
-                            className="input-sm"
-                        />
-                    </Filtro>
+                            {filtros.periodo === 'semana' && (
+                                <Filtro label="Semana" className="w-60">
+                                    <Select
+                                        value={filtros.semana ?? ''}
+                                        onValueChange={(valor) =>
+                                            filtrar({ semana: valor })
+                                        }
+                                        className="select-sm"
+                                    >
+                                        {semanas.map((semana) => (
+                                            <SelectItem
+                                                key={semana.valor}
+                                                value={semana.valor}
+                                            >
+                                                {etiquetaDeSemana(semana)}
+                                            </SelectItem>
+                                        ))}
+                                    </Select>
+                                </Filtro>
+                            )}
+
+                            {filtros.periodo === 'fecha' && (
+                                <Filtro label="Fecha" className="w-40">
+                                    <Input
+                                        type="date"
+                                        value={filtros.dia ?? ''}
+                                        onChange={(e) =>
+                                            e.target.value &&
+                                            filtrar({ dia: e.target.value })
+                                        }
+                                        className="input-sm"
+                                    />
+                                </Filtro>
+                            )}
+                        </div>
+
+                        {filtros.desde && filtros.hasta && (
+                            <span className="text-xs text-base-content/50">
+                                {filtros.desde === filtros.hasta
+                                    ? fechaCorta(filtros.desde)
+                                    : `${fechaCorta(filtros.desde)} – ${fechaCorta(filtros.hasta)}`}
+                            </span>
+                        )}
+                    </div>
 
                     <Filtro
                         label={

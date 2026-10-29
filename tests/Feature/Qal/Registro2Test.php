@@ -81,31 +81,78 @@ test('cada filtro funciona solo y combinado', function () {
         ->and($cuantos(['obra' => $concepto->obra_id, 'fase' => '3ª', 'estatus' => 'rechazado']))->toHaveCount(0);
 });
 
-test('el periodo filtra por rango y se endereza si viene al revés', function () {
+test('el periodo filtra por todo, últimos 7 y 30 días, una semana o un día', function () {
+    $this->travelTo('2026-10-29 10:00');
     $concepto = Concepto::factory()->create();
-    foreach (['2026-10-01', '2026-10-10', '2026-10-20'] as $consecutivo => $fecha) {
+    // Hoy, el primer día de los últimos 7, un día de la semana 43, uno de los
+    // últimos 30 y uno que queda fuera de todos.
+    foreach (['2026-10-29', '2026-10-23', '2026-10-20', '2026-10-01', '2026-09-01'] as $consecutivo => $fecha) {
         Inspeccion::factory()->deMarca($concepto, $consecutivo + 1)->create(['fecha' => $fecha]);
     }
     $usuario = auditorDeRegistro2();
 
-    $this->actingAs($usuario)
-        ->get(route('admin.qal.registros2.index', ['desde' => '2026-10-05', 'hasta' => '2026-10-20']))
-        ->assertInertia(fn ($page) => $page->has('registros.data', 2)->where('conteo.registros', 2));
+    $periodo = fn (array $filtros) => $this->actingAs($usuario)->get(route('admin.qal.registros2.index', $filtros));
+
+    $periodo([])->assertInertia(fn ($page) => $page
+        ->where('filtros.periodo', 'todo')
+        ->where('filtros.desde', null)
+        ->has('registros.data', 5));
+
+    $periodo(['periodo' => '7d'])->assertInertia(fn ($page) => $page
+        ->where('filtros.desde', '2026-10-23')
+        ->where('filtros.hasta', '2026-10-29')
+        ->has('registros.data', 2)
+        ->where('conteo.registros', 2));
+
+    $periodo(['periodo' => '30d'])->assertInertia(fn ($page) => $page
+        ->where('filtros.desde', '2026-09-30')
+        ->has('registros.data', 4));
+
+    // La semana 43 de 2026 va del lunes 19 al domingo 25 de octubre.
+    $periodo(['periodo' => 'semana', 'semana' => '2026-W43'])->assertInertia(fn ($page) => $page
+        ->where('filtros.semana', '2026-W43')
+        ->where('filtros.desde', '2026-10-19')
+        ->where('filtros.hasta', '2026-10-25')
+        ->has('registros.data', 2));
+
+    $periodo(['periodo' => 'fecha', 'dia' => '2026-10-01'])->assertInertia(fn ($page) => $page
+        ->where('filtros.dia', '2026-10-01')
+        ->has('registros.data', 1));
+});
+
+test('una semana o una fecha sin valor válido es la semana en curso o hoy', function () {
+    $this->travelTo('2026-10-29 10:00');
+    $concepto = Concepto::factory()->create();
+    Inspeccion::factory()->deMarca($concepto)->create(['fecha' => '2026-10-27']);
+    Inspeccion::factory()->deMarca($concepto, 2)->create(['fecha' => '2026-10-29']);
+    $usuario = auditorDeRegistro2();
 
     $this->actingAs($usuario)
-        ->get(route('admin.qal.registros2.index', ['desde' => '2026-10-10']))
-        ->assertInertia(fn ($page) => $page->has('registros.data', 2));
-
-    $this->actingAs($usuario)
-        ->get(route('admin.qal.registros2.index', ['hasta' => '2026-10-01']))
-        ->assertInertia(fn ($page) => $page->has('registros.data', 1));
-
-    $this->actingAs($usuario)
-        ->get(route('admin.qal.registros2.index', ['desde' => '2026-10-15', 'hasta' => '2026-10-05']))
+        ->get(route('admin.qal.registros2.index', ['periodo' => 'semana', 'semana' => '2026-W60']))
         ->assertInertia(fn ($page) => $page
-            ->where('filtros.desde', '2026-10-05')
-            ->where('filtros.hasta', '2026-10-15')
+            ->where('filtros.semana', '2026-W44')
+            ->where('filtros.desde', '2026-10-26')
+            ->has('registros.data', 2));
+
+    $this->actingAs($usuario)
+        ->get(route('admin.qal.registros2.index', ['periodo' => 'fecha', 'dia' => '2026-02-30']))
+        ->assertInertia(fn ($page) => $page
+            ->where('filtros.dia', '2026-10-29')
             ->has('registros.data', 1));
+});
+
+test('el selector de semanas trae las que tienen capturas, la más reciente primero', function () {
+    $concepto = Concepto::factory()->create();
+    Inspeccion::factory()->deMarca($concepto)->create(['fecha' => '2026-10-20', 'anio' => 2026, 'semana' => 43]);
+    Inspeccion::factory()->deMarca($concepto, 2)->create(['fecha' => '2026-10-21', 'anio' => 2026, 'semana' => 43]);
+    Sublote::factory()->create(['fecha' => '2025-12-29', 'anio' => 2026, 'semana' => 1]);
+
+    $this->actingAs(auditorDeRegistro2())
+        ->get(route('admin.qal.registros2.index'))
+        ->assertInertia(fn ($page) => $page
+            ->has('semanas', 2)
+            ->where('semanas.0', ['valor' => '2026-W43', 'desde' => '2026-10-19', 'hasta' => '2026-10-25'])
+            ->where('semanas.1', ['valor' => '2026-W01', 'desde' => '2025-12-29', 'hasta' => '2026-01-04']));
 });
 
 test('los valores inválidos se descartan en vez de dejar la tabla vacía', function () {
@@ -117,8 +164,8 @@ test('los valores inválidos se descartan en vez de dejar la tabla vacía', func
             'obra' => 999999,
             'fase' => '9ª',
             'estatus' => 'inventado',
-            'desde' => '2026-02-30',
-            'hasta' => 'ayer',
+            'periodo' => 'siempre',
+            'dia' => '2026-10-01',
             'sort_by' => 'password',
         ]))
         ->assertOk()
@@ -126,8 +173,9 @@ test('los valores inválidos se descartan en vez de dejar la tabla vacía', func
             ->where('filtros.obra', null)
             ->where('filtros.fase', null)
             ->where('filtros.estatus', null)
+            ->where('filtros.periodo', 'todo')
+            ->where('filtros.dia', null)
             ->where('filtros.desde', null)
-            ->where('filtros.hasta', null)
             ->where('filtros.sort_by', 'fecha')
             ->has('registros.data', 1));
 });
@@ -213,7 +261,7 @@ test('de cada sublote se lista su última inspección, con las columnas de acces
             ->where('sublotes.data.1.sin_disposicion', true));
 
     $this->actingAs($usuario)
-        ->get(route('admin.qal.registros2.index', ['que' => 'acc', 'desde' => '2026-10-05', 'hasta' => '2026-10-10']))
+        ->get(route('admin.qal.registros2.index', ['que' => 'acc', 'periodo' => 'semana', 'semana' => '2026-W41']))
         ->assertInertia(fn ($page) => $page->has('sublotes.data', 1)->where('sublotes.data.0.numero_inspeccion', 2));
 });
 
@@ -249,11 +297,11 @@ test('pagina de 50 en 50 y la página siguiente conserva los filtros', function 
     Inspeccion::factory()->deMarca($concepto)->rechazada()->count(51)->create();
 
     $this->actingAs(auditorDeRegistro2())
-        ->get(route('admin.qal.registros2.index', ['estatus' => 'rechazado', 'desde' => '2000-01-01']))
+        ->get(route('admin.qal.registros2.index', ['estatus' => 'rechazado', 'periodo' => '7d']))
         ->assertInertia(fn ($page) => $page
             ->has('registros.data', 50)
             ->where('registros.last_page', 2)
-            ->where('registros.next_page_url', fn (string $url) => str_contains($url, 'estatus=rechazado') && str_contains($url, 'desde=2000-01-01')));
+            ->where('registros.next_page_url', fn (string $url) => str_contains($url, 'estatus=rechazado') && str_contains($url, 'periodo=7d')));
 });
 
 test('exportar es permiso aparte y respeta el periodo', function () {
@@ -272,7 +320,7 @@ test('exportar es permiso aparte y respeta el periodo', function () {
     $usuario = auditorDeRegistro2(['qal.registros.ver', 'qal.registros.exportar']);
 
     $this->actingAs($usuario)
-        ->get(route('admin.qal.registros2.exportar', ['desde' => '2026-10-15']))
+        ->get(route('admin.qal.registros2.exportar', ['periodo' => 'fecha', 'dia' => '2026-10-20']))
         ->assertOk();
 
     Excel::assertDownloaded(
@@ -283,7 +331,7 @@ test('exportar es permiso aparte y respeta el periodo', function () {
 
     // Las reinspecciones salen todas en el Excel, no sólo la vigente.
     $this->actingAs($usuario)
-        ->get(route('admin.qal.registros2.exportar', ['que' => 'acc', 'hasta' => '2026-10-05']))
+        ->get(route('admin.qal.registros2.exportar', ['que' => 'acc', 'periodo' => 'semana', 'semana' => '2026-W40']))
         ->assertOk();
 
     Excel::assertDownloaded(
