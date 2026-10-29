@@ -5,7 +5,7 @@
  * y la paginación. Lo que cambia es lo que pedía el backlog:
  *
  *  - **Periodo, no un día.** Todo, últimos 7 o 30 días, una semana con
- *    capturas o un día escogido. Debajo se ve el rango que se está filtrando.
+ *    capturas o entre dos fechas. Debajo se ve el rango que se está filtrando.
  *  - **Indicadores arriba.** Registros y piezas únicas por separado, porque
  *    no son lo mismo: una pieza reinspeccionada son dos registros.
  *  - **Inspectores con historial.** Sólo quien tiene algo capturado, y el que
@@ -62,11 +62,13 @@ type Filtros = {
     fase: string | null;
     inspector: number | null;
     estatus: string | null;
-    periodo: 'todo' | '7d' | '30d' | 'semana' | 'fecha';
+    periodo: 'todo' | '7d' | '30d' | 'semana' | 'rango';
     /** La semana ISO escogida, `2026-W43`. */
     semana: string | null;
-    dia: string | null;
-    /** El rango ya resuelto por el servidor: se muestra, no se manda de vuelta. */
+    /**
+     * El rango ya resuelto por el servidor. Sólo viaja de vuelta con «entre
+     * estas fechas»; en las demás opciones se deduce del periodo.
+     */
     desde: string | null;
     hasta: string | null;
     buscar: string | null;
@@ -130,7 +132,7 @@ const PERIODOS: [Filtros['periodo'], string][] = [
     ['7d', 'Últimos 7 días'],
     ['30d', 'Últimos 30 días'],
     ['semana', 'Una semana'],
-    ['fecha', 'Escoger fecha'],
+    ['rango', 'Entre estas fechas'],
 ];
 
 /**
@@ -142,15 +144,17 @@ function parametros(
     filtros: Filtros,
     cambios: Record<string, string | number | null> = {},
 ): Record<string, string> {
+    const todos = { ...filtros, ...cambios };
+    const esRango = todos.periodo === 'rango';
+
     return Object.fromEntries(
-        Object.entries({ ...filtros, ...cambios })
+        Object.entries(todos)
             .filter(
                 ([clave, valor]) =>
                     valor !== null &&
                     valor !== undefined &&
                     valor !== '' &&
-                    clave !== 'desde' &&
-                    clave !== 'hasta' &&
+                    (esRango || (clave !== 'desde' && clave !== 'hasta')) &&
                     !(clave === 'periodo' && valor === 'todo'),
             )
             .map(([clave, valor]) => [clave, String(valor)]),
@@ -373,13 +377,14 @@ export default function Registro2Calidad({
                             <Filtro label="Periodo" className="w-40">
                                 <Select
                                     value={filtros.periodo}
-                                    // Semana y día los pone el servidor —la semana en
-                                    // curso, hoy— y luego se cambian desde su control.
+                                    // Semana y fechas las pone el servidor —la semana
+                                    // en curso, hoy— y luego se cambian desde su control.
                                     onValueChange={(valor) =>
                                         filtrar({
                                             periodo: valor,
                                             semana: null,
-                                            dia: null,
+                                            desde: null,
+                                            hasta: null,
                                         })
                                     }
                                     className="select-sm"
@@ -413,28 +418,50 @@ export default function Registro2Calidad({
                                 </Filtro>
                             )}
 
-                            {filtros.periodo === 'fecha' && (
-                                <Filtro label="Fecha" className="w-40">
-                                    <Input
-                                        type="date"
-                                        value={filtros.dia ?? ''}
-                                        onChange={(e) =>
-                                            e.target.value &&
-                                            filtrar({ dia: e.target.value })
-                                        }
-                                        className="input-sm"
-                                    />
-                                </Filtro>
+                            {filtros.periodo === 'rango' && (
+                                <>
+                                    <Filtro label="Desde" className="w-40">
+                                        <Input
+                                            type="date"
+                                            value={filtros.desde ?? ''}
+                                            max={filtros.hasta ?? undefined}
+                                            onChange={(e) =>
+                                                e.target.value &&
+                                                filtrar({
+                                                    desde: e.target.value,
+                                                })
+                                            }
+                                            className="input-sm"
+                                        />
+                                    </Filtro>
+                                    <Filtro label="Hasta" className="w-40">
+                                        <Input
+                                            type="date"
+                                            value={filtros.hasta ?? ''}
+                                            min={filtros.desde ?? undefined}
+                                            onChange={(e) =>
+                                                e.target.value &&
+                                                filtrar({
+                                                    hasta: e.target.value,
+                                                })
+                                            }
+                                            className="input-sm"
+                                        />
+                                    </Filtro>
+                                </>
                             )}
                         </div>
 
-                        {filtros.desde && filtros.hasta && (
-                            <span className="text-xs text-base-content/50">
-                                {filtros.desde === filtros.hasta
-                                    ? fechaCorta(filtros.desde)
-                                    : `${fechaCorta(filtros.desde)} – ${fechaCorta(filtros.hasta)}`}
-                            </span>
-                        )}
+                        {/* Con «entre estas fechas» el rango ya está a la vista en sus dos campos. */}
+                        {filtros.periodo !== 'rango' &&
+                            filtros.desde &&
+                            filtros.hasta && (
+                                <span className="text-xs text-base-content/50">
+                                    {filtros.desde === filtros.hasta
+                                        ? fechaCorta(filtros.desde)
+                                        : `${fechaCorta(filtros.desde)} – ${fechaCorta(filtros.hasta)}`}
+                                </span>
+                            )}
                     </div>
 
                     <Filtro

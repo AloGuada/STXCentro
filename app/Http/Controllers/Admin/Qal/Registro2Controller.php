@@ -30,7 +30,7 @@ use Symfony\Component\HttpFoundation\BinaryFileResponse;
  * Lee las mismas tablas —`qal_inspecciones` para piezas, `qal_sublotes` para
  * accesorios— y conserva sus criterios: registro ≠ pieza y de cada sublote
  * manda su última inspección. Lo que cambia es lo que pedía el backlog: el
- * periodo es todo, los últimos 7 o 30 días, una semana o un día escogido, una
+ * periodo es todo, los últimos 7 o 30 días, una semana o entre dos fechas, una
  * obra que no existe se descarta, y
  * el catálogo de inspectores trae sólo a quienes tienen registros, activos o
  * no, para que el historial de quien ya se fue se siga pudiendo filtrar.
@@ -43,7 +43,7 @@ class Registro2Controller extends Controller
 
     private const ORDEN_SUBLOTES = ['fecha', 'fase', 'unidades', 'muestra', 'rechazadas', 'veredicto', 'numero_inspeccion'];
 
-    private const PERIODOS = ['todo', '7d', '30d', 'semana', 'fecha'];
+    private const PERIODOS = ['todo', '7d', '30d', 'semana', 'rango'];
 
     public function index(Request $request, FichaDeRegistro $fichas): Response
     {
@@ -87,10 +87,12 @@ class Registro2Controller extends Controller
      *
      * El periodo llega como una opción y sale resuelto en `desde`/`hasta`, que
      * es lo único que leen las consultas y las exportaciones. «Una semana» sin
-     * semana válida es la semana en curso y «escoger fecha» sin fecha válida es
-     * hoy: quien escogió la opción quiere filtrar, no ver todo.
+     * semana válida es la semana en curso y en «entre estas fechas» la que
+     * falte o no sea válida es hoy: quien escogió la opción quiere filtrar, no
+     * ver todo. Un rango al revés se endereza: quien pide del 15 al 1 quiere
+     * esa quincena, no una tabla vacía.
      *
-     * @return array{que: string, obra: int|null, fase: string|null, inspector: int|null, estatus: string|null, periodo: string, semana: string|null, dia: string|null, desde: string|null, hasta: string|null, buscar: string|null, sort_by: string, sort_dir: string}
+     * @return array{que: string, obra: int|null, fase: string|null, inspector: int|null, estatus: string|null, periodo: string, semana: string|null, desde: string|null, hasta: string|null, buscar: string|null, sort_by: string, sort_dir: string}
      */
     private function filtros(Request $request): array
     {
@@ -101,15 +103,21 @@ class Registro2Controller extends Controller
         $periodo = in_array($request->query('periodo'), self::PERIODOS, true) ? (string) $request->query('periodo') : 'todo';
         $hoy = CarbonImmutable::today();
         $semana = $periodo === 'semana' ? ($this->semana($request->query('semana')) ?? $hoy->startOfWeek(CarbonInterface::MONDAY)) : null;
-        $dia = $periodo === 'fecha' ? ($this->fecha($request->query('dia')) ?? $hoy->toDateString()) : null;
 
         [$desde, $hasta] = match ($periodo) {
             '7d' => [$hoy->subDays(6)->toDateString(), $hoy->toDateString()],
             '30d' => [$hoy->subDays(29)->toDateString(), $hoy->toDateString()],
             'semana' => [$semana->toDateString(), $semana->endOfWeek(CarbonInterface::SUNDAY)->toDateString()],
-            'fecha' => [$dia, $dia],
+            'rango' => [
+                $this->fecha($request->query('desde')) ?? $hoy->toDateString(),
+                $this->fecha($request->query('hasta')) ?? $hoy->toDateString(),
+            ],
             default => [null, null],
         };
+
+        if ($desde !== null && $desde > $hasta) {
+            [$desde, $hasta] = [$hasta, $desde];
+        }
 
         return [
             'que' => $que,
@@ -119,7 +127,6 @@ class Registro2Controller extends Controller
             'estatus' => $que === 'pza' ? EstatusInspeccion::tryFrom((string) $request->query('estatus'))?->value : null,
             'periodo' => $periodo,
             'semana' => $semana === null ? null : $this->claveDeSemana($semana),
-            'dia' => $dia,
             'desde' => $desde,
             'hasta' => $hasta,
             'buscar' => $buscar === '' ? null : mb_strtoupper($buscar),
