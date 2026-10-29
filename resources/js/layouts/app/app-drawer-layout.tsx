@@ -267,6 +267,14 @@ const navGroups: NavGroup[] = [
                 permission: 'qal.registros.ver',
             },
             {
+                // La misma base con los filtros del backlog: va en paralelo a
+                // Registros hasta que la reemplace.
+                title: 'Registro 2',
+                href: '/admin/calidad/registros2',
+                icon: Table2,
+                permission: 'qal.registros.ver',
+            },
+            {
                 // El F-STX-CA-31 que se manda a direccion. Es un documento con
                 // folio de formato y semana de corte, no el tablero filtrado.
                 title: 'Reporte semanal',
