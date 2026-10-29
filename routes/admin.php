@@ -156,6 +156,7 @@ use App\Http\Controllers\Admin\Qal\PiezasDelPlanController as QalPiezasDelPlanCo
 use App\Http\Controllers\Admin\Qal\PndController as QalPndController;
 use App\Http\Controllers\Admin\Qal\ProgramacionController as QalProgramacionController;
 use App\Http\Controllers\Admin\Qal\ProgramacionPiezaController as QalProgramacionPiezaController;
+use App\Http\Controllers\Admin\Qal\Registro2Controller as QalRegistro2Controller;
 use App\Http\Controllers\Admin\Qal\RegistroController as QalRegistroController;
 use App\Http\Controllers\Admin\Qal\ReporteController as QalReporteController;
 use App\Http\Controllers\Admin\Qal\ReporteSemanalController as QalReporteSemanalController;
@@ -1277,6 +1278,14 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::get('registros/exportar', [QalRegistroController::class, 'exportar'])
             ->middleware('permission:qal.registros.exportar')
             ->name('registros.exportar');
+        // Registro 2: la misma base con los filtros del backlog, en paralelo a
+        // Registros para compararlas antes de reemplazarla. Mismos permisos.
+        Route::get('registros2', [QalRegistro2Controller::class, 'index'])
+            ->middleware('permission:qal.registros.ver')
+            ->name('registros2.index');
+        Route::get('registros2/exportar', [QalRegistro2Controller::class, 'exportar'])
+            ->middleware('permission:qal.registros.exportar')
+            ->name('registros2.exportar');
         // Producción contra calidad, semana a semana. Cuelga del mismo permiso
         // que la captura porque lo que compara es justo lo que se inspecciona;
         // cuando pueda guardar el plan va a pedir qal.programacion.capturar.
