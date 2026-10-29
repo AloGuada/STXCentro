@@ -239,14 +239,7 @@ export default function Registro2Calidad({
 
             <div className="space-y-4 p-6">
                 <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div>
-                        <h1 className="text-2xl font-semibold">Registro 2</h1>
-                        <p className="text-sm text-base-content/60">
-                            Todo lo capturado, sin resumir, filtrado por
-                            periodo. Para responder qué se inspeccionó, quién lo
-                            liberó y por qué se rechazó.
-                        </p>
-                    </div>
+                    <h1 className="text-2xl font-semibold">Registro 2</h1>
 
                     {can('qal.registros.exportar') && (
                         <a
